@@ -12,5 +12,5 @@
     "incremental": true,
     "noEmit": true
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "prisma", "prisma.config.ts"]
 }

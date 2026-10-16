@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
+import { InfrastructureModule } from './infrastructure/infrastructure.module';
 import { WorkerLifecycle } from './worker-lifecycle';
 
-@Module({ providers: [WorkerLifecycle] })
+@Module({ imports: [InfrastructureModule], providers: [WorkerLifecycle] })
 export class WorkerModule {}

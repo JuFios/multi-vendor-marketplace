@@ -7,7 +7,13 @@ import tseslint from 'typescript-eslint';
 
 export const baseConfig = defineConfig(
   {
-    ignores: ['**/dist/**', '**/coverage/**', '**/node_modules/**', '**/storybook-static/**'],
+    ignores: [
+      '**/dist/**',
+      '**/coverage/**',
+      '**/node_modules/**',
+      '**/storybook-static/**',
+      '**/generated/**',
+    ],
   },
   js.configs.recommended,
   tseslint.configs.recommendedTypeChecked,

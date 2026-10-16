@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/storybook-static
+apps/api/src/generated
+
+.git
+.github
+.env
+.env.*.local
+load/results
+**/.DS_Store
+**/*.log
