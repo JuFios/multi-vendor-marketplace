@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+storybook-static/
+
+.env
+.env.*.local
+
+load/results/
+
+.DS_Store
+*.log
