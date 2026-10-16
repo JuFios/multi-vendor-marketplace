@@ -41,7 +41,7 @@ module.exports = {
   options: {
     tsConfig: { fileName: 'tsconfig.json' },
     doNotFollow: { path: 'node_modules' },
-    exclude: { path: '\\.spec\\.ts$' },
+    exclude: { path: ['\\.spec\\.ts$', '^src/generated/'] },
     enhancedResolveOptions: {
       exportsFields: ['exports'],
       conditionNames: ['import', 'require', 'node', 'default', 'types'],

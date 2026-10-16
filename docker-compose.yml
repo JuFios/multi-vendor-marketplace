@@ -1,0 +1,136 @@
+# Full stack: `docker compose up --build` (works without a .env file).
+# UI: http://localhost:8080   API: http://localhost:3000/api/health
+
+x-app-environment: &app-environment
+  NODE_ENV: production
+  PORT: '3000'
+  DATABASE_URL: postgresql://${POSTGRES_USER:-marketplace}:${POSTGRES_PASSWORD:-marketplace}@postgres:5432/${POSTGRES_DB:-marketplace}
+  REDIS_URL: redis://redis:6379/0
+  MEILI_HOST: http://meilisearch:7700
+  MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-dev-master-key-change-me}
+  MEILI_INDEX_PREFIX: ${MEILI_INDEX_PREFIX:-dev_}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-marketplace}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marketplace}
+      POSTGRES_DB: ${POSTGRES_DB:-marketplace}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.55.0
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-dev-master-key-change-me}
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: 'true'
+    ports:
+      - '${MEILI_PORT:-7700}:7700'
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ['CMD', 'curl', '--fail', '--silent', 'http://127.0.0.1:7700/health']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    environment:
+      <<: *app-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
+    environment:
+      <<: *app-environment
+    ports:
+      - '${API_PORT:-3000}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
+    command: ['node', 'dist/worker.js']
+    environment:
+      <<: *app-environment
+    ports:
+      - '${WORKER_METRICS_PORT:-9100}:9100'
+    # TODO: the worker serves no HTTP yet; replace with a probe of its metrics endpoint once it does.
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: runtime
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  meili_data:
