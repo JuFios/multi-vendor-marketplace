@@ -31,6 +31,88 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+  test-unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # CI=true makes Jest collect coverage for the api package.
+      - name: Run unit tests
+        run: pnpm test
+      - name: Upload coverage
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-coverage
+          path: apps/api/coverage
+          if-no-files-found: error
+          retention-days: 7
+
+  test-e2e:
+    name: E2E tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Ports, credentials and database names mirror .env.test; keep them in sync.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: marketplace
+          POSTGRES_PASSWORD: marketplace
+          POSTGRES_DB: marketplace_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marketplace -d marketplace_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      meilisearch:
+        image: getmeili/meilisearch:v1.55.0
+        env:
+          MEILI_MASTER_KEY: dev-master-key-change-me
+          MEILI_ENV: development
+          MEILI_NO_ANALYTICS: 'true'
+        ports:
+          - 7700:7700
+        options: >-
+          --health-cmd "curl --fail --silent http://127.0.0.1:7700/health"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+          --health-start-period 5s
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:shared
+      # NODE_ENV=test makes the Prisma config read DATABASE_URL from .env.test.
+      - name: Apply migrations
+        run: pnpm --filter api db:deploy
+        env:
+          NODE_ENV: test
+      - name: Run e2e tests
+        run: pnpm --filter api test:e2e
+
   infra-lint:
     name: Infrastructure lint
     runs-on: ubuntu-latest

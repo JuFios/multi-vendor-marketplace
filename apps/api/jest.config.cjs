@@ -7,6 +7,8 @@ module.exports = {
   transform: {
     '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json', diagnostics: false }],
   },
+  // CI exports CI=true; locally coverage stays off for faster runs.
+  collectCoverage: process.env.CI === 'true',
   collectCoverageFrom: ['src/**/*.ts', '!src/main.ts', '!src/worker.ts'],
   coverageDirectory: './coverage',
 };
