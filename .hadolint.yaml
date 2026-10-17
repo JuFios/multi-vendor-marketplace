@@ -1,0 +1,2 @@
+# Info-level findings (for example DL3066 for `USER node`) are advisory; warnings and errors fail the build.
+failure-threshold: warning
