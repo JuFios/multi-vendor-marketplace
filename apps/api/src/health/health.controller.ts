@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService, type HealthCheckResult } from '@nestjs/terminus';
+import { SkipThrottle } from '@nestjs/throttler';
 
 import { DependencyHealthIndicators } from './dependency-health.indicators';
 
@@ -7,6 +8,8 @@ export interface HealthResponse {
   status: 'ok';
 }
 
+// Probes must keep answering even when Redis (the throttle store) is down.
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
   constructor(

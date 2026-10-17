@@ -6,6 +6,9 @@ x-app-environment: &app-environment
   PORT: '3000'
   LOG_LEVEL: ${LOG_LEVEL:-info}
   WORKER_METRICS_PORT: '9100'
+  # nginx (web) is the single proxy in front of the api.
+  TRUST_PROXY: '1'
+  WEB_URL: ${WEB_URL:-http://localhost:8080}
   DATABASE_URL: postgresql://${POSTGRES_USER:-marketplace}:${POSTGRES_PASSWORD:-marketplace}@postgres:5432/${POSTGRES_DB:-marketplace}
   REDIS_URL: redis://redis:6379/0
   MEILI_HOST: http://meilisearch:7700
