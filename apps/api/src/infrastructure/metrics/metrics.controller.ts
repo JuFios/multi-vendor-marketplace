@@ -1,9 +1,12 @@
 import { Controller, Get, Header } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 
 import { MetricsService } from './metrics.service';
 
 /** Served at `/metrics`, outside the `/api` prefix (see `configureApp`). */
+// Operational scrape target, not part of the public API contract.
+@ApiExcludeController()
 @SkipThrottle()
 @Controller('metrics')
 export class MetricsController {

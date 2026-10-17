@@ -9,6 +9,7 @@
     "build": "nest build",
     "start": "node dist/main.js",
     "start:worker": "node dist/worker.js",
+    "openapi:export": "nest build && NODE_ENV=test node dist/scripts/export-openapi.js",
     "lint": "eslint . && pnpm run lint:deps",
     "lint:deps": "depcruise src --config ../../.dependency-cruiser.cjs",
     "typecheck": "tsc --noEmit",
@@ -30,6 +31,7 @@
     "@nestjs/config": "12.0.1",
     "@nestjs/core": "^12.1.3",
     "@nestjs/platform-express": "^12.1.3",
+    "@nestjs/swagger": "^12.0.2",
     "@nestjs/terminus": "12.1.0",
     "@nestjs/throttler": "^6.7.1",
     "@prisma/adapter-pg": "7.10.1",
@@ -53,6 +55,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "^13.1.0",
     "@nestjs/cli": "^12.0.8",
     "@nestjs/schematics": "^12.0.7",
     "@nestjs/testing": "^12.1.3",

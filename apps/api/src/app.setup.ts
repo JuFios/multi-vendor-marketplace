@@ -8,6 +8,7 @@ import { createValidationPipe } from './common/validation';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 import { useAppLogger } from './infrastructure/logger';
 import { createHttpMetricsMiddleware, MetricsService } from './infrastructure/metrics';
+import { mountOpenApi } from './infrastructure/openapi';
 
 export const GLOBAL_PREFIX = 'api';
 /** Prometheus scrape path; deliberately outside the `/api` prefix and the public API surface. */
@@ -35,4 +36,5 @@ export function configureApp(app: NestExpressApplication): void {
   app.useGlobalPipes(createValidationPipe());
   app.useBodyParser('json', { limit: config.http.bodyLimit });
   app.useBodyParser('urlencoded', { limit: config.http.bodyLimit, extended: false });
+  mountOpenApi(app);
 }
