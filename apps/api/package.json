@@ -33,6 +33,7 @@
     "@nestjs/terminus": "12.1.0",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
+    "@prometheus-io/client": "^0.16.1",
     "dotenv": "^18.0.8",
     "ioredis": "^6.0.0",
     "meilisearch": "^0.62.0",

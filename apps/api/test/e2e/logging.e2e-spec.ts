@@ -92,6 +92,16 @@ describe('Request logging and correlation id (e2e)', () => {
     expect(JSON.stringify(entry)).not.toContain('secret');
   });
 
+  it('also covers the metrics endpoint, which lives outside the api prefix', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/metrics')
+      .set('X-Request-Id', 'scrape-2')
+      .expect(200);
+
+    expect(response.headers['x-request-id']).toBe('scrape-2');
+    expect(requestLogs()[0]).toMatchObject({ route: '/metrics', correlationId: 'scrape-2' });
+  });
+
   it('logs unknown routes as unmatched with a warn level', async () => {
     await request(app.getHttpServer()).get('/api/does-not-exist').expect(404);
 

@@ -5,6 +5,7 @@ export const APP_CONFIG = Symbol('APP_CONFIG');
 export interface AppConfig {
   readonly env: Env['NODE_ENV'];
   readonly http: { readonly port: number };
+  readonly metrics: { readonly workerPort: number };
   readonly logging: { readonly level: Env['LOG_LEVEL'] };
   readonly database: { readonly url: string };
   readonly redis: { readonly url: string };
@@ -19,6 +20,7 @@ export function buildAppConfig(env: Env): AppConfig {
   return {
     env: env.NODE_ENV,
     http: { port: env.PORT },
+    metrics: { workerPort: env.WORKER_METRICS_PORT },
     logging: { level: env.LOG_LEVEL },
     database: { url: env.DATABASE_URL },
     redis: { url: env.REDIS_URL },

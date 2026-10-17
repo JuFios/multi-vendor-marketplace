@@ -5,6 +5,7 @@ x-app-environment: &app-environment
   NODE_ENV: production
   PORT: '3000'
   LOG_LEVEL: ${LOG_LEVEL:-info}
+  WORKER_METRICS_PORT: '9100'
   DATABASE_URL: postgresql://${POSTGRES_USER:-marketplace}:${POSTGRES_PASSWORD:-marketplace}@postgres:5432/${POSTGRES_DB:-marketplace}
   REDIS_URL: redis://redis:6379/0
   MEILI_HOST: http://meilisearch:7700
@@ -105,9 +106,12 @@ services:
       <<: *app-environment
     ports:
       - '${WORKER_METRICS_PORT:-9100}:9100'
-    # TODO: the worker serves no HTTP yet; replace with a probe of its metrics endpoint once it does.
     healthcheck:
-      disable: true
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:9100/metrics > /dev/null || exit 1']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
     depends_on:
       postgres:
         condition: service_healthy
