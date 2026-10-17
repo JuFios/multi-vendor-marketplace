@@ -67,3 +67,14 @@ pnpm --filter api db:studio
 docker compose up -d postgres redis meilisearch   # required by the e2e tests
 pnpm lint && pnpm typecheck && pnpm test && pnpm --filter api test:e2e && pnpm build
 ```
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request: lint and typecheck, unit tests (api coverage is uploaded as an artifact), e2e tests against Postgres, Redis and Meilisearch service containers, a full build with both Docker images, and an infrastructure lint job. The infrastructure checks can be run locally with Docker:
+
+```bash
+docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest
+docker run --rm -i -v "$PWD/.hadolint.yaml":/.config/hadolint.yaml hadolint/hadolint < apps/api/Dockerfile
+docker run --rm -v "$PWD":/code -w /code pipelinecomponents/yamllint yamllint -s -c .yamllint.yml .
+docker compose config -q
+```
