@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Lint (ESLint and module boundaries)
+        run: pnpm lint
+      - name: Check formatting
+        run: pnpm format:check
+      - name: Typecheck
+        run: pnpm typecheck
+
+  infra-lint:
+    name: Infrastructure lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: actionlint
+        run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color
+      - name: hadolint (api)
+        run: docker run --rm -i -v "$PWD/.hadolint.yaml":/.config/hadolint.yaml hadolint/hadolint < apps/api/Dockerfile
+      - name: hadolint (web)
+        run: docker run --rm -i -v "$PWD/.hadolint.yaml":/.config/hadolint.yaml hadolint/hadolint < apps/web/Dockerfile
+      - name: docker compose config
+        run: docker compose config -q
+      - name: yamllint
+        run: docker run --rm -v "$PWD":/code -w /code pipelinecomponents/yamllint yamllint -s -c .yamllint.yml .
