@@ -5,6 +5,7 @@ import { ClsModule } from 'nestjs-cls';
 
 import { AppConfigModule } from '../config/app-config.module';
 
+import { ErrorsModule } from './errors';
 import { LoggingModule } from './logger';
 import { MetricsModule } from './metrics';
 import { PrismaModule, PrismaService } from './prisma';
@@ -24,6 +25,7 @@ const prismaTransactionalAdapter = new TransactionalAdapterPrisma<PrismaService>
     AppConfigModule,
     LoggingModule,
     MetricsModule,
+    ErrorsModule,
     PrismaModule,
     RedisModule,
     MeiliModule,

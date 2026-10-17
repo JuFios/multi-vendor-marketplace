@@ -57,9 +57,14 @@ describe('Health readiness with an unavailable dependency (e2e)', () => {
     const response = await request(app.getHttpServer()).get('/api/health/ready').expect(503);
 
     expect(response.body).toMatchObject({
-      status: 'error',
-      info: { database: { status: 'up' }, search: { status: 'up' } },
-      error: { redis: { status: 'down', message: 'ECONNREFUSED' } },
+      error: {
+        code: 'DEPENDENCY_UNAVAILABLE',
+        details: {
+          status: 'error',
+          info: { database: { status: 'up' }, search: { status: 'up' } },
+          error: { redis: { status: 'down', message: 'ECONNREFUSED' } },
+        },
+      },
     });
   });
 
