@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { ClsMiddleware } from 'nestjs-cls';
 
 import { bindRequestCorrelationId, CORRELATION_ID_RESPONSE_HEADER } from './common/correlation';
+import { createValidationPipe } from './common/validation';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 import { useAppLogger } from './infrastructure/logger';
 import { createHttpMetricsMiddleware, MetricsService } from './infrastructure/metrics';
@@ -31,6 +32,7 @@ export function configureApp(app: NestExpressApplication): void {
     exposedHeaders: [CORRELATION_ID_RESPONSE_HEADER],
   });
   app.use(cookieParser());
+  app.useGlobalPipes(createValidationPipe());
   app.useBodyParser('json', { limit: config.http.bodyLimit });
   app.useBodyParser('urlencoded', { limit: config.http.bodyLimit, extended: false });
 }
