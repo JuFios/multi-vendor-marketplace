@@ -3,8 +3,10 @@ import { ClsPluginTransactional } from '@nestjs-cls/transactional';
 import { TransactionalAdapterPrisma } from '@nestjs-cls/transactional-adapter-prisma';
 import { ClsModule } from 'nestjs-cls';
 
+import { bindRequestCorrelationId } from '../common/correlation';
 import { AppConfigModule } from '../config/app-config.module';
 
+import { LoggingModule } from './logger';
 import { PrismaModule, PrismaService } from './prisma';
 import { RedisModule } from './redis';
 import { MeiliModule } from './search';
@@ -20,12 +22,13 @@ const prismaTransactionalAdapter = new TransactionalAdapterPrisma<PrismaService>
 @Module({
   imports: [
     AppConfigModule,
+    LoggingModule,
     PrismaModule,
     RedisModule,
     MeiliModule,
     ClsModule.forRoot({
       global: true,
-      middleware: { mount: true },
+      middleware: { mount: true, setup: bindRequestCorrelationId },
       plugins: [
         new ClsPluginTransactional({
           imports: [PrismaModule],
