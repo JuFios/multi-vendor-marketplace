@@ -5,6 +5,9 @@ import { ClsModule } from 'nestjs-cls';
 
 import { AppConfigModule } from '../config/app-config.module';
 
+import { ErrorsModule } from './errors';
+import { LoggingModule } from './logger';
+import { MetricsModule } from './metrics';
 import { PrismaModule, PrismaService } from './prisma';
 import { RedisModule } from './redis';
 import { MeiliModule } from './search';
@@ -20,12 +23,14 @@ const prismaTransactionalAdapter = new TransactionalAdapterPrisma<PrismaService>
 @Module({
   imports: [
     AppConfigModule,
+    LoggingModule,
+    MetricsModule,
+    ErrorsModule,
     PrismaModule,
     RedisModule,
     MeiliModule,
     ClsModule.forRoot({
       global: true,
-      middleware: { mount: true },
       plugins: [
         new ClsPluginTransactional({
           imports: [PrismaModule],

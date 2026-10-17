@@ -29,6 +29,14 @@ describe('parseEnv', () => {
     },
   );
 
+  it('defaults the worker metrics port and allows 0 for an ephemeral port', () => {
+    expect(parseEnv(validEnv).WORKER_METRICS_PORT).toBe(9100);
+    expect(parseEnv({ ...validEnv, WORKER_METRICS_PORT: '0' }).WORKER_METRICS_PORT).toBe(0);
+    expect(() => parseEnv({ ...validEnv, WORKER_METRICS_PORT: '70000' })).toThrow(
+      'WORKER_METRICS_PORT',
+    );
+  });
+
   it('reports every problem at once', () => {
     try {
       parseEnv({ PORT: 'not-a-port' });

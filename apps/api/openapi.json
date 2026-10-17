@@ -1,0 +1,131 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Liveness probe; does not touch any dependency.",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Every dependency is up."
+          },
+          "503": {
+            "description": "A required dependency is unavailable (DEPENDENCY_UNAVAILABLE).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Readiness probe; checks Postgres, Redis and Meilisearch.",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Marketplace API",
+    "description": "Multi-vendor marketplace with real-time inventory. Every error response uses the `ErrorResponseDto` shape and carries the request correlation id.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      },
+      "refresh-cookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "rt"
+      }
+    },
+    "schemas": {
+      "ErrorBodyDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "VALIDATION_FAILED",
+            "description": "Stable machine-readable error code."
+          },
+          "message": {
+            "type": "string",
+            "example": "Request validation failed"
+          },
+          "details": {
+            "type": "object",
+            "description": "Extra context; for VALIDATION_FAILED a list of `{ field, messages }` entries.",
+            "example": [
+              {
+                "field": "priceCents",
+                "messages": [
+                  "priceCents must be an integer number"
+                ]
+              }
+            ]
+          },
+          "correlationId": {
+            "type": "string",
+            "example": "4f6c1d0e-9a77-4c1b-8f0e-5d3a2b1c9e10",
+            "description": "Echo of the `X-Request-Id` response header; quote it when reporting a problem."
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "correlationId"
+        ]
+      },
+      "ErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBodyDto"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      }
+    }
+  }
+}
