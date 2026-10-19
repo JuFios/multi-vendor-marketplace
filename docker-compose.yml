@@ -7,6 +7,12 @@ x-app-environment: &app-environment
   WEB_URL: ${WEB_URL:-http://localhost:8080}
   # One reverse proxy (nginx) in front of the api.
   TRUST_PROXY: '1'
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-jwt-access-secret-change-me-0123456789}
+  # The compose stack serves the whole site over plain http.
+  COOKIE_SECURE: 'false'
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-}
   WORKER_METRICS_PORT: '9100'
   DATABASE_URL: postgresql://${POSTGRES_USER:-marketplace}:${POSTGRES_PASSWORD:-marketplace}@postgres:5432/${POSTGRES_DB:-marketplace}
   REDIS_URL: redis://redis:6379/0

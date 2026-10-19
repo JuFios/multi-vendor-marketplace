@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import { appConfig } from './app.config';
+import { authConfig } from './auth.config';
 import { databaseConfig } from './database.config';
 import { resolveEnvFilePaths } from './env-files';
 import { validate } from './env.validation';
@@ -21,6 +22,7 @@ import { throttleConfig } from './throttle.config';
       envFilePath: resolveEnvFilePaths(),
       load: [
         appConfig,
+        authConfig,
         databaseConfig,
         httpConfig,
         idempotencyConfig,

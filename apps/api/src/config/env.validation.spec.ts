@@ -5,6 +5,7 @@ const validEnv = {
   REDIS_URL: 'redis://localhost:6379/0',
   MEILI_HOST: 'http://localhost:7700',
   MEILI_MASTER_KEY: 'a-sufficiently-long-key',
+  JWT_ACCESS_SECRET: 'a-jwt-secret-of-at-least-32-characters',
 };
 
 describe('validate', () => {
@@ -18,7 +19,7 @@ describe('validate', () => {
     expect(validate({ ...validEnv, PORT: '4010' }).PORT).toBe(4010);
   });
 
-  it.each(['DATABASE_URL', 'REDIS_URL', 'MEILI_HOST', 'MEILI_MASTER_KEY'])(
+  it.each(['DATABASE_URL', 'REDIS_URL', 'MEILI_HOST', 'MEILI_MASTER_KEY', 'JWT_ACCESS_SECRET'])(
     'fails fast when %s is missing',
     (name) => {
       const rest: Record<string, string> = { ...validEnv };
@@ -35,7 +36,7 @@ describe('validate', () => {
       throw new Error('expected validate to throw');
     } catch (error) {
       expect(error).toBeInstanceOf(InvalidEnvironmentError);
-      expect((error as InvalidEnvironmentError).issues).toHaveLength(5);
+      expect((error as InvalidEnvironmentError).issues).toHaveLength(6);
     }
   });
 
@@ -66,5 +67,33 @@ describe('validate', () => {
     } catch (error) {
       expect((error as Error).message).not.toContain('short-secret');
     }
+  });
+
+  it('treats empty optional variables as not configured', () => {
+    const env = validate({ ...validEnv, COOKIE_SECURE: '', GOOGLE_CLIENT_ID: '' });
+
+    expect(env.COOKIE_SECURE).toBeUndefined();
+    expect(env.GOOGLE_CLIENT_ID).toBeUndefined();
+  });
+
+  it('requires the Google secret and callback once the client id is set', () => {
+    expect(() => validate({ ...validEnv, GOOGLE_CLIENT_ID: 'client-id' })).toThrow(
+      'GOOGLE_CLIENT_SECRET',
+    );
+    expect(() =>
+      validate({
+        ...validEnv,
+        GOOGLE_CLIENT_ID: 'client-id',
+        GOOGLE_CLIENT_SECRET: 'secret',
+        GOOGLE_CALLBACK_URL: 'http://localhost:3000/api/auth/google/callback',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects a short JWT secret and a bad COOKIE_SECURE', () => {
+    expect(() => validate({ ...validEnv, JWT_ACCESS_SECRET: 'too-short' })).toThrow(
+      'JWT_ACCESS_SECRET',
+    );
+    expect(() => validate({ ...validEnv, COOKIE_SECURE: 'maybe' })).toThrow('COOKIE_SECURE');
   });
 });
