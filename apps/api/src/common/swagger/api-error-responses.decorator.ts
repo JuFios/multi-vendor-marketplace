@@ -9,6 +9,7 @@ const DESCRIPTION: Readonly<Record<number, string>> = {
   403: 'Authenticated but not allowed (FORBIDDEN).',
   404: 'Resource not found, or not visible to the caller (NOT_FOUND).',
   409: 'Conflicts with the current state (CONFLICT).',
+  422: 'The Idempotency-Key was already used with a different request (IDEMPOTENCY_KEY_REUSED).',
   429: 'Rate limit exceeded (RATE_LIMITED).',
   500: 'Unexpected failure (INTERNAL_ERROR).',
   503: 'A required dependency is unavailable (DEPENDENCY_UNAVAILABLE).',
