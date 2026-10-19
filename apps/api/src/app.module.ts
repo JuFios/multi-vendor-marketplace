@@ -10,6 +10,8 @@ import { IdempotencyModule } from './idempotency';
 import { LoggerModule } from './logger';
 import { MetricsModule } from './metrics';
 import { AuthModule } from './modules/auth';
+import { CategoriesModule } from './modules/categories';
+import { SellersModule } from './modules/sellers';
 import { UsersModule } from './modules/users';
 import { OutboxModule } from './outbox';
 import { PrismaModule } from './prisma';
@@ -32,6 +34,8 @@ import { MeiliModule } from './search';
     ThrottlingModule,
     HealthModule,
     UsersModule,
+    SellersModule,
+    CategoriesModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 
 import type { authConfig } from '../../config';
+import type { SellersService } from '../sellers';
 import type { UserAccount, UsersService } from '../users';
 
 import type { AccessTokenService } from './access-token.service';
@@ -39,6 +40,7 @@ describe('SessionService', () => {
     revokeFamily: jest.fn(),
   };
   const users = { findById: jest.fn() };
+  const sellers = { findApprovedSellerId: jest.fn() };
   const accessTokens = { issue: jest.fn() };
   const txHost = { withTransaction: jest.fn() };
   const config = { refreshTtlDays: 30 } as ConfigType<typeof authConfig>;
@@ -54,12 +56,14 @@ describe('SessionService', () => {
     });
     accessTokens.issue.mockResolvedValue({ token: 'jwt', expiresInSec: 900 });
     users.findById.mockResolvedValue(user);
+    sellers.findApprovedSellerId.mockResolvedValue('seller-1');
     warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     service = new SessionService(
       txHost as never,
       accessTokens as unknown as AccessTokenService,
       repository as unknown as AuthRepository,
       users as unknown as UsersService,
+      sellers as unknown as SellersService,
       config,
     );
   });
@@ -81,12 +85,30 @@ describe('SessionService', () => {
       expect(accessTokens.issue).toHaveBeenCalledWith({
         sub: user.id,
         roles: user.roles,
+        sellerId: 'seller-1',
       });
       expect(session.accessToken).toBe('jwt');
       expect(hashRefreshToken(session.refreshToken)).toBe(
         (repository.createRefreshToken.mock.calls[0] as [{ tokenHash: string }])[0].tokenHash,
       );
       expect(repository.markRotated).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('store id in the access token', () => {
+    it('is left out for a user without the SELLER role, without a store lookup', async () => {
+      await service.start({ ...user, roles: ['CUSTOMER'] }, client);
+
+      expect(accessTokens.issue).toHaveBeenCalledWith({ sub: user.id, roles: ['CUSTOMER'] });
+      expect(sellers.findApprovedSellerId).not.toHaveBeenCalled();
+    });
+
+    it('is left out when the store is not approved', async () => {
+      sellers.findApprovedSellerId.mockResolvedValue(undefined);
+
+      await service.start(user, client);
+
+      expect(accessTokens.issue).toHaveBeenCalledWith({ sub: user.id, roles: user.roles });
     });
   });
 
@@ -105,7 +127,7 @@ describe('SessionService', () => {
       expect(session.refreshToken).not.toBe('presented-token');
     });
 
-    it('takes the roles from the database, not from the old session', async () => {
+    it('takes the roles and the store id from the database, not from the old session', async () => {
       repository.lockRefreshToken.mockResolvedValue(stored());
       users.findById.mockResolvedValue({ ...user, roles: ['CUSTOMER', 'SELLER', 'ADMIN'] });
 
@@ -114,6 +136,7 @@ describe('SessionService', () => {
       expect(accessTokens.issue).toHaveBeenCalledWith({
         sub: user.id,
         roles: ['CUSTOMER', 'SELLER', 'ADMIN'],
+        sellerId: 'seller-1',
       });
     });
 
