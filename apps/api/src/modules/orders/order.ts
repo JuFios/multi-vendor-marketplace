@@ -33,6 +33,7 @@ export interface SellerOrderRecord {
   readonly commissionCents: number;
   readonly payoutCents: number;
   readonly cancelReason: string | null;
+  readonly version: number;
   readonly createdAt: Date;
   readonly items: readonly SellerOrderItemRecord[];
   readonly statusHistory: readonly StatusHistoryRecord[];

@@ -11,6 +11,7 @@ import { idempotencyConfig } from './idempotency.config';
 import { metricsConfig } from './metrics.config';
 import { ordersConfig } from './orders.config';
 import { outboxConfig } from './outbox.config';
+import { paymentsConfig } from './payments.config';
 import { productsConfig } from './products.config';
 import { queueConfig } from './queue.config';
 import { redisConfig } from './redis.config';
@@ -31,6 +32,7 @@ import { throttleConfig } from './throttle.config';
         metricsConfig,
         outboxConfig,
         ordersConfig,
+        paymentsConfig,
         productsConfig,
         queueConfig,
         redisConfig,

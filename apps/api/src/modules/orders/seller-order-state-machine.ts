@@ -1,5 +1,3 @@
-import { ForbiddenError } from '../../common/exceptions';
-
 import type { SellerOrderStatusValue } from './order-status';
 import { InvalidStatusTransitionError, PaymentNotCapturedError } from './orders.errors';
 
@@ -45,7 +43,7 @@ export function assertTransition(
     throw new InvalidStatusTransitionError(from, to);
   }
   if (!rule.actors.includes(actor)) {
-    throw new ForbiddenError('You may not make this status change', 'TRANSITION_NOT_ALLOWED');
+    throw new InvalidStatusTransitionError(from, to);
   }
   if (rule.needsCapturedPayment === true && context.paymentStatus !== 'CAPTURED') {
     throw new PaymentNotCapturedError();

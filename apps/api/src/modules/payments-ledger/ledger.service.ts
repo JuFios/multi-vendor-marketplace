@@ -1,11 +1,19 @@
 import { Injectable } from '@nestjs/common';
 
-import { LedgerRepository } from './ledger.repository';
+import { LedgerRepository, type NewLedgerEntry } from './ledger.repository';
 
 export interface SaleRecord {
   readonly sellerOrderId: string;
   readonly sellerId: string;
   readonly subtotalCents: number;
+  readonly commissionCents: number;
+}
+
+export interface CancellationRecord {
+  readonly sellerOrderId: string;
+  readonly sellerId: string;
+  /** Subtotal not yet refunded: what the sale entry still stands for. */
+  readonly releasedCents: number;
   readonly commissionCents: number;
 }
 
@@ -32,5 +40,29 @@ export class LedgerService {
         amountCents: -sale.commissionCents,
       },
     ]);
+  }
+
+  /**
+   * Reverses what is still booked for a cancelled seller order: the unrefunded sale and the
+   * whole commission, so the seller order nets to zero.
+   */
+  recordCancellation(cancellation: CancellationRecord): Promise<void> {
+    const entries: NewLedgerEntry[] = [
+      {
+        sellerOrderId: cancellation.sellerOrderId,
+        sellerId: cancellation.sellerId,
+        type: 'CANCELLATION',
+        amountCents: -cancellation.releasedCents,
+      },
+    ];
+    if (cancellation.commissionCents > 0) {
+      entries.push({
+        sellerOrderId: cancellation.sellerOrderId,
+        sellerId: cancellation.sellerId,
+        type: 'COMMISSION_REVERSAL',
+        amountCents: cancellation.commissionCents,
+      });
+    }
+    return this.ledger.append(entries);
   }
 }

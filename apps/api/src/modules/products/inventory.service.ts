@@ -66,6 +66,32 @@ export class InventoryService {
     return reserved;
   }
 
+  /**
+   * Gives the stock of cancelled items back, in `productId` order, and records
+   * `product.stock_changed` for each. Part of the caller's transaction.
+   */
+  async restock(requests: readonly StockRequest[]): Promise<void> {
+    if (!this.txHost.isTransactionActive()) {
+      throw new Error('Stock can only be restocked inside a transaction');
+    }
+    const { deductions } = planStockDeduction(requests);
+    const changed: { productId: string; stock: number; version: number }[] = [];
+    for (const { productId, quantity } of deductions) {
+      const row = await this.products.restockStock(productId, quantity);
+      if (row) {
+        changed.push(row);
+      }
+    }
+    await this.outbox.add(
+      changed.map((item) => ({
+        type: EVENT_TYPE.PRODUCT_STOCK_CHANGED,
+        aggregateType: 'Product',
+        aggregateId: item.productId,
+        payload: item,
+      })),
+    );
+  }
+
   /** Drops the cached product pages once the reserving transaction has committed. */
   async invalidateDetails(productIds: readonly string[]): Promise<void> {
     await Promise.all(productIds.map((id) => this.detailsCache.invalidate(id)));

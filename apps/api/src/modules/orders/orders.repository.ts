@@ -6,6 +6,12 @@ import type { Prisma } from '../../generated/prisma/client';
 import type { AppTransactionHost } from '../../prisma';
 
 import type { OrderRecord, SellerOrderRecord } from './order';
+import type {
+  AggregatedOrderStatus,
+  OrderStatusValue,
+  SellerOrderStatusValue,
+} from './order-status';
+import type { Actor, PaymentStatusValue } from './seller-order-state-machine';
 import type { SellerGroup } from './split-cart';
 
 export interface CheckoutItem {
@@ -38,6 +44,7 @@ const toSellerOrder = (row: SellerOrderRow): SellerOrderRecord => ({
   commissionCents: row.commissionCents,
   payoutCents: row.payoutCents,
   cancelReason: row.cancelReason,
+  version: row.version,
   createdAt: row.createdAt,
   items: row.items.map((item) => ({
     id: item.id,
@@ -128,5 +135,238 @@ export class OrdersRepository {
         (a, b) => (position.get(a.sellerId) ?? 0) - (position.get(b.sellerId) ?? 0),
       ),
     };
+  }
+
+  async findOfCustomer(id: string, customerId: string): Promise<OrderRecord | null> {
+    const row = await this.txHost.tx.order.findFirst({
+      where: { id, customerId },
+      include: { sellerOrders: { include: SELLER_ORDER_INCLUDE } },
+    });
+    return row && toOrder(row);
+  }
+
+  listOfCustomer(
+    customerId: string,
+    page: number,
+    limit: number,
+  ): Promise<{ items: OrderRecord[]; total: number }> {
+    return this.listOrders({ customerId }, page, limit);
+  }
+
+  async findById(id: string): Promise<OrderRecord | null> {
+    const row = await this.txHost.tx.order.findUnique({
+      where: { id },
+      include: { sellerOrders: { include: SELLER_ORDER_INCLUDE } },
+    });
+    return row && toOrder(row);
+  }
+
+  listAll(
+    status: OrderStatusValue | undefined,
+    page: number,
+    limit: number,
+  ): Promise<{ items: OrderRecord[]; total: number }> {
+    return this.listOrders(status === undefined ? {} : { status }, page, limit);
+  }
+
+  async findSellerOrderOf(id: string, sellerId: string): Promise<SellerOrderRecord | null> {
+    const row = await this.txHost.tx.sellerOrder.findFirst({
+      where: { id, sellerId },
+      include: SELLER_ORDER_INCLUDE,
+    });
+    return row && toSellerOrder(row);
+  }
+
+  async listSellerOrdersOf(
+    sellerId: string,
+    status: SellerOrderStatusValue | undefined,
+    page: number,
+    limit: number,
+  ): Promise<{ items: SellerOrderRecord[]; total: number }> {
+    const where: Prisma.SellerOrderWhereInput =
+      status === undefined ? { sellerId } : { sellerId, status };
+    const [rows, total] = await Promise.all([
+      this.txHost.tx.sellerOrder.findMany({
+        where,
+        include: SELLER_ORDER_INCLUDE,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.txHost.tx.sellerOrder.count({ where }),
+    ]);
+    return { items: rows.map(toSellerOrder), total };
+  }
+
+  private async listOrders(
+    where: Prisma.OrderWhereInput,
+    page: number,
+    limit: number,
+  ): Promise<{ items: OrderRecord[]; total: number }> {
+    const [rows, total] = await Promise.all([
+      this.txHost.tx.order.findMany({
+        where,
+        include: { sellerOrders: { include: SELLER_ORDER_INCLUDE } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.txHost.tx.order.count({ where }),
+    ]);
+    return { items: rows.map(toOrder), total };
+  }
+
+  /**
+   * Locks the order that owns the seller order, so concurrent changes to its seller orders run
+   * one after another and the aggregate never misses an update. Null when there is no such
+   * seller order.
+   */
+  async lockOrderOf(
+    sellerOrderId: string,
+  ): Promise<{ orderId: string; customerId: string } | null> {
+    const rows = await this.txHost.tx.$queryRaw<{ id: string; customer_id: string }[]>`
+      SELECT o.id, o.customer_id FROM orders o
+      JOIN seller_orders so ON so.order_id = o.id
+      WHERE so.id = ${sellerOrderId}::uuid
+      FOR UPDATE OF o`;
+    const row = rows[0];
+    return row ? { orderId: row.id, customerId: row.customer_id } : null;
+  }
+
+  async findSellerOrder(id: string): Promise<SellerOrderRecord | null> {
+    const row = await this.txHost.tx.sellerOrder.findUnique({
+      where: { id },
+      include: SELLER_ORDER_INCLUDE,
+    });
+    return row && toSellerOrder(row);
+  }
+
+  async statusesOfOrder(orderId: string): Promise<SellerOrderStatusValue[]> {
+    const rows = await this.txHost.tx.sellerOrder.findMany({
+      where: { orderId },
+      select: { status: true },
+    });
+    return rows.map((row) => row.status);
+  }
+
+  /** Moves the seller order to `to` and writes the history row; returns its new version. */
+  async changeSellerOrderStatus(
+    sellerOrderId: string,
+    from: SellerOrderStatusValue,
+    to: SellerOrderStatusValue,
+    actor: { type: Actor; userId: string | null },
+    reason: string | null,
+  ): Promise<number> {
+    const row = await this.txHost.tx.sellerOrder.update({
+      where: { id: sellerOrderId },
+      data: { status: to, version: { increment: 1 } },
+      select: { version: true },
+    });
+    await this.txHost.tx.sellerOrderStatusHistory.create({
+      data: {
+        sellerOrderId,
+        fromStatus: from,
+        toStatus: to,
+        actorType: actor.type,
+        actorId: actor.userId,
+        reason,
+      },
+    });
+    return row.version;
+  }
+
+  /** Writes the aggregate onto the order; returns the new version, or null when nothing changed. */
+  async applyAggregate(orderId: string, aggregate: AggregatedOrderStatus): Promise<number | null> {
+    const { count } = await this.txHost.tx.order.updateMany({
+      where: {
+        id: orderId,
+        OR: [
+          { status: { not: aggregate.status } },
+          { hasCancelledParts: { not: aggregate.hasCancelledParts } },
+        ],
+      },
+      data: {
+        status: aggregate.status,
+        hasCancelledParts: aggregate.hasCancelledParts,
+        version: { increment: 1 },
+      },
+    });
+    if (count === 0) {
+      return null;
+    }
+    const row = await this.txHost.tx.order.findUniqueOrThrow({
+      where: { id: orderId },
+      select: { version: true },
+    });
+    return row.version;
+  }
+
+  /**
+   * Cancels the seller order: no commission or payout is left, and a captured payment is
+   * marked refunded. Returns the new version.
+   */
+  async cancelSellerOrder(
+    sellerOrderId: string,
+    from: SellerOrderStatusValue,
+    actor: { type: Actor; userId: string | null },
+    reason: string,
+  ): Promise<number> {
+    const current = await this.txHost.tx.sellerOrder.findUniqueOrThrow({
+      where: { id: sellerOrderId },
+      select: { paymentStatus: true },
+    });
+    const row = await this.txHost.tx.sellerOrder.update({
+      where: { id: sellerOrderId },
+      data: {
+        status: 'CANCELLED',
+        cancelReason: reason,
+        cancelledBy: actor.type,
+        commissionCents: 0,
+        payoutCents: 0,
+        paymentStatus: current.paymentStatus === 'CAPTURED' ? 'REFUNDED' : current.paymentStatus,
+        version: { increment: 1 },
+      },
+      select: { version: true },
+    });
+    await this.txHost.tx.sellerOrderStatusHistory.create({
+      data: {
+        sellerOrderId,
+        fromStatus: from,
+        toStatus: 'CANCELLED',
+        actorType: actor.type,
+        actorId: actor.userId,
+        reason,
+      },
+    });
+    return row.version;
+  }
+
+  /** Books the cancelled amount on the order and re-sums its commission from the seller orders. */
+  async applyCancellationToOrder(orderId: string, releasedCents: number): Promise<void> {
+    const commission = await this.txHost.tx.sellerOrder.aggregate({
+      where: { orderId },
+      _sum: { commissionCents: true },
+    });
+    await this.txHost.tx.order.update({
+      where: { id: orderId },
+      data: {
+        refundedCents: { increment: releasedCents },
+        totalCents: { decrement: releasedCents },
+        commissionCents: commission._sum.commissionCents ?? 0,
+      },
+    });
+  }
+
+  /** Moves the payment status from `from` to `to`; false when it was not in `from`. */
+  async changePaymentStatus(
+    sellerOrderId: string,
+    from: PaymentStatusValue,
+    to: PaymentStatusValue,
+  ): Promise<boolean> {
+    const { count } = await this.txHost.tx.sellerOrder.updateMany({
+      where: { id: sellerOrderId, paymentStatus: from },
+      data: { paymentStatus: to },
+    });
+    return count > 0;
   }
 }

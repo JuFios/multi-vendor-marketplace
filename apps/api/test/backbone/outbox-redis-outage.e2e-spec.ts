@@ -1,6 +1,9 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
+import { NotificationsProcessor } from '../../src/modules/notifications/notifications.processor';
+import { OrdersSagaProcessor } from '../../src/modules/orders/orders-saga.processor';
+import { PaymentsProcessor } from '../../src/modules/payments-ledger/payments.processor';
 import { ProductsCacheProcessor } from '../../src/modules/products/products-cache.processor';
 import { SearchSyncProcessor } from '../../src/modules/search-sync/search-sync.processor';
 import { OutboxService } from '../../src/outbox';
@@ -24,6 +27,9 @@ describe('outbox relay with an unreachable Redis (e2e)', () => {
       // This spec is about the relay; a consumer's BullMQ worker cannot close while Redis is down.
       { token: ProductsCacheProcessor, useValue: {} },
       { token: SearchSyncProcessor, useValue: {} },
+      { token: PaymentsProcessor, useValue: {} },
+      { token: OrdersSagaProcessor, useValue: {} },
+      { token: NotificationsProcessor, useValue: {} },
       {
         token: EVENT_ROUTING,
         useValue: { ...EVENT_ROUTES, [EVENT_TYPE.DISPUTE_OPENED]: [QUEUE.REALTIME] },
