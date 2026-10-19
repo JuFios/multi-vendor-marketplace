@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { IdempotencyModule } from '../../idempotency';
 import { CartModule } from '../cart';
 import { PaymentsLedgerModule } from '../payments-ledger';
 import { ProductsModule } from '../products';
@@ -16,7 +17,7 @@ import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
 import { SellerOrdersController } from './seller-orders.controller';
 
 @Module({
-  imports: [CartModule, ProductsModule, PaymentsLedgerModule, SellersModule],
+  imports: [IdempotencyModule, CartModule, ProductsModule, PaymentsLedgerModule, SellersModule],
   controllers: [
     OrdersController,
     SellerOrdersController,

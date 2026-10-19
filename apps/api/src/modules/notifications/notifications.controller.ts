@@ -1,0 +1,63 @@
+import { Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+
+import { PaginationQueryDto } from '../../common/dto';
+import { ParseUuidPipe } from '../../common/pipes';
+import { ApiErrorResponses, BEARER_AUTH } from '../../common/swagger';
+import type { AuthUser } from '../auth/auth-user';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+
+import {
+  NotificationPageDto,
+  NotificationResponseDto,
+  ReadAllResultDto,
+  UnreadCountDto,
+} from './dto/notification-response.dto';
+import { NotificationsService } from './notifications.service';
+
+@ApiTags('notifications')
+@ApiBearerAuth(BEARER_AUTH)
+@Controller('notifications')
+export class NotificationsController {
+  constructor(private readonly notifications: NotificationsService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'The caller’s notifications, newest first.' })
+  @ApiOkResponse({ type: NotificationPageDto })
+  @ApiErrorResponses(400, 401)
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query() query: PaginationQueryDto,
+  ): Promise<NotificationPageDto> {
+    return this.notifications.list(user.userId, query.page, query.limit);
+  }
+
+  @Get('unread-count')
+  @ApiOperation({ summary: 'How many of the caller’s notifications are unread.' })
+  @ApiOkResponse({ type: UnreadCountDto })
+  @ApiErrorResponses(401)
+  unreadCount(@CurrentUser() user: AuthUser): Promise<UnreadCountDto> {
+    return this.notifications.unreadCount(user.userId);
+  }
+
+  @Post('read-all')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Marks all of the caller’s notifications read.' })
+  @ApiOkResponse({ type: ReadAllResultDto })
+  @ApiErrorResponses(401)
+  readAll(@CurrentUser() user: AuthUser): Promise<ReadAllResultDto> {
+    return this.notifications.markAllRead(user.userId);
+  }
+
+  @Post(':id/read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Marks one of the caller’s notifications read.' })
+  @ApiOkResponse({ type: NotificationResponseDto })
+  @ApiErrorResponses(400, 401, 404)
+  read(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUuidPipe) id: string,
+  ): Promise<NotificationResponseDto> {
+    return this.notifications.markRead(user.userId, id);
+  }
+}

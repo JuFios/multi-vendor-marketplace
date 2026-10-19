@@ -85,6 +85,11 @@ export class SellersService {
     return profile?.status === 'APPROVED' ? profile.id : undefined;
   }
 
+  /** The user who owns the store, whatever its moderation state; undefined for an unknown store. */
+  async findOwnerId(sellerId: string): Promise<string | undefined> {
+    return (await this.sellers.findById(sellerId))?.userId;
+  }
+
   /** Whether the store is approved right now; always read from the database. */
   async isApproved(sellerId: string): Promise<boolean> {
     return (await this.sellers.findById(sellerId))?.status === 'APPROVED';

@@ -1,6 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
+import { NotificationsProcessor } from '../../src/modules/notifications/notifications.processor';
 import { OrdersSagaProcessor } from '../../src/modules/orders/orders-saga.processor';
 import { PaymentsProcessor } from '../../src/modules/payments-ledger/payments.processor';
 import { ProductsCacheProcessor } from '../../src/modules/products/products-cache.processor';
@@ -28,6 +29,7 @@ describe('outbox relay with an unreachable Redis (e2e)', () => {
       { token: SearchSyncProcessor, useValue: {} },
       { token: PaymentsProcessor, useValue: {} },
       { token: OrdersSagaProcessor, useValue: {} },
+      { token: NotificationsProcessor, useValue: {} },
       {
         token: EVENT_ROUTING,
         useValue: { ...EVENT_ROUTES, [EVENT_TYPE.DISPUTE_OPENED]: [QUEUE.REALTIME] },

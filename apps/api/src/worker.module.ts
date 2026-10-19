@@ -5,6 +5,7 @@ import { AppClsModule } from './common/cls';
 import { AppConfigModule } from './config';
 import { LoggerModule } from './logger';
 import { MetricsModule, WorkerMetricsServer } from './metrics';
+import { NotificationsWorkerModule } from './modules/notifications';
 import { OrdersWorkerModule } from './modules/orders';
 import { PaymentsLedgerWorkerModule } from './modules/payments-ledger';
 import { ProductsWorkerModule } from './modules/products';
@@ -33,6 +34,7 @@ import { WorkerLifecycle } from './worker.lifecycle';
     SearchSyncWorkerModule,
     PaymentsLedgerWorkerModule,
     OrdersWorkerModule,
+    NotificationsWorkerModule,
   ],
   providers: [WorkerLifecycle, WorkerMetricsServer],
 })
