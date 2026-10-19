@@ -13,6 +13,7 @@ import { MetricsModule } from './metrics';
 import { AuthModule } from './modules/auth';
 import { CategoriesModule } from './modules/categories';
 import { ProductsModule } from './modules/products';
+import { SearchSyncModule } from './modules/search-sync';
 import { SellersModule } from './modules/sellers';
 import { UsersModule } from './modules/users';
 import { OutboxModule } from './outbox';
@@ -40,6 +41,7 @@ import { MeiliModule } from './search';
     SellersModule,
     CategoriesModule,
     ProductsModule,
+    SearchSyncModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

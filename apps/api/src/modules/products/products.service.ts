@@ -6,6 +6,7 @@ import { productsConfig } from '../../config';
 import { OutboxService } from '../../outbox';
 import { EVENT_TYPE } from '../../outbox/events';
 import type { AppTransactionHost } from '../../prisma';
+import type { CatalogQuery } from '../../search';
 import { CategoriesService } from '../categories';
 import { SellersService } from '../sellers';
 
@@ -31,6 +32,7 @@ import {
 import {
   type ModerationFilter,
   type OwnedProductFilter,
+  type CatalogMatches,
   ProductsRepository,
 } from './products.repository';
 
@@ -208,6 +210,10 @@ export class ProductsService {
     categoryId?: string,
   ): Promise<Product[]> {
     return this.products.listPublishedBatch(afterId, limit, categoryId);
+  }
+
+  searchCatalog(query: CatalogQuery): Promise<CatalogMatches> {
+    return this.products.searchCatalog(query);
   }
 
   listForModeration(filter: ModerationFilter): Promise<{ items: Product[]; total: number }> {

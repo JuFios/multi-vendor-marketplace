@@ -3,6 +3,7 @@ import { TransactionHost } from '@nestjs-cls/transactional';
 
 import type { Prisma, Product as ProductRow } from '../../generated/prisma/client';
 import type { AppTransactionHost } from '../../prisma';
+import type { CatalogQuery, CatalogSort } from '../../search';
 
 import type {
   ModerationDecision,
@@ -26,6 +27,24 @@ export interface ModerationFilter {
   readonly page: number;
   readonly limit: number;
 }
+
+export interface CatalogMatches {
+  readonly items: Product[];
+  readonly total: number;
+  readonly categoryCounts: readonly { categoryId: string; count: number }[];
+  readonly priceRange: { min: number; max: number } | null;
+}
+
+const CATALOG_ORDER: Readonly<Record<CatalogSort, Prisma.ProductOrderByWithRelationInput[]>> = {
+  relevance: [{ createdAt: 'desc' }, { id: 'asc' }],
+  newest: [{ createdAt: 'desc' }, { id: 'asc' }],
+  price_asc: [{ priceCents: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+  price_desc: [{ priceCents: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }],
+  rating_desc: [{ ratingAvg: 'desc' }, { id: 'asc' }],
+};
+
+/** Escapes the LIKE wildcards, so a search for "50%" means those characters. */
+const likePattern = (text: string): string => text.replace(/[\\%_]/g, '\\$&');
 
 const toProduct = (row: ProductRow): Product => ({
   id: row.id,
@@ -220,5 +239,58 @@ export class ProductsRepository {
       take: limit,
     });
     return rows.map(toProduct);
+  }
+
+  /**
+   * The catalog straight from the database, for when the search index cannot answer: the same
+   * filters, a title substring instead of full-text search, no typo tolerance and no relevance.
+   */
+  async searchCatalog(query: CatalogQuery): Promise<CatalogMatches> {
+    const where: Prisma.ProductWhereInput = {
+      isPublished: true,
+      archivedAt: null,
+      ...(query.q === undefined
+        ? {}
+        : { title: { contains: likePattern(query.q), mode: 'insensitive' } }),
+      ...(query.categoryId === undefined ? {} : { categoryId: query.categoryId }),
+      ...(query.sellerId === undefined ? {} : { sellerId: query.sellerId }),
+      ...(query.type === undefined ? {} : { type: query.type }),
+      ...(query.inStock === undefined ? {} : { stock: query.inStock ? { gt: 0 } : 0 }),
+      ...(query.ratingMin === undefined ? {} : { ratingAvg: { gte: query.ratingMin } }),
+      ...(query.priceMin === undefined && query.priceMax === undefined
+        ? {}
+        : {
+            priceCents: {
+              ...(query.priceMin === undefined ? {} : { gte: query.priceMin }),
+              ...(query.priceMax === undefined ? {} : { lte: query.priceMax }),
+            },
+          }),
+    };
+    const [rows, total, categories, prices] = await Promise.all([
+      this.txHost.tx.product.findMany({
+        where,
+        orderBy: CATALOG_ORDER[query.sort],
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+      }),
+      this.txHost.tx.product.count({ where }),
+      this.txHost.tx.product.groupBy({ by: ['categoryId'], where, _count: { _all: true } }),
+      this.txHost.tx.product.aggregate({
+        where,
+        _min: { priceCents: true },
+        _max: { priceCents: true },
+      }),
+    ]);
+    const { priceCents: min } = prices._min;
+    const { priceCents: max } = prices._max;
+    return {
+      items: rows.map(toProduct),
+      total,
+      categoryCounts: categories.map((row) => ({
+        categoryId: row.categoryId,
+        count: row._count._all,
+      })),
+      priceRange: min === null || max === null ? null : { min, max },
+    };
   }
 }

@@ -22,6 +22,7 @@ import {
   QUEUE_JOB_DURATION_SECONDS,
   QUEUE_JOBS_COMPLETED_TOTAL,
   QUEUE_JOBS_FAILED_TOTAL,
+  SEARCH_DEGRADED_TOTAL,
 } from './metrics.constants';
 import { MetricsController } from './metrics.controller';
 
@@ -81,6 +82,10 @@ const metricProviders = [
     name: CACHE_MISSES_TOTAL,
     help: 'Cache reads that fell through to the source, by cache.',
     labelNames: ['cache'],
+  }),
+  makeCounterProvider({
+    name: SEARCH_DEGRADED_TOTAL,
+    help: 'Catalog requests answered from the SQL fallback because the search index failed.',
   }),
 ];
 
