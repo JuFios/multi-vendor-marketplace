@@ -1,10 +1,12 @@
 import 'reflect-metadata';
 
-import { plainToInstance, Type } from 'class-transformer';
+import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
   IsEnum,
   IsIn,
   IsInt,
+  IsNotEmpty,
+  IsOptional,
   IsString,
   IsUrl,
   Matches,
@@ -12,6 +14,7 @@ import {
   Min,
   MinLength,
   validateSync,
+  ValidateIf,
 } from 'class-validator';
 
 export enum NodeEnv {
@@ -19,6 +22,10 @@ export enum NodeEnv {
   Test = 'test',
   Production = 'production',
 }
+
+// An empty value in an env file means "not configured".
+const EmptyAsUndefined = (): PropertyDecorator =>
+  Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value));
 
 export const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
@@ -56,6 +63,44 @@ export class EnvironmentVariables {
   @Min(0)
   @Max(65_535)
   WORKER_METRICS_PORT = 9100;
+
+  // HS256 key of the access tokens; 32+ characters keeps it out of brute-force range.
+  @IsString()
+  @MinLength(32)
+  JWT_ACCESS_SECRET!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  JWT_ACCESS_TTL_SEC = 900;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  REFRESH_TOKEN_TTL_DAYS = 30;
+
+  // Secure attribute of the auth cookies; unset means "on in production, off elsewhere".
+  @EmptyAsUndefined()
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  COOKIE_SECURE?: string;
+
+  // Google sign-in is on when GOOGLE_CLIENT_ID is set; the other two are then required.
+  @EmptyAsUndefined()
+  @IsOptional()
+  @IsString()
+  GOOGLE_CLIENT_ID?: string;
+
+  @EmptyAsUndefined()
+  @ValidateIf((env: EnvironmentVariables) => env.GOOGLE_CLIENT_ID !== undefined)
+  @IsString()
+  @IsNotEmpty()
+  GOOGLE_CLIENT_SECRET?: string;
+
+  @EmptyAsUndefined()
+  @ValidateIf((env: EnvironmentVariables) => env.GOOGLE_CLIENT_ID !== undefined)
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_tld: false })
+  GOOGLE_CALLBACK_URL?: string;
 
   // How often the worker polls the outbox, and how many events it relays per batch.
   @Type(() => Number)

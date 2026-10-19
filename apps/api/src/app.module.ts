@@ -9,6 +9,8 @@ import { HealthModule } from './health/health.module';
 import { IdempotencyModule } from './idempotency';
 import { LoggerModule } from './logger';
 import { MetricsModule } from './metrics';
+import { AuthModule } from './modules/auth';
+import { UsersModule } from './modules/users';
 import { OutboxModule } from './outbox';
 import { PrismaModule } from './prisma';
 import { RedisModule } from './redis';
@@ -25,8 +27,11 @@ import { MeiliModule } from './search';
     IdempotencyModule,
     RedisModule,
     MeiliModule,
+    // AuthModule precedes ThrottlingModule so its guard runs first and per-user limits see `request.user`.
+    AuthModule,
     ThrottlingModule,
     HealthModule,
+    UsersModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

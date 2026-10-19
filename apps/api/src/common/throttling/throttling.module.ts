@@ -19,6 +19,7 @@ import { THROTTLER, type OptInThrottlerName } from './throttler-names';
 interface TrackerRequest {
   ip?: string;
   user?: { userId?: unknown };
+  body?: unknown;
 }
 
 const clientIp = (req: TrackerRequest): string => req.ip ?? 'unknown';
@@ -27,6 +28,14 @@ const clientIp = (req: TrackerRequest): string => req.ip ?? 'unknown';
 const userOrIp = (req: TrackerRequest): string => {
   const id = req.user?.userId;
   return typeof id === 'string' ? `user:${id}` : clientIp(req);
+};
+
+/** Per targeted account (the `email` of the body), so one account cannot be guessed from many addresses. */
+const bodyEmailOrIp = (req: TrackerRequest): string => {
+  const email = (req.body as { email?: unknown } | undefined)?.email;
+  return typeof email === 'string' && email.trim() !== ''
+    ? `email:${email.trim().toLowerCase()}`
+    : clientIp(req);
 };
 
 function optInThrottler(
@@ -60,6 +69,7 @@ function optInThrottler(
         throttlers: [
           { name: THROTTLER.DEFAULT, limit: config.default.limit, ttl: config.default.ttlMs },
           optInThrottler(THROTTLER.LOGIN, config.login),
+          optInThrottler(THROTTLER.LOGIN_EMAIL, config.login, bodyEmailOrIp),
           optInThrottler(THROTTLER.REGISTER, config.register),
           optInThrottler(THROTTLER.REFRESH, config.refresh),
           optInThrottler(THROTTLER.BID, config.bid, userOrIp),

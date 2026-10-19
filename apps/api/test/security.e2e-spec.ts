@@ -6,11 +6,13 @@ import type { Redis } from 'ioredis';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
+import { Public } from '../src/common/decorators';
 import { RateLimit } from '../src/common/throttling';
 import { REDIS_CLIENT } from '../src/redis';
 
 import { createTestApp } from './utils/test-app';
 
+@Public()
 @Controller('probe')
 class ProbeController {
   @Get('open')

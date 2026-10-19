@@ -1,4 +1,5 @@
 export { appConfig } from './app.config';
+export { authConfig, type GoogleOAuthConfig } from './auth.config';
 export { AppConfigModule } from './config.module';
 export { databaseConfig } from './database.config';
 export { httpConfig } from './http.config';

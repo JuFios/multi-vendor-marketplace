@@ -9,6 +9,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 
 import { getCorrelationId } from '../src/common/cls';
+import { Public } from '../src/common/decorators';
 import { IdempotentProcessor, OutboxService } from '../src/outbox';
 import { type AnyDomainEvent, EVENT_ROUTES, EVENT_ROUTING, EVENT_TYPE } from '../src/outbox/events';
 import { type AppTransactionHost, PrismaService } from '../src/prisma';
@@ -47,6 +48,7 @@ class BackboneProcessor extends IdempotentProcessor {
   }
 }
 
+@Public()
 @Controller('backbone-spec')
 class BackboneController {
   constructor(

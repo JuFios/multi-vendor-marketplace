@@ -18,6 +18,7 @@ import { ClsService } from 'nestjs-cls';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
+import { Public } from '../src/common/decorators';
 import { ConflictError } from '../src/common/exceptions';
 import { IDEMPOTENCY_SCOPE, IdempotencyService, Idempotent } from '../src/idempotency';
 import { OutboxService } from '../src/outbox';
@@ -103,6 +104,7 @@ class SpecOrderService {
   }
 }
 
+@Public()
 @Controller('idem-spec')
 @UseGuards(SpecAuthGuard)
 class SpecController {
