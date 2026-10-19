@@ -9,7 +9,7 @@ describe('OpenAPI documentation (e2e)', () => {
   let app: NestExpressApplication;
 
   beforeAll(async () => {
-    app = await createTestApp();
+    app = await createTestApp([], { worker: false });
   });
 
   afterAll(async () => {

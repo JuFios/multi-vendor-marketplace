@@ -6,8 +6,10 @@ import { AllExceptionsFilter } from './common/filters';
 import { ThrottlingModule } from './common/throttling';
 import { AppConfigModule } from './config';
 import { HealthModule } from './health/health.module';
+import { IdempotencyModule } from './idempotency';
 import { LoggerModule } from './logger';
 import { MetricsModule } from './metrics';
+import { OutboxModule } from './outbox';
 import { PrismaModule } from './prisma';
 import { RedisModule } from './redis';
 import { MeiliModule } from './search';
@@ -19,6 +21,8 @@ import { MeiliModule } from './search';
     MetricsModule,
     PrismaModule,
     AppClsModule,
+    OutboxModule,
+    IdempotencyModule,
     RedisModule,
     MeiliModule,
     ThrottlingModule,

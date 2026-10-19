@@ -14,7 +14,7 @@ describe('health (e2e)', () => {
   });
 
   it('GET /api/health answers 200 with status ok', async () => {
-    app = await createTestApp();
+    app = await createTestApp([], { worker: false });
 
     const response = await request(app.getHttpServer() as App)
       .get('/api/health')
@@ -24,7 +24,7 @@ describe('health (e2e)', () => {
   });
 
   it('GET /api/health/ready reports Postgres, Redis and Meilisearch up', async () => {
-    app = await createTestApp();
+    app = await createTestApp([], { worker: false });
 
     const response = await request(app.getHttpServer() as App)
       .get('/api/health/ready')
@@ -37,9 +37,15 @@ describe('health (e2e)', () => {
   });
 
   it('GET /api/health/ready answers 503 while a dependency is down', async () => {
-    app = await createTestApp([
-      { token: MEILI_CLIENT, useValue: { health: () => Promise.reject(new Error('unreachable')) } },
-    ]);
+    app = await createTestApp(
+      [
+        {
+          token: MEILI_CLIENT,
+          useValue: { health: () => Promise.reject(new Error('unreachable')) },
+        },
+      ],
+      { worker: false },
+    );
 
     const response = await request(app.getHttpServer() as App)
       .get('/api/health/ready')

@@ -78,7 +78,7 @@ describe('HTTP hardening and rate limiting (e2e)', () => {
       previous.set(name, process.env[name]);
       process.env[name] = value;
     }
-    app = await createTestApp([], [ProbeModule]);
+    app = await createTestApp([], { imports: [ProbeModule], worker: false });
     const redis = app.get<Redis>(REDIS_CLIENT);
     const stale = await redis.keys('throttle:*');
     if (stale.length > 0) {

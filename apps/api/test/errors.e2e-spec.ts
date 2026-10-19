@@ -68,7 +68,7 @@ describe('Error responses (e2e)', () => {
   let app: NestExpressApplication;
 
   beforeAll(async () => {
-    app = await createTestApp([], [ProbeModule]);
+    app = await createTestApp([], { imports: [ProbeModule], worker: false });
   });
 
   afterAll(async () => {
