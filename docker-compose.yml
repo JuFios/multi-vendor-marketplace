@@ -4,6 +4,10 @@
 x-app-environment: &app-environment
   NODE_ENV: production
   PORT: '3000'
+  WEB_URL: ${WEB_URL:-http://localhost:8080}
+  # One reverse proxy (nginx) in front of the api.
+  TRUST_PROXY: '1'
+  WORKER_METRICS_PORT: '9100'
   DATABASE_URL: postgresql://${POSTGRES_USER:-marketplace}:${POSTGRES_PASSWORD:-marketplace}@postgres:5432/${POSTGRES_DB:-marketplace}
   REDIS_URL: redis://redis:6379/0
   MEILI_HOST: http://meilisearch:7700
@@ -102,6 +106,8 @@ services:
     command: ['node', 'dist/worker.js']
     environment:
       <<: *app-environment
+    ports:
+      - '${WORKER_METRICS_PORT:-9100}:9100'
     # The image probes the HTTP api, which the worker does not serve.
     healthcheck:
       disable: true

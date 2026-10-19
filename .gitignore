@@ -12,3 +12,4 @@ load/results/
 
 .DS_Store
 *.log
+apps/api/openapi.json

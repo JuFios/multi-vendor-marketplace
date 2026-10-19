@@ -4,5 +4,5 @@ import { loadEnv } from './env.validation';
 
 export const appConfig = registerAs('app', () => {
   const env = loadEnv();
-  return { env: env.NODE_ENV, port: env.PORT };
+  return { env: env.NODE_ENV, port: env.PORT, logLevel: env.LOG_LEVEL };
 });
