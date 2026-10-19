@@ -20,6 +20,7 @@
     "db:reset": "prisma migrate reset && prisma db seed && prisma generate",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
+    "search:reindex": "nest build && node dist/scripts/search-reindex.js",
     "openapi:export": "nest build && NODE_ENV=test node dist/scripts/openapi-export.js"
   },
   "dependencies": {

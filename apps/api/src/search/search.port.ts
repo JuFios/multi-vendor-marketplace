@@ -12,5 +12,7 @@ export interface SearchPort {
   search(query: CatalogQuery): Promise<CatalogResult>;
   upsert(documents: readonly CatalogDocument[]): Promise<void>;
   remove(ids: readonly string[]): Promise<void>;
+  /** Drops every document, for a full rebuild. */
+  clear(): Promise<void>;
   countDocuments(): Promise<number>;
 }

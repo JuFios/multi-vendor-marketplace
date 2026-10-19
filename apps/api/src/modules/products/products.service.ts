@@ -198,6 +198,18 @@ export class ProductsService {
     return this.products.findSimilar(product.categoryId, id, SIMILAR_PRODUCTS_LIMIT);
   }
 
+  findPublishedByIds(ids: readonly string[]): Promise<Product[]> {
+    return this.products.findPublishedByIds(ids);
+  }
+
+  listPublishedBatch(
+    afterId: string | null,
+    limit: number,
+    categoryId?: string,
+  ): Promise<Product[]> {
+    return this.products.listPublishedBatch(afterId, limit, categoryId);
+  }
+
   listForModeration(filter: ModerationFilter): Promise<{ items: Product[]; total: number }> {
     return this.products.listForModeration(filter);
   }

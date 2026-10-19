@@ -104,6 +104,11 @@ export class MeiliSearchAdapter implements SearchPort {
       .waitTask({ timeout: TASK_TIMEOUT_MS });
   }
 
+  async clear(): Promise<void> {
+    await this.ensureIndex();
+    await this.index().deleteAllDocuments().waitTask({ timeout: TASK_TIMEOUT_MS });
+  }
+
   async countDocuments(): Promise<number> {
     await this.ensureIndex();
     return (await this.index().getStats()).numberOfDocuments;

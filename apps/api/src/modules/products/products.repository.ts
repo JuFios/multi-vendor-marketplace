@@ -194,4 +194,31 @@ export class ProductsRepository {
     });
     return count === 0 ? null : this.findById(id);
   }
+
+  /** The products among `ids` that the public catalog shows. */
+  async findPublishedByIds(ids: readonly string[]): Promise<Product[]> {
+    const rows = await this.txHost.tx.product.findMany({
+      where: { id: { in: [...ids] }, isPublished: true, archivedAt: null },
+    });
+    return rows.map(toProduct);
+  }
+
+  /** Published products in id order, after `afterId`; walks the catalog in fixed-size steps. */
+  async listPublishedBatch(
+    afterId: string | null,
+    limit: number,
+    categoryId?: string,
+  ): Promise<Product[]> {
+    const rows = await this.txHost.tx.product.findMany({
+      where: {
+        isPublished: true,
+        archivedAt: null,
+        ...(afterId === null ? {} : { id: { gt: afterId } }),
+        ...(categoryId === undefined ? {} : { categoryId }),
+      },
+      orderBy: { id: 'asc' },
+      take: limit,
+    });
+    return rows.map(toProduct);
+  }
 }

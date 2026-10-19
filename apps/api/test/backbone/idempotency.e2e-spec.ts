@@ -75,10 +75,10 @@ class SpecOrderService {
       const categoryId = randomUUID();
       await this.outbox.add([
         {
-          type: EVENT_TYPE.CATEGORY_UPDATED,
-          aggregateType: 'Category',
+          type: EVENT_TYPE.DISPUTE_MESSAGE_ADDED,
+          aggregateType: 'Dispute',
           aggregateId: categoryId,
-          payload: { categoryId },
+          payload: { disputeId: categoryId, sellerOrderId: categoryId },
         },
       ]);
       const failure = this.failNext;
