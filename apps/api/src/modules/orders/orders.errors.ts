@@ -20,3 +20,16 @@ export class CartEmptyError extends AppError {
     super('CART_EMPTY', 400, 'The cart has no items');
   }
 }
+
+export type CheckoutProblemReason = 'UNAVAILABLE' | 'INSUFFICIENT_STOCK' | 'AUCTION_NOT_SUPPORTED';
+
+export interface CheckoutProblem {
+  readonly productId: string;
+  readonly reason: CheckoutProblemReason;
+}
+
+export class CartItemsUnavailableError extends ConflictError {
+  constructor(items: readonly CheckoutProblem[]) {
+    super('Some items in the cart cannot be bought', 'CART_ITEMS_UNAVAILABLE', { items });
+  }
+}

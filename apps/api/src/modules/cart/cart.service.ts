@@ -5,7 +5,13 @@ import type { AppTransactionHost } from '../../prisma';
 import { ProductsService } from '../products';
 import { SellersService } from '../sellers';
 
-import { buildCart, CART_MAX_QUANTITY, type CartLineSource } from './cart';
+import {
+  availabilityOf,
+  buildCart,
+  CART_MAX_QUANTITY,
+  type CartLineSource,
+  type CheckoutLine,
+} from './cart';
 import {
   CannotBuyOwnProductError,
   CartInsufficientStockError,
@@ -96,6 +102,35 @@ export class CartService {
 
   /** The user's cart with current prices and stock; no cart yet reads as an empty one. */
   async get(userId: string): Promise<CartResponseDto> {
+    const lines = await this.loadLines(userId);
+    const storeNames = await this.sellers.findStoreNames([
+      ...new Set(lines.map((line) => line.sellerId)),
+    ]);
+    return CartResponseDto.from(buildCart(lines), storeNames);
+  }
+
+  /**
+   * Locks the user's ACTIVE cart for the rest of the transaction and reads its lines, so two
+   * checkouts of one cart run one after the other. Null when there is no cart.
+   */
+  async lockActiveLines(userId: string): Promise<{ cartId: string; lines: CheckoutLine[] } | null> {
+    const cartId = await this.cart.lockActive(userId);
+    if (cartId === null) {
+      return null;
+    }
+    const lines = await this.loadLines(userId);
+    return {
+      cartId,
+      lines: lines.map((line) => ({ ...line, availability: availabilityOf(line) })),
+    };
+  }
+
+  /** Marks the cart as turned into an order; part of the checkout transaction. */
+  convert(cartId: string, orderId: string): Promise<void> {
+    return this.cart.markConverted(cartId, orderId);
+  }
+
+  private async loadLines(userId: string): Promise<CartLineSource[]> {
     const items = await this.cart.listItems(userId);
     const products = new Map(
       (await this.products.findByIds(items.map((item) => item.productId))).map((product) => [
@@ -120,9 +155,6 @@ export class CartService {
         });
       }
     }
-    const storeNames = await this.sellers.findStoreNames([
-      ...new Set(lines.map((line) => line.sellerId)),
-    ]);
-    return CartResponseDto.from(buildCart(lines), storeNames);
+    return lines;
   }
 }

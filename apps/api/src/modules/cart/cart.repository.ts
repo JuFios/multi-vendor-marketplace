@@ -60,6 +60,14 @@ export class CartRepository {
     });
   }
 
+  /** Closes the cart for good; the next add starts a fresh ACTIVE one. */
+  async markConverted(cartId: string, orderId: string): Promise<void> {
+    await this.txHost.tx.cart.update({
+      where: { id: cartId },
+      data: { status: 'CONVERTED', convertedAt: new Date(), convertedOrderId: orderId },
+    });
+  }
+
   async deleteItem(cartId: string, productId: string): Promise<boolean> {
     const { count } = await this.txHost.tx.cartItem.deleteMany({ where: { cartId, productId } });
     return count > 0;

@@ -17,6 +17,11 @@ export interface CartLineSource {
   readonly quantity: number;
 }
 
+/** A cart row with its product's state and whether it can be bought right now. */
+export interface CheckoutLine extends CartLineSource {
+  readonly availability: CartAvailability;
+}
+
 export interface CartLine {
   readonly productId: string;
   readonly title: string;
