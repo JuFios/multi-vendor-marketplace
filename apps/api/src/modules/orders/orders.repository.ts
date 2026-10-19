@@ -6,7 +6,12 @@ import type { Prisma } from '../../generated/prisma/client';
 import type { AppTransactionHost } from '../../prisma';
 
 import type { OrderRecord, SellerOrderRecord } from './order';
-import type { OrderStatusValue, SellerOrderStatusValue } from './order-status';
+import type {
+  AggregatedOrderStatus,
+  OrderStatusValue,
+  SellerOrderStatusValue,
+} from './order-status';
+import type { Actor } from './seller-order-state-machine';
 import type { SellerGroup } from './split-cart';
 
 export interface CheckoutItem {
@@ -39,6 +44,7 @@ const toSellerOrder = (row: SellerOrderRow): SellerOrderRecord => ({
   commissionCents: row.commissionCents,
   payoutCents: row.payoutCents,
   cancelReason: row.cancelReason,
+  version: row.version,
   createdAt: row.createdAt,
   items: row.items.map((item) => ({
     id: item.id,
@@ -208,5 +214,90 @@ export class OrdersRepository {
       this.txHost.tx.order.count({ where }),
     ]);
     return { items: rows.map(toOrder), total };
+  }
+
+  /**
+   * Locks the order that owns the seller order, so concurrent changes to its seller orders run
+   * one after another and the aggregate never misses an update. Null when there is no such
+   * seller order.
+   */
+  async lockOrderOf(
+    sellerOrderId: string,
+  ): Promise<{ orderId: string; customerId: string } | null> {
+    const rows = await this.txHost.tx.$queryRaw<{ id: string; customer_id: string }[]>`
+      SELECT o.id, o.customer_id FROM orders o
+      JOIN seller_orders so ON so.order_id = o.id
+      WHERE so.id = ${sellerOrderId}::uuid
+      FOR UPDATE OF o`;
+    const row = rows[0];
+    return row ? { orderId: row.id, customerId: row.customer_id } : null;
+  }
+
+  async findSellerOrder(id: string): Promise<SellerOrderRecord | null> {
+    const row = await this.txHost.tx.sellerOrder.findUnique({
+      where: { id },
+      include: SELLER_ORDER_INCLUDE,
+    });
+    return row && toSellerOrder(row);
+  }
+
+  async statusesOfOrder(orderId: string): Promise<SellerOrderStatusValue[]> {
+    const rows = await this.txHost.tx.sellerOrder.findMany({
+      where: { orderId },
+      select: { status: true },
+    });
+    return rows.map((row) => row.status);
+  }
+
+  /** Moves the seller order to `to` and writes the history row; returns its new version. */
+  async changeSellerOrderStatus(
+    sellerOrderId: string,
+    from: SellerOrderStatusValue,
+    to: SellerOrderStatusValue,
+    actor: { type: Actor; userId: string | null },
+    reason: string | null,
+  ): Promise<number> {
+    const row = await this.txHost.tx.sellerOrder.update({
+      where: { id: sellerOrderId },
+      data: { status: to, version: { increment: 1 } },
+      select: { version: true },
+    });
+    await this.txHost.tx.sellerOrderStatusHistory.create({
+      data: {
+        sellerOrderId,
+        fromStatus: from,
+        toStatus: to,
+        actorType: actor.type,
+        actorId: actor.userId,
+        reason,
+      },
+    });
+    return row.version;
+  }
+
+  /** Writes the aggregate onto the order; returns the new version, or null when nothing changed. */
+  async applyAggregate(orderId: string, aggregate: AggregatedOrderStatus): Promise<number | null> {
+    const { count } = await this.txHost.tx.order.updateMany({
+      where: {
+        id: orderId,
+        OR: [
+          { status: { not: aggregate.status } },
+          { hasCancelledParts: { not: aggregate.hasCancelledParts } },
+        ],
+      },
+      data: {
+        status: aggregate.status,
+        hasCancelledParts: aggregate.hasCancelledParts,
+        version: { increment: 1 },
+      },
+    });
+    if (count === 0) {
+      return null;
+    }
+    const row = await this.txHost.tx.order.findUniqueOrThrow({
+      where: { id: orderId },
+      select: { version: true },
+    });
+    return row.version;
   }
 }

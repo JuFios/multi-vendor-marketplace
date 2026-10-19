@@ -15,8 +15,9 @@ import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 import { CheckoutService } from './checkout.service';
-import { OrderPageDto, OrderResponseDto } from './dto/order-response.dto';
+import { OrderPageDto, OrderResponseDto, SellerOrderDto } from './dto/order-response.dto';
 import { OrdersService } from './orders.service';
+import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
 
 @ApiTags('orders')
 @ApiBearerAuth(BEARER_AUTH)
@@ -25,6 +26,7 @@ export class OrdersController {
   constructor(
     private readonly checkout: CheckoutService,
     private readonly orders: OrdersService,
+    private readonly lifecycle: SellerOrderLifecycleService,
   ) {}
 
   @Post('checkout')
@@ -56,5 +58,23 @@ export class OrdersController {
     @Param('id', ParseUuidPipe) id: string,
   ): Promise<OrderResponseDto> {
     return this.orders.getOfCustomer(user.userId, id);
+  }
+
+  @Post(':orderId/seller-orders/:soId/confirm-receipt')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Confirms receipt of a shipped seller order of an own order.' })
+  @ApiOkResponse({ type: SellerOrderDto })
+  @ApiErrorResponses(400, 401, 404, 409)
+  confirmReceipt(
+    @CurrentUser() user: AuthUser,
+    @Param('orderId', ParseUuidPipe) orderId: string,
+    @Param('soId', ParseUuidPipe) sellerOrderId: string,
+  ): Promise<SellerOrderDto> {
+    return this.lifecycle.changeStatus(
+      sellerOrderId,
+      'COMPLETED',
+      { type: 'CUSTOMER', userId: user.userId },
+      { customerId: user.userId, orderId },
+    );
   }
 }

@@ -100,6 +100,7 @@ export interface EventPayloads {
     sellerOrderId: string;
     orderId: string;
     sellerId: string;
+    customerId: string;
     from: SellerOrderStatus;
     to: SellerOrderStatus;
     version: number;

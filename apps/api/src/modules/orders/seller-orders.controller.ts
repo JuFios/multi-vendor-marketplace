@@ -1,4 +1,14 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { ForbiddenError } from '../../common/exceptions';
@@ -9,9 +19,11 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { SellerGuard } from '../sellers';
 
+import { SellerChangeStatusDto } from './dto/change-status.dto';
 import { ListSellerOrdersQueryDto } from './dto/list-orders-query.dto';
 import { SellerOrderDto, SellerOrderPageDto } from './dto/order-response.dto';
 import { OrdersService } from './orders.service';
+import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
 
 /** The store id of an approved seller; `SellerGuard` has already checked the store. */
 function sellerIdOf(user: AuthUser): string {
@@ -27,7 +39,10 @@ function sellerIdOf(user: AuthUser): string {
 @UseGuards(SellerGuard)
 @Controller('seller/orders')
 export class SellerOrdersController {
-  constructor(private readonly orders: OrdersService) {}
+  constructor(
+    private readonly orders: OrdersService,
+    private readonly lifecycle: SellerOrderLifecycleService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'The store’s own seller orders, newest first.' })
@@ -49,5 +64,24 @@ export class SellerOrdersController {
     @Param('id', ParseUuidPipe) id: string,
   ): Promise<SellerOrderDto> {
     return this.orders.getOfSeller(sellerIdOf(user), id);
+  }
+
+  @Post(':id/status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Moves an own seller order to PROCESSING or SHIPPED.' })
+  @ApiOkResponse({ type: SellerOrderDto })
+  @ApiErrorResponses(400, 401, 403, 404, 409)
+  changeStatus(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUuidPipe) id: string,
+    @Body() dto: SellerChangeStatusDto,
+  ): Promise<SellerOrderDto> {
+    const sellerId = sellerIdOf(user);
+    return this.lifecycle.changeStatus(
+      id,
+      dto.status,
+      { type: 'SELLER', userId: user.userId },
+      { sellerId },
+    );
   }
 }

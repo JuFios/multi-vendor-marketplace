@@ -6,15 +6,22 @@ import { ProductsModule } from '../products';
 import { SellersModule } from '../sellers';
 
 import { AdminOrdersController } from './admin-orders.controller';
+import { AdminSellerOrdersController } from './admin-seller-orders.controller';
 import { CheckoutService } from './checkout.service';
 import { OrdersController } from './orders.controller';
 import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
+import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
 import { SellerOrdersController } from './seller-orders.controller';
 
 @Module({
   imports: [CartModule, ProductsModule, PaymentsLedgerModule, SellersModule],
-  controllers: [OrdersController, SellerOrdersController, AdminOrdersController],
-  providers: [OrdersRepository, OrdersService, CheckoutService],
+  controllers: [
+    OrdersController,
+    SellerOrdersController,
+    AdminOrdersController,
+    AdminSellerOrdersController,
+  ],
+  providers: [OrdersRepository, OrdersService, CheckoutService, SellerOrderLifecycleService],
 })
 export class OrdersModule {}
