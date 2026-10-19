@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 
+import { CacheModule } from './cache';
 import { AppClsModule } from './common/cls';
 import { AppConfigModule } from './config';
 import { LoggerModule } from './logger';
 import { MetricsModule, WorkerMetricsServer } from './metrics';
+import { ProductsWorkerModule } from './modules/products';
 import { OutboxModule, OutboxRelayModule } from './outbox';
 import { PrismaModule } from './prisma';
 import { QueueModule } from './queue';
@@ -19,10 +21,12 @@ import { WorkerLifecycle } from './worker.lifecycle';
     PrismaModule,
     AppClsModule,
     OutboxModule,
+    CacheModule,
     QueueModule,
     OutboxRelayModule,
     RedisModule,
     MeiliModule,
+    ProductsWorkerModule,
   ],
   providers: [WorkerLifecycle, WorkerMetricsServer],
 })

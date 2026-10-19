@@ -1,6 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
+import { ProductsCacheProcessor } from '../../src/modules/products/products-cache.processor';
 import { OutboxService } from '../../src/outbox';
 import { EVENT_ROUTES, EVENT_ROUTING, EVENT_TYPE, newEventId } from '../../src/outbox/events';
 import { type AppTransactionHost, PrismaService } from '../../src/prisma';
@@ -19,9 +20,11 @@ describe('outbox relay with an unreachable Redis (e2e)', () => {
   beforeAll(async () => {
     process.env.REDIS_URL = UNREACHABLE_REDIS;
     app = await createTestApp([
+      // This spec is about the relay; a consumer's BullMQ worker cannot close while Redis is down.
+      { token: ProductsCacheProcessor, useValue: {} },
       {
         token: EVENT_ROUTING,
-        useValue: { ...EVENT_ROUTES, [EVENT_TYPE.PRODUCT_CREATED]: [QUEUE.CACHE] },
+        useValue: { ...EVENT_ROUTES, [EVENT_TYPE.PRODUCT_CREATED]: [QUEUE.REALTIME] },
       },
     ]);
     prisma = app.get(PrismaService);

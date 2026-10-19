@@ -34,7 +34,7 @@ class RecordingPublisher implements QueuePublisherPort {
 
 const ROUTES = {
   ...EVENT_ROUTES,
-  [EVENT_TYPE.PRODUCT_CREATED]: [QUEUE.CACHE, QUEUE.SEARCH_SYNC],
+  [EVENT_TYPE.PRODUCT_CREATED]: [QUEUE.REALTIME, QUEUE.SEARCH_SYNC],
 };
 
 const productCreated = () => {
@@ -110,7 +110,7 @@ describe('outbox (e2e)', () => {
       label: 'the event to be published',
     });
     expect(publisher.published.map(({ queue }) => queue).sort()).toEqual([
-      QUEUE.CACHE,
+      QUEUE.REALTIME,
       QUEUE.SEARCH_SYNC,
     ]);
     for (const { event: delivered } of publisher.published) {

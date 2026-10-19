@@ -26,10 +26,10 @@ import { createTestApp } from '../utils/test-app';
 import '../../src/common/cls/cls-store';
 
 /** Test-only: reacts to `product.created` by recording a `category.updated` event, once. */
-@Processor(QUEUE.CACHE)
+@Processor(QUEUE.REALTIME)
 class BackboneProcessor extends IdempotentProcessor {
   protected readonly consumerName = 'spec-backbone';
-  protected readonly queue = QUEUE.CACHE;
+  protected readonly queue = QUEUE.REALTIME;
   protected readonly eventTypes = [EVENT_TYPE.PRODUCT_CREATED];
   readonly seen: { eventId: string; correlationId: string | undefined }[] = [];
 
@@ -86,7 +86,7 @@ class BackboneModule {}
 describe('event backbone (e2e)', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
-  let cache: Queue;
+  let realtime: Queue;
   let processor: BackboneProcessor;
 
   const derivedEvents = () =>
@@ -97,24 +97,24 @@ describe('event backbone (e2e)', () => {
       [
         {
           token: EVENT_ROUTING,
-          useValue: { ...EVENT_ROUTES, [EVENT_TYPE.PRODUCT_CREATED]: [QUEUE.CACHE] },
+          useValue: { ...EVENT_ROUTES, [EVENT_TYPE.PRODUCT_CREATED]: [QUEUE.REALTIME] },
         },
       ],
       { imports: [BackboneModule] },
     );
     prisma = app.get(PrismaService);
-    cache = queueOf(app, QUEUE.CACHE);
+    realtime = queueOf(app, QUEUE.REALTIME);
     processor = app.get(BackboneProcessor);
   });
 
   beforeEach(async () => {
-    await cache.obliterate({ force: true });
+    await realtime.obliterate({ force: true });
     await resetDb(prisma);
     processor.seen.length = 0;
   });
 
   afterAll(async () => {
-    await cache.obliterate({ force: true });
+    await realtime.obliterate({ force: true });
     await app.close();
   });
 
@@ -159,11 +159,11 @@ describe('event backbone (e2e)', () => {
     });
 
     // The relay "crashed" after enqueueing: forget the job and the publication mark.
-    await (await cache.getJob(original.id))?.remove();
+    await (await realtime.getJob(original.id))?.remove();
     await prisma.outboxEvent.update({ where: { id: original.id }, data: { publishedAt: null } });
     await flushEvents();
     // And the queue hands the same event over once more under another job id.
-    await cache.add(
+    await realtime.add(
       original.eventType,
       {
         id: original.id,
