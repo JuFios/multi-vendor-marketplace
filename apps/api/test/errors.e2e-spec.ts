@@ -4,11 +4,13 @@ import { ThrottlerException } from '@nestjs/throttler';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
+import { Public } from '../src/common/decorators';
 import { AppError, ConflictError } from '../src/common/exceptions';
 import { Prisma } from '../src/generated/prisma/client';
 
 import { createTestApp } from './utils/test-app';
 
+@Public()
 @Controller('probe')
 class ProbeController {
   @Get('app-error')

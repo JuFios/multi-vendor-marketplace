@@ -4,6 +4,7 @@ import { IsString, MaxLength } from 'class-validator';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
+import { Public } from '../src/common/decorators';
 import { IsMoneyCents, SanitizeText } from '../src/common/decorators';
 import { PaginationQueryDto } from '../src/common/dto';
 import { ParseUuidPipe } from '../src/common/pipes';
@@ -20,6 +21,7 @@ class CreateItemDto {
   priceCents!: number;
 }
 
+@Public()
 @Controller('items')
 class ItemsController {
   @Post()

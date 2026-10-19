@@ -2,6 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { HealthCheckService, type HealthCheckResult } from '@nestjs/terminus';
 
+import { Public } from '../common/decorators';
 import { ApiErrorResponses } from '../common/swagger';
 
 import { DependencyHealthIndicators } from './dependency-health.indicators';
@@ -11,6 +12,7 @@ export interface HealthResponse {
 }
 
 @ApiTags('health')
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(
