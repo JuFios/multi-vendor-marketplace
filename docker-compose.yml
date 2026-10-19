@@ -73,6 +73,9 @@ services:
       target: migrate
     environment:
       <<: *app-environment
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-change-me-demo}
     depends_on:
       postgres:
         condition: service_healthy
