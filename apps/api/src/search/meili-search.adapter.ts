@@ -21,12 +21,18 @@ import type { SearchPort } from './search.port';
 const INDEX_NAME = 'products';
 const PRIMARY_KEY = 'id';
 const TASK_TIMEOUT_MS = 30_000;
+const MAX_TOTAL_HITS = 10_000;
+const MAX_FACET_VALUES = 1_000;
 const FACETED = ['categoryId', 'sellerId', 'type', 'inStock'] as const;
 
 const SETTINGS = {
   searchableAttributes: ['title', 'description', 'categoryName', 'sellerName'],
   filterableAttributes: ['categoryId', 'sellerId', 'type', 'priceCents', 'ratingAvg', 'inStock'],
   sortableAttributes: ['priceCents', 'ratingAvg', 'createdAt'],
+  // Meilisearch caps the reachable hits and the values per facet (defaults 1000 and 100); raised
+  // so totals, deep pages and the seller facet stay exact for a catalog of this size.
+  pagination: { maxTotalHits: MAX_TOTAL_HITS },
+  faceting: { maxValuesPerFacet: MAX_FACET_VALUES },
 } as const;
 
 const toFacetCounts = (distribution: Record<string, number> | undefined): FacetCount[] =>

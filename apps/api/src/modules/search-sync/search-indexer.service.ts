@@ -13,6 +13,14 @@ import { SellersService } from '../sellers';
 import { CatalogNamespace } from './catalog-namespace.service';
 import { REINDEX_BATCH_SIZE } from './search-sync.constants';
 
+const MAX_SYNC_ATTEMPTS = 3;
+
+const sameVersions = (before: readonly Product[], after: readonly Product[]): boolean =>
+  before.length === after.length &&
+  before.every((product) =>
+    after.some((now) => now.id === product.id && now.version === product.version),
+  );
+
 interface Names {
   readonly categories: ReadonlyMap<string, string>;
   readonly sellers: ReadonlyMap<string, string>;
@@ -34,16 +42,27 @@ export class SearchIndexer {
     private readonly namespace: CatalogNamespace,
   ) {}
 
-  /** Indexes the listed products that are published, and removes the others from the index. */
+  /**
+   * Indexes the listed products that are published, and removes the others from the index.
+   *
+   * Queue workers run in parallel, so two events for one product can be handled at once and the
+   * slower write may carry the older state. After writing, the products are read again; if any
+   * changed meanwhile, the write is repeated with the newer state.
+   */
   async syncProducts(ids: readonly string[]): Promise<void> {
-    const published = await this.products.findPublishedByIds(ids);
-    const stale = await this.apply(published, ids);
-    await this.namespace.bump();
-    this.logger.log({
-      msg: 'search.synced',
-      requested: ids.length,
-      indexed: published.length - stale,
-    });
+    for (let attempt = 1; ; attempt += 1) {
+      const published = await this.products.findPublishedByIds(ids);
+      const { indexed, removed } = await this.apply(published, ids);
+      const current = await this.products.findPublishedByIds(ids);
+      if (sameVersions(published, current)) {
+        await this.namespace.bump();
+        this.logger.log({ msg: 'search.synced', requested: ids.length, indexed, removed });
+        return;
+      }
+      if (attempt >= MAX_SYNC_ATTEMPTS) {
+        throw new Error('products kept changing while the search index was being updated');
+      }
+    }
   }
 
   /** A renamed category changes the denormalized name of every product in it. */
@@ -77,12 +96,12 @@ export class SearchIndexer {
       if (batch.length === 0) {
         break;
       }
-      indexed +=
-        batch.length -
-        (await this.apply(
+      indexed += (
+        await this.apply(
           batch,
           batch.map(({ id }) => id),
-        ));
+        )
+      ).indexed;
       after = batch.at(-1)?.id ?? null;
     }
     await this.namespace.bump();
@@ -90,11 +109,11 @@ export class SearchIndexer {
     return indexed;
   }
 
-  /** Upserts what can be shown, removes everything else among `requested`; returns the removals. */
+  /** Upserts what can be shown and removes everything else among `requested`. */
   private async apply(
     published: readonly Product[],
     requested: readonly string[],
-  ): Promise<number> {
+  ): Promise<{ indexed: number; removed: number }> {
     const names = await this.namesFor(published);
     const documents = published.flatMap((product) => {
       const indexable = this.toIndexable(product, names);
@@ -104,7 +123,7 @@ export class SearchIndexer {
     const removed = requested.filter((id) => !kept.has(id));
     await this.search.upsert(documents);
     await this.search.remove(removed);
-    return removed.length;
+    return { indexed: documents.length, removed: removed.length };
   }
 
   private async namesFor(products: readonly Product[]): Promise<Names> {

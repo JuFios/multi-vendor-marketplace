@@ -64,6 +64,13 @@ describe('MeiliSearchAdapter (e2e)', () => {
     await expect(search.countDocuments()).resolves.toBe(0);
   });
 
+  it('lifts the default limits on reachable hits and facet values', async () => {
+    const settings = await meili.index(INDEX).getSettings();
+
+    expect(settings.pagination?.maxTotalHits).toBe(10_000);
+    expect(settings.faceting?.maxValuesPerFacet).toBe(1_000);
+  });
+
   it('finds a document by text, tolerating a typo', async () => {
     await search.upsert([
       document('1', { title: 'Wireless headphones' }),
