@@ -1,5 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
-import { HealthCheck, HealthCheckService, type HealthCheckResult } from '@nestjs/terminus';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { HealthCheckService, type HealthCheckResult } from '@nestjs/terminus';
+
+import { ApiErrorResponses } from '../common/swagger';
 
 import { DependencyHealthIndicators } from './dependency-health.indicators';
 
@@ -7,6 +10,7 @@ export interface HealthResponse {
   status: 'ok';
 }
 
+@ApiTags('health')
 @Controller('health')
 export class HealthController {
   constructor(
@@ -15,14 +19,17 @@ export class HealthController {
   ) {}
 
   /** Liveness probe; does not touch any dependency. */
+  @ApiOperation({ summary: 'Liveness probe' })
   @Get()
   check(): HealthResponse {
     return { status: 'ok' };
   }
 
   /** Readiness probe; checks Postgres, Redis and Meilisearch. */
+  @ApiOperation({ summary: 'Readiness probe: Postgres, Redis and Meilisearch' })
+  @ApiOkResponse({ description: 'Every dependency is up.' })
+  @ApiErrorResponses(503)
   @Get('ready')
-  @HealthCheck()
   ready(): Promise<HealthCheckResult> {
     return this.health.check([
       () => this.dependencies.database(),

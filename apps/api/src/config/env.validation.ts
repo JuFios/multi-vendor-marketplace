@@ -3,6 +3,7 @@ import 'reflect-metadata';
 import { plainToInstance, Type } from 'class-transformer';
 import {
   IsEnum,
+  IsIn,
   IsInt,
   IsString,
   IsUrl,
@@ -19,6 +20,9 @@ export enum NodeEnv {
   Production = 'production',
 }
 
+export const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
+export type LogLevel = (typeof LOG_LEVELS)[number];
+
 export class EnvironmentVariables {
   @IsEnum(NodeEnv)
   NODE_ENV: NodeEnv = NodeEnv.Development;
@@ -28,6 +32,81 @@ export class EnvironmentVariables {
   @Min(1)
   @Max(65_535)
   PORT = 3000;
+
+  @IsIn(LOG_LEVELS)
+  LOG_LEVEL: LogLevel = 'info';
+
+  // Browser origin of the SPA; the only origin CORS lets in.
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_tld: false })
+  WEB_URL = 'http://localhost:5173';
+
+  // Number of reverse-proxy hops in front of the api (0 = none, 1 = nginx).
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  TRUST_PROXY = 0;
+
+  // Maximum request body size, e.g. `100kb`.
+  @Matches(/^\d+(b|kb|mb)$/i)
+  BODY_LIMIT = '100kb';
+
+  // 0 lets the OS pick a free port (tests).
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(65_535)
+  WORKER_METRICS_PORT = 9100;
+
+  // Rate limits: requests per window; TTL is the window length in seconds.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_DEFAULT_LIMIT = 100;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_DEFAULT_TTL = 60;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_LOGIN_LIMIT = 5;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_LOGIN_TTL = 60;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_REGISTER_LIMIT = 10;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_REGISTER_TTL = 60;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_REFRESH_LIMIT = 30;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_REFRESH_TTL = 60;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_BID_LIMIT = 10;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_BID_TTL = 10;
 
   @IsUrl({ protocols: ['postgres', 'postgresql'], require_protocol: true, require_tld: false })
   DATABASE_URL!: string;

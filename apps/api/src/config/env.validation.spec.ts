@@ -12,6 +12,7 @@ describe('validate', () => {
     expect(validate(validEnv)).toMatchObject({
       NODE_ENV: NodeEnv.Development,
       PORT: 3000,
+      LOG_LEVEL: 'info',
       MEILI_INDEX_PREFIX: '',
     });
     expect(validate({ ...validEnv, PORT: '4010' }).PORT).toBe(4010);
@@ -41,6 +42,7 @@ describe('validate', () => {
   it('rejects an unknown profile and an out-of-range port', () => {
     expect(() => validate({ ...validEnv, NODE_ENV: 'staging' })).toThrow('NODE_ENV');
     expect(() => validate({ ...validEnv, PORT: '70000' })).toThrow('PORT');
+    expect(() => validate({ ...validEnv, LOG_LEVEL: 'verbose' })).toThrow('LOG_LEVEL');
   });
 
   it('rejects a connection string with the wrong protocol', () => {

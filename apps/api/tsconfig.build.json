@@ -3,6 +3,7 @@
   "compilerOptions": {
     "rootDir": "./src",
     "noEmit": false,
+    "incremental": false,
     "declaration": false,
     "removeComments": true
   },
