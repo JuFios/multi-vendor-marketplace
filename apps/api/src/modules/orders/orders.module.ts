@@ -11,6 +11,7 @@ import { CheckoutService } from './checkout.service';
 import { OrdersController } from './orders.controller';
 import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
+import { PaymentSagaService } from './payment-saga.service';
 import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
 import { SellerOrdersController } from './seller-orders.controller';
 
@@ -22,6 +23,13 @@ import { SellerOrdersController } from './seller-orders.controller';
     AdminOrdersController,
     AdminSellerOrdersController,
   ],
-  providers: [OrdersRepository, OrdersService, CheckoutService, SellerOrderLifecycleService],
+  providers: [
+    OrdersRepository,
+    OrdersService,
+    CheckoutService,
+    SellerOrderLifecycleService,
+    PaymentSagaService,
+  ],
+  exports: [PaymentSagaService],
 })
 export class OrdersModule {}

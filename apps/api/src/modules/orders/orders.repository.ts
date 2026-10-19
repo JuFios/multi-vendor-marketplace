@@ -11,7 +11,7 @@ import type {
   OrderStatusValue,
   SellerOrderStatusValue,
 } from './order-status';
-import type { Actor } from './seller-order-state-machine';
+import type { Actor, PaymentStatusValue } from './seller-order-state-machine';
 import type { SellerGroup } from './split-cart';
 
 export interface CheckoutItem {
@@ -355,5 +355,18 @@ export class OrdersRepository {
         commissionCents: commission._sum.commissionCents ?? 0,
       },
     });
+  }
+
+  /** Moves the payment status from `from` to `to`; false when it was not in `from`. */
+  async changePaymentStatus(
+    sellerOrderId: string,
+    from: PaymentStatusValue,
+    to: PaymentStatusValue,
+  ): Promise<boolean> {
+    const { count } = await this.txHost.tx.sellerOrder.updateMany({
+      where: { id: sellerOrderId, paymentStatus: from },
+      data: { paymentStatus: to },
+    });
+    return count > 0;
   }
 }

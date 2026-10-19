@@ -7,6 +7,7 @@ import {
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUrl,
@@ -197,6 +198,14 @@ export class EnvironmentVariables {
   @Min(0)
   @Max(10_000)
   PLATFORM_COMMISSION_BPS = 1000;
+
+  // Share of mock payments the gateway declines, from 0 (never) to 1 (always); it exists to
+  // demonstrate the compensation path.
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  MOCK_PAYMENT_FAILURE_RATE = 0;
 
   @IsUrl({ protocols: ['postgres', 'postgresql'], require_protocol: true, require_tld: false })
   DATABASE_URL!: string;

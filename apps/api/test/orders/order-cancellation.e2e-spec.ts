@@ -20,7 +20,11 @@ interface ErrorBody {
   error: { code: string };
 }
 
-interface Caller { id: string; roles?: UserRole[]; sellerId?: string }
+interface Caller {
+  id: string;
+  roles?: UserRole[];
+  sellerId?: string;
+}
 
 describe('Seller order cancellation (e2e)', () => {
   let app: NestExpressApplication;
