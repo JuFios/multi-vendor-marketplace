@@ -6,6 +6,7 @@ import type { Prisma } from '../../generated/prisma/client';
 import type { AppTransactionHost } from '../../prisma';
 
 import type { OrderRecord, SellerOrderRecord } from './order';
+import type { OrderStatusValue, SellerOrderStatusValue } from './order-status';
 import type { SellerGroup } from './split-cart';
 
 export interface CheckoutItem {
@@ -128,5 +129,84 @@ export class OrdersRepository {
         (a, b) => (position.get(a.sellerId) ?? 0) - (position.get(b.sellerId) ?? 0),
       ),
     };
+  }
+
+  async findOfCustomer(id: string, customerId: string): Promise<OrderRecord | null> {
+    const row = await this.txHost.tx.order.findFirst({
+      where: { id, customerId },
+      include: { sellerOrders: { include: SELLER_ORDER_INCLUDE } },
+    });
+    return row && toOrder(row);
+  }
+
+  listOfCustomer(
+    customerId: string,
+    page: number,
+    limit: number,
+  ): Promise<{ items: OrderRecord[]; total: number }> {
+    return this.listOrders({ customerId }, page, limit);
+  }
+
+  async findById(id: string): Promise<OrderRecord | null> {
+    const row = await this.txHost.tx.order.findUnique({
+      where: { id },
+      include: { sellerOrders: { include: SELLER_ORDER_INCLUDE } },
+    });
+    return row && toOrder(row);
+  }
+
+  listAll(
+    status: OrderStatusValue | undefined,
+    page: number,
+    limit: number,
+  ): Promise<{ items: OrderRecord[]; total: number }> {
+    return this.listOrders(status === undefined ? {} : { status }, page, limit);
+  }
+
+  async findSellerOrderOf(id: string, sellerId: string): Promise<SellerOrderRecord | null> {
+    const row = await this.txHost.tx.sellerOrder.findFirst({
+      where: { id, sellerId },
+      include: SELLER_ORDER_INCLUDE,
+    });
+    return row && toSellerOrder(row);
+  }
+
+  async listSellerOrdersOf(
+    sellerId: string,
+    status: SellerOrderStatusValue | undefined,
+    page: number,
+    limit: number,
+  ): Promise<{ items: SellerOrderRecord[]; total: number }> {
+    const where: Prisma.SellerOrderWhereInput =
+      status === undefined ? { sellerId } : { sellerId, status };
+    const [rows, total] = await Promise.all([
+      this.txHost.tx.sellerOrder.findMany({
+        where,
+        include: SELLER_ORDER_INCLUDE,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.txHost.tx.sellerOrder.count({ where }),
+    ]);
+    return { items: rows.map(toSellerOrder), total };
+  }
+
+  private async listOrders(
+    where: Prisma.OrderWhereInput,
+    page: number,
+    limit: number,
+  ): Promise<{ items: OrderRecord[]; total: number }> {
+    const [rows, total] = await Promise.all([
+      this.txHost.tx.order.findMany({
+        where,
+        include: { sellerOrders: { include: SELLER_ORDER_INCLUDE } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.txHost.tx.order.count({ where }),
+    ]);
+    return { items: rows.map(toOrder), total };
   }
 }

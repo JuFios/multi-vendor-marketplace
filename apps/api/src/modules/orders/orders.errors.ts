@@ -1,4 +1,4 @@
-import { AppError, ConflictError } from '../../common/exceptions';
+import { AppError, ConflictError, NotFoundError } from '../../common/exceptions';
 
 export class InvalidStatusTransitionError extends ConflictError {
   constructor(from: string, to: string) {
@@ -31,5 +31,17 @@ export interface CheckoutProblem {
 export class CartItemsUnavailableError extends ConflictError {
   constructor(items: readonly CheckoutProblem[]) {
     super('Some items in the cart cannot be bought', 'CART_ITEMS_UNAVAILABLE', { items });
+  }
+}
+
+export class OrderNotFoundError extends NotFoundError {
+  constructor() {
+    super('Order not found', 'ORDER_NOT_FOUND');
+  }
+}
+
+export class SellerOrderNotFoundError extends NotFoundError {
+  constructor() {
+    super('Seller order not found', 'SELLER_ORDER_NOT_FOUND');
   }
 }

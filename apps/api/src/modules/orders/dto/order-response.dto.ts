@@ -63,6 +63,12 @@ export class SellerOrderDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
+  @ApiProperty({ format: 'uuid' })
+  orderId: string;
+
+  @ApiProperty({ format: 'date-time' })
+  createdAt: string;
+
   @ApiProperty({ type: SellerDto })
   seller: SellerDto;
 
@@ -96,6 +102,8 @@ export class SellerOrderDto {
   static from(record: SellerOrderRecord, storeNames: ReadonlyMap<string, string>): SellerOrderDto {
     return {
       id: record.id,
+      orderId: record.orderId,
+      createdAt: record.createdAt.toISOString(),
       seller: { id: record.sellerId, name: storeNames.get(record.sellerId) ?? '' },
       status: record.status,
       paymentStatus: record.paymentStatus,
@@ -167,4 +175,32 @@ export class OrderResponseDto {
       ),
     };
   }
+}
+
+export class OrderPageDto {
+  @ApiProperty({ type: [OrderResponseDto] })
+  items: OrderResponseDto[];
+
+  @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  page: number;
+
+  @ApiProperty()
+  limit: number;
+}
+
+export class SellerOrderPageDto {
+  @ApiProperty({ type: [SellerOrderDto] })
+  items: SellerOrderDto[];
+
+  @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  page: number;
+
+  @ApiProperty()
+  limit: number;
 }
