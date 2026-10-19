@@ -1,7 +1,15 @@
+import type { HealthCheckService } from '@nestjs/terminus';
+
+import type { DependencyHealthIndicators } from './dependency-health.indicators';
 import { HealthController } from './health.controller';
 
 describe('HealthController', () => {
+  const controller = new HealthController(
+    {} as unknown as HealthCheckService,
+    {} as unknown as DependencyHealthIndicators,
+  );
+
   it('reports liveness', () => {
-    expect(new HealthController().check()).toEqual({ status: 'ok' });
+    expect(controller.check()).toEqual({ status: 'ok' });
   });
 });
