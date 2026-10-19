@@ -23,3 +23,9 @@ export class CartInsufficientStockError extends ConflictError {
     super('Not enough stock for the requested quantity', 'INSUFFICIENT_STOCK', { stock });
   }
 }
+
+export class CartQuantityLimitError extends AppError {
+  constructor(limit: number) {
+    super('CART_QUANTITY_LIMIT', 422, `A cart line holds at most ${limit} units`);
+  }
+}
