@@ -2,6 +2,9 @@ export const HTTP_REQUESTS_TOTAL = 'http_requests_total';
 export const HTTP_REQUEST_DURATION_SECONDS = 'http_request_duration_seconds';
 export const APP_ERRORS_TOTAL = 'app_errors_total';
 
+export const ORDERS_CREATED_TOTAL = 'orders_created_total';
+export const CHECKOUT_FAILURES_TOTAL = 'checkout_failures_total';
+
 export const OUTBOX_PENDING_EVENTS = 'outbox_pending_events';
 export const OUTBOX_PUBLISH_LAG_SECONDS = 'outbox_publish_lag_seconds';
 export const OUTBOX_PUBLISH_FAILURES_TOTAL = 'outbox_publish_failures_total';

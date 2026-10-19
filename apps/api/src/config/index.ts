@@ -5,6 +5,7 @@ export { databaseConfig } from './database.config';
 export { httpConfig } from './http.config';
 export { idempotencyConfig } from './idempotency.config';
 export { metricsConfig } from './metrics.config';
+export { ordersConfig } from './orders.config';
 export { outboxConfig } from './outbox.config';
 export { productsConfig } from './products.config';
 export { queueConfig } from './queue.config';

@@ -13,6 +13,8 @@ import { MetricsModule } from './metrics';
 import { AuthModule } from './modules/auth';
 import { CartModule } from './modules/cart';
 import { CategoriesModule } from './modules/categories';
+import { OrdersModule } from './modules/orders';
+import { PaymentsLedgerModule } from './modules/payments-ledger';
 import { ProductsModule } from './modules/products';
 import { SearchSyncModule } from './modules/search-sync';
 import { SellersModule } from './modules/sellers';
@@ -44,6 +46,8 @@ import { MeiliModule } from './search';
     ProductsModule,
     SearchSyncModule,
     CartModule,
+    PaymentsLedgerModule,
+    OrdersModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

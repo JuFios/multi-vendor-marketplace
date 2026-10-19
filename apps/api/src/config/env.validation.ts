@@ -191,6 +191,13 @@ export class EnvironmentVariables {
   @IsBoolean()
   PRODUCT_PREMODERATION = false;
 
+  // Platform commission on each seller order, in basis points (1000 = 10%).
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(10_000)
+  PLATFORM_COMMISSION_BPS = 1000;
+
   @IsUrl({ protocols: ['postgres', 'postgresql'], require_protocol: true, require_tld: false })
   DATABASE_URL!: string;
 

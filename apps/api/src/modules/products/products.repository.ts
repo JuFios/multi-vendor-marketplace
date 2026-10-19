@@ -28,6 +28,18 @@ export interface ModerationFilter {
   readonly limit: number;
 }
 
+/** A fixed-price product as it was at the moment its stock was taken. */
+export interface ReservedProduct {
+  readonly productId: string;
+  readonly sellerId: string;
+  readonly title: string;
+  readonly unitPriceCents: number;
+  readonly quantity: number;
+  /** The stock left and the version after the deduction. */
+  readonly stock: number;
+  readonly version: number;
+}
+
 export interface CatalogMatches {
   readonly items: Product[];
   readonly total: number;
@@ -152,6 +164,40 @@ export class ProductsRepository {
   async findById(id: string): Promise<Product | null> {
     const row = await this.txHost.tx.product.findUnique({ where: { id } });
     return row && toProduct(row);
+  }
+
+  /**
+   * Takes `quantity` units in one conditional UPDATE: the row is only touched while it is still
+   * published and holds enough, so stock cannot go below zero however many buyers race.
+   */
+  async reserveStock(id: string, quantity: number): Promise<ReservedProduct | null> {
+    const rows = await this.txHost.tx.$queryRaw<
+      {
+        id: string;
+        seller_id: string;
+        title: string;
+        price_cents: number;
+        stock: number;
+        version: number;
+      }[]
+    >`
+      UPDATE products
+      SET stock = stock - ${quantity}, version = version + 1, updated_at = now()
+      WHERE id = ${id}::uuid AND stock >= ${quantity} AND is_published
+        AND archived_at IS NULL AND type = 'FIXED_PRICE'
+      RETURNING id, seller_id, title, price_cents, stock, version`;
+    const row = rows[0];
+    return row
+      ? {
+          productId: row.id,
+          sellerId: row.seller_id,
+          title: row.title,
+          unitPriceCents: row.price_cents,
+          quantity,
+          stock: row.stock,
+          version: row.version,
+        }
+      : null;
   }
 
   /** The products among `ids`, whatever their state: callers decide what unpublished means. */
