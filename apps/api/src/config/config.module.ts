@@ -10,6 +10,7 @@ import { httpConfig } from './http.config';
 import { idempotencyConfig } from './idempotency.config';
 import { metricsConfig } from './metrics.config';
 import { outboxConfig } from './outbox.config';
+import { productsConfig } from './products.config';
 import { queueConfig } from './queue.config';
 import { redisConfig } from './redis.config';
 import { searchConfig } from './search.config';
@@ -28,6 +29,7 @@ import { throttleConfig } from './throttle.config';
         idempotencyConfig,
         metricsConfig,
         outboxConfig,
+        productsConfig,
         queueConfig,
         redisConfig,
         searchConfig,

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 
+import { CacheModule } from './cache';
 import { AppClsModule } from './common/cls';
 import { AllExceptionsFilter } from './common/filters';
 import { ThrottlingModule } from './common/throttling';
@@ -11,6 +12,7 @@ import { LoggerModule } from './logger';
 import { MetricsModule } from './metrics';
 import { AuthModule } from './modules/auth';
 import { CategoriesModule } from './modules/categories';
+import { ProductsModule } from './modules/products';
 import { SellersModule } from './modules/sellers';
 import { UsersModule } from './modules/users';
 import { OutboxModule } from './outbox';
@@ -26,6 +28,7 @@ import { MeiliModule } from './search';
     PrismaModule,
     AppClsModule,
     OutboxModule,
+    CacheModule,
     IdempotencyModule,
     RedisModule,
     MeiliModule,
@@ -36,6 +39,7 @@ import { MeiliModule } from './search';
     UsersModule,
     SellersModule,
     CategoriesModule,
+    ProductsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

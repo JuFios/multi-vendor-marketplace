@@ -34,10 +34,10 @@ interface Seen {
 }
 
 /** Test-only: records what it saw; its effect goes through the inbox. */
-@Processor(QUEUE.CACHE)
+@Processor(QUEUE.REALTIME)
 class EchoProcessor extends IdempotentProcessor {
   protected readonly consumerName = 'spec-echo';
-  protected readonly queue = QUEUE.CACHE;
+  protected readonly queue = QUEUE.REALTIME;
   protected readonly eventTypes = [EVENT_TYPE.PRODUCT_CREATED];
   readonly seen: Seen[] = [];
   applied = 0;
@@ -64,7 +64,7 @@ class EchoProcessor extends IdempotentProcessor {
 class FlakyProcessor extends IdempotentProcessor {
   protected readonly consumerName = 'spec-flaky';
   protected readonly queue = QUEUE.ANALYTICS;
-  protected readonly eventTypes = [EVENT_TYPE.PRODUCT_ARCHIVED];
+  protected readonly eventTypes = [EVENT_TYPE.CATEGORY_UPDATED];
   calls = 0;
 
   protected handle(): Promise<void> {
@@ -78,8 +78,8 @@ class SpecProcessorsModule {}
 
 const ROUTES = {
   ...EVENT_ROUTES,
-  [EVENT_TYPE.PRODUCT_CREATED]: [QUEUE.CACHE],
-  [EVENT_TYPE.PRODUCT_ARCHIVED]: [QUEUE.ANALYTICS],
+  [EVENT_TYPE.PRODUCT_CREATED]: [QUEUE.REALTIME],
+  [EVENT_TYPE.CATEGORY_UPDATED]: [QUEUE.ANALYTICS],
 };
 
 const productCreated = (correlationId: string): AnyDomainEvent => {
@@ -97,25 +97,25 @@ const productCreated = (correlationId: string): AnyDomainEvent => {
   };
 };
 
-const productArchived = (): AnyDomainEvent => {
+const categoryUpdated = (): AnyDomainEvent => {
   const productId = newEventId();
   return {
     id: newEventId(),
-    type: EVENT_TYPE.PRODUCT_ARCHIVED,
-    aggregateType: 'Product',
+    type: EVENT_TYPE.CATEGORY_UPDATED,
+    aggregateType: 'Category',
     aggregateId: productId,
     occurredAt: new Date().toISOString(),
     correlationId: 'req-dlq',
     actorId: null,
     schemaVersion: 1,
-    payload: { productId },
+    payload: { categoryId: productId },
   };
 };
 
 describe('queue processors (e2e)', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
-  let cache: Queue;
+  let realtime: Queue;
   let analytics: Queue;
   let echo: EchoProcessor;
   let flaky: FlakyProcessor;
@@ -128,14 +128,14 @@ describe('queue processors (e2e)', () => {
       imports: [SpecProcessorsModule],
     });
     prisma = app.get(PrismaService);
-    cache = queueOf(app, QUEUE.CACHE);
+    realtime = queueOf(app, QUEUE.REALTIME);
     analytics = queueOf(app, QUEUE.ANALYTICS);
     echo = app.get(EchoProcessor);
     flaky = app.get(FlakyProcessor);
   });
 
   beforeEach(async () => {
-    await cache.obliterate({ force: true });
+    await realtime.obliterate({ force: true });
     await analytics.obliterate({ force: true });
     await resetDb(prisma);
     echo.seen.length = 0;
@@ -144,7 +144,7 @@ describe('queue processors (e2e)', () => {
   });
 
   afterAll(async () => {
-    await cache.obliterate({ force: true });
+    await realtime.obliterate({ force: true });
     await analytics.obliterate({ force: true });
     await app.close();
   });
@@ -152,7 +152,7 @@ describe('queue processors (e2e)', () => {
   it('restores the correlation context of the event while it is processed', async () => {
     const event = productCreated('req-http-1');
 
-    await cache.add(event.type, event, { jobId: event.id });
+    await realtime.add(event.type, event, { jobId: event.id });
 
     await waitUntil(() => echo.seen.length === 1, { label: 'the processor to run' });
     expect(echo.seen).toEqual([
@@ -163,8 +163,8 @@ describe('queue processors (e2e)', () => {
   it('applies the effect exactly once when the same event is delivered twice', async () => {
     const event = productCreated('req-dup');
 
-    await cache.add(event.type, event, { jobId: event.id });
-    await cache.add(event.type, event, { jobId: `${event.id}-redelivery` });
+    await realtime.add(event.type, event, { jobId: event.id });
+    await realtime.add(event.type, event, { jobId: `${event.id}-redelivery` });
 
     await waitUntil(() => echo.seen.length === 2, { label: 'both deliveries' });
     expect(echo.applied).toBe(1);
@@ -188,14 +188,14 @@ describe('queue processors (e2e)', () => {
   });
 
   it('counts failed attempts and successful jobs in the metrics', async () => {
-    const archived = productArchived();
-    await analytics.add(archived.type, archived, { jobId: archived.id });
+    const updated = categoryUpdated();
+    await analytics.add(updated.type, updated, { jobId: updated.id });
     await waitUntil(() => flaky.calls > 0, { label: 'the failing processor to run' });
     const created = productCreated('req-metrics-ok');
-    await cache.add(created.type, created, { jobId: created.id });
+    await realtime.add(created.type, created, { jobId: created.id });
     await waitUntil(() => echo.seen.length === 1, { label: 'the successful job' });
     await waitUntil(
-      async () => (await scrape()).includes('queue_jobs_completed_total{queue="cache"'),
+      async () => (await scrape()).includes('queue_jobs_completed_total{queue="realtime"'),
       {
         label: 'the completion to be counted',
       },
@@ -204,18 +204,18 @@ describe('queue processors (e2e)', () => {
     const text = await scrape();
 
     expect(text).toMatch(
-      /queue_jobs_failed_total\{queue="analytics",event="product.archived"\} [1-9]/,
+      /queue_jobs_failed_total\{queue="analytics",event="category.updated"\} [1-9]/,
     );
     expect(text).toMatch(
-      /queue_jobs_completed_total\{queue="cache",event="product.created"\} [1-9]/,
+      /queue_jobs_completed_total\{queue="realtime",event="product.created"\} [1-9]/,
     );
     expect(text).toMatch(
-      /queue_job_duration_seconds_count\{queue="cache",event="product.created"\} [1-9]/,
+      /queue_job_duration_seconds_count\{queue="realtime",event="product.created"\} [1-9]/,
     );
   });
 
   it('counts a job whose retries are used up and keeps it in the failed set', async () => {
-    const event = productArchived();
+    const event = categoryUpdated();
 
     await analytics.add(event.type, event, { jobId: event.id, attempts: 1 });
 
@@ -232,14 +232,14 @@ describe('queue processors (e2e)', () => {
 
   it('reports the number of waiting jobs per queue', async () => {
     const payouts = queueOf(app, QUEUE.PAYOUTS);
-    await payouts.add('a', productArchived(), { jobId: newEventId() });
-    await payouts.add('b', productArchived(), { jobId: newEventId() });
+    await payouts.add('a', categoryUpdated(), { jobId: newEventId() });
+    await payouts.add('b', categoryUpdated(), { jobId: newEventId() });
 
     const text = await scrape();
     await payouts.obliterate({ force: true });
 
     expect(text).toContain('queue_waiting_jobs{queue="payouts"} 2');
-    expect(text).toContain('queue_waiting_jobs{queue="cache"} 0');
+    expect(text).toContain('queue_waiting_jobs{queue="realtime"} 0');
   });
 
   it('runs the worker with the configured concurrency', () => {

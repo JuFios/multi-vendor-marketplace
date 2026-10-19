@@ -9,6 +9,8 @@ import {
 import { HttpMetricsService } from './http-metrics.service';
 import {
   APP_ERRORS_TOTAL,
+  CACHE_HITS_TOTAL,
+  CACHE_MISSES_TOTAL,
   HTTP_DURATION_BUCKETS_SECONDS,
   HTTP_REQUEST_DURATION_SECONDS,
   HTTP_REQUESTS_TOTAL,
@@ -69,6 +71,16 @@ const metricProviders = [
     name: QUEUE_DEAD_LETTER_TOTAL,
     help: 'Jobs that exhausted their retries and now sit in the failed set.',
     labelNames: ['queue'],
+  }),
+  makeCounterProvider({
+    name: CACHE_HITS_TOTAL,
+    help: 'Cache reads answered from the cache, by cache.',
+    labelNames: ['cache'],
+  }),
+  makeCounterProvider({
+    name: CACHE_MISSES_TOTAL,
+    help: 'Cache reads that fell through to the source, by cache.',
+    labelNames: ['cache'],
   }),
 ];
 
