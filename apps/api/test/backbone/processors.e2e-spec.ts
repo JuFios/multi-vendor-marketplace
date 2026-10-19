@@ -38,7 +38,7 @@ interface Seen {
 class EchoProcessor extends IdempotentProcessor {
   protected readonly consumerName = 'spec-echo';
   protected readonly queue = QUEUE.REALTIME;
-  protected readonly eventTypes = [EVENT_TYPE.PRODUCT_CREATED];
+  protected readonly eventTypes = [EVENT_TYPE.DISPUTE_OPENED];
   readonly seen: Seen[] = [];
   applied = 0;
 
@@ -64,7 +64,7 @@ class EchoProcessor extends IdempotentProcessor {
 class FlakyProcessor extends IdempotentProcessor {
   protected readonly consumerName = 'spec-flaky';
   protected readonly queue = QUEUE.ANALYTICS;
-  protected readonly eventTypes = [EVENT_TYPE.CATEGORY_UPDATED];
+  protected readonly eventTypes = [EVENT_TYPE.DISPUTE_MESSAGE_ADDED];
   calls = 0;
 
   protected handle(): Promise<void> {
@@ -78,22 +78,22 @@ class SpecProcessorsModule {}
 
 const ROUTES = {
   ...EVENT_ROUTES,
-  [EVENT_TYPE.PRODUCT_CREATED]: [QUEUE.REALTIME],
-  [EVENT_TYPE.CATEGORY_UPDATED]: [QUEUE.ANALYTICS],
+  [EVENT_TYPE.DISPUTE_OPENED]: [QUEUE.REALTIME],
+  [EVENT_TYPE.DISPUTE_MESSAGE_ADDED]: [QUEUE.ANALYTICS],
 };
 
 const productCreated = (correlationId: string): AnyDomainEvent => {
   const productId = newEventId();
   return {
     id: newEventId(),
-    type: EVENT_TYPE.PRODUCT_CREATED,
-    aggregateType: 'Product',
+    type: EVENT_TYPE.DISPUTE_OPENED,
+    aggregateType: 'Dispute',
     aggregateId: productId,
     occurredAt: new Date().toISOString(),
     correlationId,
     actorId: null,
     schemaVersion: 1,
-    payload: { productId, version: 1 },
+    payload: { disputeId: productId, sellerOrderId: productId },
   };
 };
 
@@ -101,14 +101,14 @@ const categoryUpdated = (): AnyDomainEvent => {
   const productId = newEventId();
   return {
     id: newEventId(),
-    type: EVENT_TYPE.CATEGORY_UPDATED,
-    aggregateType: 'Category',
+    type: EVENT_TYPE.DISPUTE_MESSAGE_ADDED,
+    aggregateType: 'Dispute',
     aggregateId: productId,
     occurredAt: new Date().toISOString(),
     correlationId: 'req-dlq',
     actorId: null,
     schemaVersion: 1,
-    payload: { categoryId: productId },
+    payload: { disputeId: productId, sellerOrderId: productId },
   };
 };
 
@@ -204,13 +204,13 @@ describe('queue processors (e2e)', () => {
     const text = await scrape();
 
     expect(text).toMatch(
-      /queue_jobs_failed_total\{queue="analytics",event="category.updated"\} [1-9]/,
+      /queue_jobs_failed_total\{queue="analytics",event="dispute.message_added"\} [1-9]/,
     );
     expect(text).toMatch(
-      /queue_jobs_completed_total\{queue="realtime",event="product.created"\} [1-9]/,
+      /queue_jobs_completed_total\{queue="realtime",event="dispute.opened"\} [1-9]/,
     );
     expect(text).toMatch(
-      /queue_job_duration_seconds_count\{queue="realtime",event="product.created"\} [1-9]/,
+      /queue_job_duration_seconds_count\{queue="realtime",event="dispute.opened"\} [1-9]/,
     );
   });
 
@@ -249,10 +249,10 @@ describe('queue processors (e2e)', () => {
   it('publishes through the port as a job keyed by the event id with the default options', async () => {
     const publisher = app.get<QueuePublisherPort>(QUEUE_PUBLISHER);
     const event = productCreated('req-port');
-    const queue = queueOf(app, QUEUE.SEARCH_SYNC);
+    const queue = queueOf(app, QUEUE.CART);
 
-    await publisher.publish(QUEUE.SEARCH_SYNC, event);
-    await publisher.publish(QUEUE.SEARCH_SYNC, event);
+    await publisher.publish(QUEUE.CART, event);
+    await publisher.publish(QUEUE.CART, event);
 
     const job = await queue.getJob(event.id);
     expect(job?.data).toEqual(event);
@@ -270,7 +270,7 @@ describe('processor configuration (e2e)', () => {
   class UnroutedProcessor extends IdempotentProcessor {
     protected readonly consumerName = 'spec-unrouted';
     protected readonly queue = QUEUE.CART;
-    protected readonly eventTypes = [EVENT_TYPE.PRODUCT_CREATED];
+    protected readonly eventTypes = [EVENT_TYPE.DISPUTE_OPENED];
 
     protected handle(): Promise<void> {
       return Promise.resolve();

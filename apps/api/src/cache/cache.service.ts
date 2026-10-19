@@ -30,8 +30,15 @@ export class CacheService {
     @InjectMetric(CACHE_MISSES_TOTAL) private readonly misses: Counter<'cache'>,
   ) {}
 
-  /** The cached value, or the result of `load`, which is then cached. */
-  async remember<T>({ cache, key, ttlMs }: CacheEntry, load: () => Promise<T>): Promise<T> {
+  /**
+   * The cached value, or the result of `load`, which is then cached unless `shouldStore`
+   * says the value is not worth keeping (a degraded answer, say).
+   */
+  async remember<T>(
+    { cache, key, ttlMs }: CacheEntry,
+    load: () => Promise<T>,
+    shouldStore: (value: T) => boolean = () => true,
+  ): Promise<T> {
     const cached = await this.read<T>(cache, key);
     if (cached !== undefined) {
       this.hits.inc({ cache });
@@ -39,7 +46,9 @@ export class CacheService {
     }
     this.misses.inc({ cache });
     const value = await load();
-    await this.write(cache, key, value, ttlMs);
+    if (shouldStore(value)) {
+      await this.write(cache, key, value, ttlMs);
+    }
     return value;
   }
 

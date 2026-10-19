@@ -204,6 +204,12 @@ export class EnvironmentVariables {
   @MinLength(16)
   MEILI_MASTER_KEY!: string;
 
+  // How long a catalog search may take before the SQL fallback answers instead.
+  @Type(() => Number)
+  @IsInt()
+  @Min(100)
+  SEARCH_TIMEOUT_MS = 1500;
+
   // Prepended to every index name so profiles never share indexes.
   @Matches(/^[A-Za-z0-9_]*$/)
   MEILI_INDEX_PREFIX = '';

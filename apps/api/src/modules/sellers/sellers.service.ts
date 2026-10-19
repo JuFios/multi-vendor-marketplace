@@ -90,6 +90,11 @@ export class SellersService {
     return (await this.sellers.findById(sellerId))?.status === 'APPROVED';
   }
 
+  /** Store names by store id; stores that are not approved are left out. */
+  findStoreNames(ids: readonly string[]): Promise<Map<string, string>> {
+    return this.sellers.findApprovedNames(ids);
+  }
+
   listApplications(
     filter: ApplicationFilter,
   ): Promise<{ items: SellerApplication[]; total: number }> {

@@ -34,16 +34,16 @@ class RecordingPublisher implements QueuePublisherPort {
 
 const ROUTES = {
   ...EVENT_ROUTES,
-  [EVENT_TYPE.PRODUCT_CREATED]: [QUEUE.REALTIME, QUEUE.SEARCH_SYNC],
+  [EVENT_TYPE.DISPUTE_OPENED]: [QUEUE.REALTIME, QUEUE.SEARCH_SYNC],
 };
 
 const productCreated = () => {
   const productId = newEventId();
   return {
-    type: EVENT_TYPE.PRODUCT_CREATED,
-    aggregateType: 'Product',
+    type: EVENT_TYPE.DISPUTE_OPENED,
+    aggregateType: 'Dispute',
     aggregateId: productId,
-    payload: { productId, version: 1 },
+    payload: { disputeId: productId, sellerOrderId: productId },
   } as const;
 };
 
@@ -116,8 +116,8 @@ describe('outbox (e2e)', () => {
     for (const { event: delivered } of publisher.published) {
       expect(delivered).toMatchObject({
         id,
-        type: EVENT_TYPE.PRODUCT_CREATED,
-        aggregateType: 'Product',
+        type: EVENT_TYPE.DISPUTE_OPENED,
+        aggregateType: 'Dispute',
         aggregateId: event.aggregateId,
         correlationId: 'req-e2e-1',
         schemaVersion: 1,
@@ -129,10 +129,10 @@ describe('outbox (e2e)', () => {
 
   it('marks events without a consumer as published without calling the queue', async () => {
     const [id] = await addInTransaction({
-      type: EVENT_TYPE.CATEGORY_UPDATED,
-      aggregateType: 'Category',
+      type: EVENT_TYPE.DISPUTE_MESSAGE_ADDED,
+      aggregateType: 'Dispute',
       aggregateId: newEventId(),
-      payload: { categoryId: newEventId() },
+      payload: { disputeId: newEventId(), sellerOrderId: newEventId() },
     });
 
     await waitUntil(async () => (await row(id ?? ''))?.publishedAt != null, {

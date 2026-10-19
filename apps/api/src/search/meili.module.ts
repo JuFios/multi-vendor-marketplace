@@ -4,7 +4,9 @@ import { Meilisearch } from 'meilisearch';
 
 import { searchConfig } from '../config';
 
+import { MeiliSearchAdapter } from './meili-search.adapter';
 import { MEILI_CLIENT } from './meili.constants';
+import { SEARCH_PORT } from './search.port';
 
 @Global()
 @Module({
@@ -15,7 +17,9 @@ import { MEILI_CLIENT } from './meili.constants';
       useFactory: (config: ConfigType<typeof searchConfig>): Meilisearch =>
         new Meilisearch({ host: config.host, apiKey: config.masterKey }),
     },
+    MeiliSearchAdapter,
+    { provide: SEARCH_PORT, useExisting: MeiliSearchAdapter },
   ],
-  exports: [MEILI_CLIENT],
+  exports: [MEILI_CLIENT, SEARCH_PORT],
 })
 export class MeiliModule {}

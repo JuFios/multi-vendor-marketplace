@@ -8,5 +8,6 @@ export const searchConfig = registerAs('search', () => {
     host: env.MEILI_HOST,
     masterKey: env.MEILI_MASTER_KEY,
     indexPrefix: env.MEILI_INDEX_PREFIX,
+    timeoutMs: env.SEARCH_TIMEOUT_MS,
   };
 });

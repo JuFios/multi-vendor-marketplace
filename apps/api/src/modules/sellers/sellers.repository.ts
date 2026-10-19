@@ -109,4 +109,13 @@ export class SellersRepository {
     });
     return count === 0 ? null : this.findById(id);
   }
+
+  /** Store names of the approved stores among `ids`, by store id. */
+  async findApprovedNames(ids: readonly string[]): Promise<Map<string, string>> {
+    const rows = await this.txHost.tx.sellerProfile.findMany({
+      where: { id: { in: [...ids] }, status: 'APPROVED' },
+      select: { id: true, storeName: true },
+    });
+    return new Map(rows.map((row) => [row.id, row.storeName]));
+  }
 }

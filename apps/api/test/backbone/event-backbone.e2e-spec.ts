@@ -25,12 +25,12 @@ import { createTestApp } from '../utils/test-app';
 
 import '../../src/common/cls/cls-store';
 
-/** Test-only: reacts to `product.created` by recording a `category.updated` event, once. */
+/** Test-only: reacts to `dispute.opened` by recording a `dispute.message_added` event, once. */
 @Processor(QUEUE.REALTIME)
 class BackboneProcessor extends IdempotentProcessor {
   protected readonly consumerName = 'spec-backbone';
   protected readonly queue = QUEUE.REALTIME;
-  protected readonly eventTypes = [EVENT_TYPE.PRODUCT_CREATED];
+  protected readonly eventTypes = [EVENT_TYPE.DISPUTE_OPENED];
   readonly seen: { eventId: string; correlationId: string | undefined }[] = [];
 
   constructor(private readonly outbox: OutboxService) {
@@ -42,10 +42,10 @@ class BackboneProcessor extends IdempotentProcessor {
     await this.runIdempotent(event.id, async () => {
       await this.outbox.add([
         {
-          type: EVENT_TYPE.CATEGORY_UPDATED,
-          aggregateType: 'Category',
+          type: EVENT_TYPE.DISPUTE_MESSAGE_ADDED,
+          aggregateType: 'Dispute',
           aggregateId: event.aggregateId,
-          payload: { categoryId: event.aggregateId },
+          payload: { disputeId: event.aggregateId, sellerOrderId: event.aggregateId },
         },
       ]);
     });
@@ -66,10 +66,10 @@ class BackboneController {
     await this.txHost.withTransaction(async () => {
       await this.outbox.add([
         {
-          type: EVENT_TYPE.PRODUCT_CREATED,
-          aggregateType: 'Product',
+          type: EVENT_TYPE.DISPUTE_OPENED,
+          aggregateType: 'Dispute',
           aggregateId: productId,
-          payload: { productId, version: 1 },
+          payload: { disputeId: productId, sellerOrderId: productId },
         },
       ]);
       if (body.rollback) {
@@ -90,14 +90,14 @@ describe('event backbone (e2e)', () => {
   let processor: BackboneProcessor;
 
   const derivedEvents = () =>
-    prisma.outboxEvent.count({ where: { eventType: 'category.updated' } });
+    prisma.outboxEvent.count({ where: { eventType: 'dispute.message_added' } });
 
   beforeAll(async () => {
     app = await createTestApp(
       [
         {
           token: EVENT_ROUTING,
-          useValue: { ...EVENT_ROUTES, [EVENT_TYPE.PRODUCT_CREATED]: [QUEUE.REALTIME] },
+          useValue: { ...EVENT_ROUTES, [EVENT_TYPE.DISPUTE_OPENED]: [QUEUE.REALTIME] },
         },
       ],
       { imports: [BackboneModule] },
@@ -131,7 +131,7 @@ describe('event backbone (e2e)', () => {
     expect(processor.seen).toHaveLength(1);
     expect(processor.seen[0]?.correlationId).toBe('req-backbone-1');
     const derived = await prisma.outboxEvent.findFirst({
-      where: { eventType: 'category.updated' },
+      where: { eventType: 'dispute.message_added' },
     });
     expect(derived?.correlationId).toBe('req-backbone-1');
     expect(derived?.publishedAt).not.toBeNull();
@@ -155,7 +155,7 @@ describe('event backbone (e2e)', () => {
       .send({});
     await flushEvents();
     const original = await prisma.outboxEvent.findFirstOrThrow({
-      where: { eventType: 'product.created' },
+      where: { eventType: 'dispute.opened' },
     });
 
     // The relay "crashed" after enqueueing: forget the job and the publication mark.
@@ -167,14 +167,14 @@ describe('event backbone (e2e)', () => {
       original.eventType,
       {
         id: original.id,
-        type: EVENT_TYPE.PRODUCT_CREATED,
+        type: EVENT_TYPE.DISPUTE_OPENED,
         aggregateType: original.aggregateType,
         aggregateId: original.aggregateId,
         occurredAt: original.occurredAt.toISOString(),
         correlationId: original.correlationId,
         actorId: original.actorId,
         schemaVersion: 1,
-        payload: { productId: original.aggregateId, version: 1 },
+        payload: { disputeId: original.aggregateId, sellerOrderId: original.aggregateId },
       },
       { jobId: `${original.id}-again` },
     );
