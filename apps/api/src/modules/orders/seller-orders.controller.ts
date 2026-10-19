@@ -19,6 +19,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { SellerGuard } from '../sellers';
 
+import { CancelSellerOrderDto } from './dto/cancel-seller-order.dto';
 import { SellerChangeStatusDto } from './dto/change-status.dto';
 import { ListSellerOrdersQueryDto } from './dto/list-orders-query.dto';
 import { SellerOrderDto, SellerOrderPageDto } from './dto/order-response.dto';
@@ -80,6 +81,25 @@ export class SellerOrdersController {
     return this.lifecycle.changeStatus(
       id,
       dto.status,
+      { type: 'SELLER', userId: user.userId },
+      { sellerId },
+    );
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancels an own seller order that is NEW or PROCESSING.' })
+  @ApiOkResponse({ type: SellerOrderDto })
+  @ApiErrorResponses(400, 401, 403, 404, 409)
+  cancel(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUuidPipe) id: string,
+    @Body() dto: CancelSellerOrderDto,
+  ): Promise<SellerOrderDto> {
+    const sellerId = sellerIdOf(user);
+    return this.lifecycle.cancel(
+      id,
+      dto.reason,
       { type: 'SELLER', userId: user.userId },
       { sellerId },
     );

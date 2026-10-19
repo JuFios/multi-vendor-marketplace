@@ -109,6 +109,8 @@ export interface EventPayloads {
   [EVENT_TYPE.SELLER_ORDER_CANCELLED]: {
     sellerOrderId: string;
     orderId: string;
+    sellerId: string;
+    customerId: string;
     actorType: ActorType;
     reason: string;
     restocked: { productId: string; quantity: number }[];

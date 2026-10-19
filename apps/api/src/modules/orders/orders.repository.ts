@@ -300,4 +300,60 @@ export class OrdersRepository {
     });
     return row.version;
   }
+
+  /**
+   * Cancels the seller order: no commission or payout is left, and a captured payment is
+   * marked refunded. Returns the new version.
+   */
+  async cancelSellerOrder(
+    sellerOrderId: string,
+    from: SellerOrderStatusValue,
+    actor: { type: Actor; userId: string | null },
+    reason: string,
+  ): Promise<number> {
+    const current = await this.txHost.tx.sellerOrder.findUniqueOrThrow({
+      where: { id: sellerOrderId },
+      select: { paymentStatus: true },
+    });
+    const row = await this.txHost.tx.sellerOrder.update({
+      where: { id: sellerOrderId },
+      data: {
+        status: 'CANCELLED',
+        cancelReason: reason,
+        cancelledBy: actor.type,
+        commissionCents: 0,
+        payoutCents: 0,
+        paymentStatus: current.paymentStatus === 'CAPTURED' ? 'REFUNDED' : current.paymentStatus,
+        version: { increment: 1 },
+      },
+      select: { version: true },
+    });
+    await this.txHost.tx.sellerOrderStatusHistory.create({
+      data: {
+        sellerOrderId,
+        fromStatus: from,
+        toStatus: 'CANCELLED',
+        actorType: actor.type,
+        actorId: actor.userId,
+        reason,
+      },
+    });
+    return row.version;
+  }
+
+  /** Books the cancelled amount on the order and re-sums its commission from the seller orders. */
+  async applyCancellationToOrder(orderId: string, releasedCents: number): Promise<void> {
+    const commission = await this.txHost.tx.sellerOrder.aggregate({
+      where: { orderId },
+      _sum: { commissionCents: true },
+    });
+    await this.txHost.tx.order.update({
+      where: { id: orderId },
+      data: {
+        refundedCents: { increment: releasedCents },
+        totalCents: { decrement: releasedCents },
+        commissionCents: commission._sum.commissionCents ?? 0,
+      },
+    });
+  }
 }

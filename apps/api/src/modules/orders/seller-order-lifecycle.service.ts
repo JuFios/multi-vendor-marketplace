@@ -1,11 +1,17 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
+import type { Counter } from '@prometheus-io/client';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
 
+import { SELLER_ORDERS_CANCELLED_TOTAL } from '../../metrics';
 import { OutboxService } from '../../outbox';
 import { EVENT_TYPE } from '../../outbox/events';
 import type { AppTransactionHost } from '../../prisma';
+import { LedgerService } from '../payments-ledger';
+import { InventoryService } from '../products';
 import { SellersService } from '../sellers';
 
+import { planCancellation } from './cancellation';
 import { SellerOrderDto } from './dto/order-response.dto';
 import type { SellerOrderRecord } from './order';
 import { aggregateOrderStatus, type SellerOrderStatusValue } from './order-status';
@@ -37,9 +43,12 @@ export class SellerOrderLifecycleService {
 
   constructor(
     @Inject(TransactionHost) private readonly txHost: AppTransactionHost,
+    @InjectMetric(SELLER_ORDERS_CANCELLED_TOTAL) private readonly cancelled: Counter<'actor'>,
     private readonly orders: OrdersRepository,
     private readonly sellers: SellersService,
     private readonly outbox: OutboxService,
+    private readonly inventory: InventoryService,
+    private readonly ledger: LedgerService,
   ) {}
 
   async changeStatus(
@@ -69,6 +78,77 @@ export class SellerOrderLifecycleService {
       from: result.sellerOrder.status,
       to,
       actor: actor.type,
+    });
+    return SellerOrderDto.from(
+      result.updated,
+      await this.sellers.findStoreNames([result.updated.sellerId]),
+    );
+  }
+
+  /**
+   * Cancels one seller order and nothing else: its stock goes back, its books are reversed and
+   * the order's totals and aggregate follow, all in one transaction.
+   */
+  async cancel(
+    sellerOrderId: string,
+    reason: string,
+    actor: LifecycleActor,
+    ownership: Ownership,
+  ): Promise<SellerOrderDto> {
+    const result = await this.txHost.withTransaction(async () => {
+      const { sellerOrder, customerId } = await this.lockAndLoad(sellerOrderId, ownership);
+      assertTransition(sellerOrder.status, 'CANCELLED', actor.type, {
+        paymentStatus: sellerOrder.paymentStatus,
+      });
+
+      // Only NEW and PROCESSING cancellations reach this point; shipped goods are not restocked.
+      // TODO: start a new auction round when the cancelled item was an auction lot
+      const restocked = sellerOrder.items
+        .filter((item) => item.auctionId === null)
+        .map((item) => ({ productId: item.productId, quantity: item.quantity }));
+      await this.inventory.restock(restocked);
+
+      const plan = planCancellation(sellerOrder);
+      await this.ledger.recordCancellation({
+        sellerOrderId: sellerOrder.id,
+        sellerId: sellerOrder.sellerId,
+        releasedCents: plan.releasedCents,
+        commissionCents: plan.commissionReversalCents,
+      });
+      const version = await this.orders.cancelSellerOrder(
+        sellerOrder.id,
+        sellerOrder.status,
+        actor,
+        reason,
+      );
+      await this.orders.applyCancellationToOrder(sellerOrder.orderId, plan.releasedCents);
+      await this.outbox.add([
+        {
+          type: EVENT_TYPE.SELLER_ORDER_CANCELLED,
+          aggregateType: 'SellerOrder',
+          aggregateId: sellerOrder.id,
+          payload: {
+            sellerOrderId: sellerOrder.id,
+            orderId: sellerOrder.orderId,
+            sellerId: sellerOrder.sellerId,
+            customerId,
+            actorType: actor.type,
+            reason,
+            restocked,
+          },
+          actorId: actor.userId,
+        },
+      ]);
+      await this.recordChange(sellerOrder, customerId, 'CANCELLED', version, actor.userId);
+      return { before: sellerOrder, updated: await this.requireSellerOrder(sellerOrderId) };
+    });
+    this.cancelled.inc({ actor: actor.type });
+    this.logger.log({
+      msg: 'seller_order.cancelled',
+      sellerOrderId,
+      from: result.before.status,
+      actor: actor.type,
+      reason,
     });
     return SellerOrderDto.from(
       result.updated,

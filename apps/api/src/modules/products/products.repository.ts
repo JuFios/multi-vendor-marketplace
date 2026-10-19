@@ -200,6 +200,20 @@ export class ProductsRepository {
       : null;
   }
 
+  /** Gives `quantity` units back; the product keeps whatever state it is in. */
+  async restockStock(
+    id: string,
+    quantity: number,
+  ): Promise<{ productId: string; stock: number; version: number } | null> {
+    const rows = await this.txHost.tx.$queryRaw<{ id: string; stock: number; version: number }[]>`
+      UPDATE products
+      SET stock = stock + ${quantity}, version = version + 1, updated_at = now()
+      WHERE id = ${id}::uuid
+      RETURNING id, stock, version`;
+    const row = rows[0];
+    return row ? { productId: row.id, stock: row.stock, version: row.version } : null;
+  }
+
   /** The products among `ids`, whatever their state: callers decide what unpublished means. */
   async findByIds(ids: readonly string[]): Promise<Product[]> {
     const rows = await this.txHost.tx.product.findMany({ where: { id: { in: [...ids] } } });

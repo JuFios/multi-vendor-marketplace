@@ -14,6 +14,7 @@ import { IDEMPOTENCY_SCOPE, Idempotent } from '../../idempotency';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
+import { DEFAULT_CANCEL_REASONS } from './cancellation';
 import { CheckoutService } from './checkout.service';
 import { OrderPageDto, OrderResponseDto, SellerOrderDto } from './dto/order-response.dto';
 import { OrdersService } from './orders.service';
@@ -73,6 +74,24 @@ export class OrdersController {
     return this.lifecycle.changeStatus(
       sellerOrderId,
       'COMPLETED',
+      { type: 'CUSTOMER', userId: user.userId },
+      { customerId: user.userId, orderId },
+    );
+  }
+
+  @Post(':orderId/seller-orders/:soId/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancels a seller order of an own order while it is still NEW.' })
+  @ApiOkResponse({ type: SellerOrderDto })
+  @ApiErrorResponses(400, 401, 404, 409)
+  cancel(
+    @CurrentUser() user: AuthUser,
+    @Param('orderId', ParseUuidPipe) orderId: string,
+    @Param('soId', ParseUuidPipe) sellerOrderId: string,
+  ): Promise<SellerOrderDto> {
+    return this.lifecycle.cancel(
+      sellerOrderId,
+      DEFAULT_CANCEL_REASONS.CUSTOMER,
       { type: 'CUSTOMER', userId: user.userId },
       { customerId: user.userId, orderId },
     );

@@ -7,6 +7,7 @@ import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 
+import { CancelSellerOrderDto } from './dto/cancel-seller-order.dto';
 import { AdminChangeStatusDto } from './dto/change-status.dto';
 import { SellerOrderDto } from './dto/order-response.dto';
 import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
@@ -29,5 +30,18 @@ export class AdminSellerOrdersController {
     @Body() dto: AdminChangeStatusDto,
   ): Promise<SellerOrderDto> {
     return this.lifecycle.changeStatus(id, dto.status, { type: 'ADMIN', userId: user.userId }, {});
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancels any seller order that is not final.' })
+  @ApiOkResponse({ type: SellerOrderDto })
+  @ApiErrorResponses(400, 401, 403, 404, 409)
+  cancel(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUuidPipe) id: string,
+    @Body() dto: CancelSellerOrderDto,
+  ): Promise<SellerOrderDto> {
+    return this.lifecycle.cancel(id, dto.reason, { type: 'ADMIN', userId: user.userId }, {});
   }
 }
