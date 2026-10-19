@@ -32,7 +32,7 @@ describe('request logging and correlation id (e2e)', () => {
         callback();
       },
     });
-    app = await createTestApp([{ token: LOG_STREAM, useValue: stream }]);
+    app = await createTestApp([{ token: LOG_STREAM, useValue: stream }], { worker: false });
   });
 
   afterAll(async () => {

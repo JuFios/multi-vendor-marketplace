@@ -18,7 +18,7 @@ describe('DB constraints (e2e)', () => {
   let prisma: PrismaService;
 
   beforeAll(async () => {
-    app = await createTestApp();
+    app = await createTestApp([], { worker: false });
     prisma = app.get(PrismaService);
   });
 

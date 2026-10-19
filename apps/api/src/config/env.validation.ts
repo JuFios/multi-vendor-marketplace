@@ -57,6 +57,35 @@ export class EnvironmentVariables {
   @Max(65_535)
   WORKER_METRICS_PORT = 9100;
 
+  // How often the worker polls the outbox, and how many events it relays per batch.
+  @Type(() => Number)
+  @IsInt()
+  @Min(10)
+  OUTBOX_POLL_INTERVAL_MS = 200;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  OUTBOX_BATCH_SIZE = 100;
+
+  // Jobs a queue worker processes at the same time.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  QUEUE_CONCURRENCY = 5;
+
+  // How long a stored Idempotency-Key response stays valid, and after how many seconds an
+  // unfinished request is treated as abandoned.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  IDEMPOTENCY_TTL_HOURS = 24;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  IDEMPOTENCY_LOCK_TIMEOUT_SEC = 30;
+
   // Rate limits: requests per window; TTL is the window length in seconds.
   @Type(() => Number)
   @IsInt()

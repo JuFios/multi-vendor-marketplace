@@ -1,6 +1,7 @@
 export { AppClsModule } from './app-cls.module';
 export {
   bindRequestCorrelationId,
+  getContextEventId,
   getContextUserId,
   getCorrelationId,
   setContextUserId,

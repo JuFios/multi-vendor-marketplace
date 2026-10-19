@@ -54,7 +54,7 @@ describe('Request validation (e2e)', () => {
   let app: NestExpressApplication;
 
   beforeAll(async () => {
-    app = await createTestApp([], [ItemsModule]);
+    app = await createTestApp([], { imports: [ItemsModule], worker: false });
   });
 
   afterAll(async () => {

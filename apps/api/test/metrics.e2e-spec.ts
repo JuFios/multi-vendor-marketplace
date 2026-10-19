@@ -15,7 +15,7 @@ describe('Metrics (e2e)', () => {
   };
 
   beforeAll(async () => {
-    app = await createTestApp();
+    app = await createTestApp([], { worker: false });
   });
 
   afterAll(async () => {

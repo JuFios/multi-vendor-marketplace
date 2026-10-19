@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { LevelWithSilent } from 'pino';
 import type { Options } from 'pino-http';
 
-import { getContextUserId, getCorrelationId } from '../common/cls';
+import { getContextEventId, getContextUserId, getCorrelationId } from '../common/cls';
 import { resolveRouteTemplate } from '../common/utils';
 
 import { REDACT_CENSOR, REDACT_PATHS } from './logger.constants';
@@ -48,9 +48,11 @@ export function buildPinoHttpOptions({
     mixin: () => {
       const correlationId = getCorrelationId();
       const userId = getContextUserId();
+      const eventId = getContextEventId();
       return {
         ...(correlationId === undefined ? {} : { correlationId }),
         ...(userId === undefined ? {} : { userId }),
+        ...(eventId === undefined ? {} : { eventId }),
       };
     },
     serializers: { req: () => undefined, res: () => undefined },

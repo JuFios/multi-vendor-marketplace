@@ -27,6 +27,11 @@ export function setContextUserId(userId: string): void {
   }
 }
 
+/** Id of the domain event a consumer is processing; undefined outside a consumer. */
+export function getContextEventId(): string | undefined {
+  return ClsServiceManager.getClsService().get('eventId');
+}
+
 /** CLS `setup` hook for HTTP requests: stores the id and echoes it in the response. */
 export function bindRequestCorrelationId(cls: ClsService, req: Request, res: Response): void {
   const correlationId = resolveCorrelationId(req.headers[CORRELATION_ID_REQUEST_HEADER]);

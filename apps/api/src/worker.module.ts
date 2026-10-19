@@ -4,7 +4,9 @@ import { AppClsModule } from './common/cls';
 import { AppConfigModule } from './config';
 import { LoggerModule } from './logger';
 import { MetricsModule, WorkerMetricsServer } from './metrics';
+import { OutboxModule, OutboxRelayModule } from './outbox';
 import { PrismaModule } from './prisma';
+import { QueueModule } from './queue';
 import { RedisModule } from './redis';
 import { MeiliModule } from './search';
 import { WorkerLifecycle } from './worker.lifecycle';
@@ -16,6 +18,9 @@ import { WorkerLifecycle } from './worker.lifecycle';
     MetricsModule,
     PrismaModule,
     AppClsModule,
+    OutboxModule,
+    QueueModule,
+    OutboxRelayModule,
     RedisModule,
     MeiliModule,
   ],
