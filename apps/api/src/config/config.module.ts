@@ -9,6 +9,7 @@ import { validate } from './env.validation';
 import { httpConfig } from './http.config';
 import { idempotencyConfig } from './idempotency.config';
 import { metricsConfig } from './metrics.config';
+import { ordersConfig } from './orders.config';
 import { outboxConfig } from './outbox.config';
 import { productsConfig } from './products.config';
 import { queueConfig } from './queue.config';
@@ -29,6 +30,7 @@ import { throttleConfig } from './throttle.config';
         idempotencyConfig,
         metricsConfig,
         outboxConfig,
+        ordersConfig,
         productsConfig,
         queueConfig,
         redisConfig,

@@ -33,3 +33,9 @@ export class ProductNotPendingError extends ConflictError {
     super('This product is not awaiting moderation', 'PRODUCT_NOT_PENDING');
   }
 }
+
+export class InsufficientStockError extends ConflictError {
+  constructor(items: readonly { productId: string; requested: number; available: number }[]) {
+    super('Not enough stock for some of the products', 'INSUFFICIENT_STOCK', { items });
+  }
+}
