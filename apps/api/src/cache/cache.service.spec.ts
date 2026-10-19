@@ -45,6 +45,20 @@ describe('CacheService', () => {
     expect(backing.set).toHaveBeenCalledWith('cache:product:1', { id: 2 }, 300_000);
   });
 
+  it('does not store a value the caller refuses', async () => {
+    const { service, backing } = setup();
+
+    await expect(
+      service.remember(
+        entry,
+        () => Promise.resolve({ degraded: true }),
+        (value) => !value.degraded,
+      ),
+    ).resolves.toEqual({ degraded: true });
+
+    expect(backing.set).not.toHaveBeenCalled();
+  });
+
   it('falls through to the source when the store fails', async () => {
     const { service, misses } = setup({
       get: jest.fn().mockRejectedValue(new Error('down')),

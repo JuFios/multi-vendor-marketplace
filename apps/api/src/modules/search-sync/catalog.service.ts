@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Counter } from '@prometheus-io/client';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 
+import { CacheService } from '../../cache';
 import { SEARCH_DEGRADED_TOTAL } from '../../metrics/metrics.constants';
 import {
   type CatalogItem,
@@ -14,6 +15,8 @@ import { CategoriesService } from '../categories';
 import { type CatalogMatches, type Product, ProductsService } from '../products';
 import { SellersService } from '../sellers';
 
+import { CATALOG_CACHE, CATALOG_CACHE_TTL_MS, catalogCacheKey } from './catalog-cache-key';
+import { CatalogNamespace } from './catalog-namespace.service';
 import type { CatalogPage, NamedFacet } from './catalog-page';
 
 /** Search and filter the catalog; the index answers, and the database steps in if it cannot. */
@@ -26,10 +29,38 @@ export class CatalogService {
     private readonly products: ProductsService,
     private readonly categories: CategoriesService,
     private readonly sellers: SellersService,
+    private readonly cache: CacheService,
+    private readonly namespace: CatalogNamespace,
     @InjectMetric(SEARCH_DEGRADED_TOTAL) private readonly degradedCount: Counter,
   ) {}
 
+  /** Cached per request under the current namespace; degraded answers are never kept. */
   async find(query: CatalogQuery): Promise<CatalogPage> {
+    const namespace = await this.currentNamespace();
+    if (namespace === null) {
+      return this.load(query);
+    }
+    return this.cache.remember(
+      { cache: CATALOG_CACHE, key: catalogCacheKey(namespace, query), ttlMs: CATALOG_CACHE_TTL_MS },
+      () => this.load(query),
+      (page) => !page.degraded,
+    );
+  }
+
+  /** Without the namespace there is no safe key, so the cache is skipped, not guessed. */
+  private async currentNamespace(): Promise<string | null> {
+    try {
+      return await this.namespace.current();
+    } catch (error) {
+      this.logger.warn({
+        msg: 'catalog.cache_namespace_unavailable',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  private async load(query: CatalogQuery): Promise<CatalogPage> {
     let result: CatalogResult;
     try {
       result = await this.search.search(query);

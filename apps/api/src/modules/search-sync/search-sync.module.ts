@@ -4,6 +4,7 @@ import { CategoriesModule } from '../categories';
 import { ProductsModule } from '../products';
 import { SellersModule } from '../sellers';
 
+import { CatalogNamespace } from './catalog-namespace.service';
 import { CatalogController } from './catalog.controller';
 import { CatalogService } from './catalog.service';
 
@@ -11,6 +12,6 @@ import { CatalogService } from './catalog.service';
 @Module({
   imports: [ProductsModule, CategoriesModule, SellersModule],
   controllers: [CatalogController],
-  providers: [CatalogService],
+  providers: [CatalogNamespace, CatalogService],
 })
 export class SearchSyncModule {}
