@@ -2,6 +2,8 @@
 export const THROTTLER = {
   DEFAULT: 'default',
   LOGIN: 'login',
+  /** Same budget as `login`, counted per target account instead of per client address. */
+  LOGIN_EMAIL: 'loginEmail',
   REGISTER: 'register',
   REFRESH: 'refresh',
   BID: 'bid',
