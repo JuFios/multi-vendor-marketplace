@@ -1,4 +1,4 @@
-import { AppError, NotFoundError } from '../../common/exceptions';
+import { AppError, ConflictError, NotFoundError } from '../../common/exceptions';
 
 export class ProductNotFoundError extends NotFoundError {
   constructor() {
@@ -25,5 +25,11 @@ export class FixedPriceOnlyError extends AppError {
       400,
       'Price and stock are only editable on fixed-price products',
     );
+  }
+}
+
+export class ProductNotPendingError extends ConflictError {
+  constructor() {
+    super('This product is not awaiting moderation', 'PRODUCT_NOT_PENDING');
   }
 }

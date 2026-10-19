@@ -7,22 +7,32 @@ import { OutboxService } from '../../outbox';
 import { EVENT_TYPE } from '../../outbox/events';
 import type { AppTransactionHost } from '../../prisma';
 import { CategoriesService } from '../categories';
+import { SellersService } from '../sellers';
 
+import { ProductDetailsResponseDto } from './dto/product-details-response.dto';
 import {
   changedFields,
   isPublished,
+  type ModerationDecision,
   type NewProduct,
   type Product,
   type ProductChanges,
   type ProductType,
+  SIMILAR_PRODUCTS_LIMIT,
 } from './product';
+import { ProductDetailsCache } from './product-details-cache.service';
 import {
   AuctionProductsNotSupportedError,
   FixedPriceOnlyError,
   ProductCategoryInvalidError,
   ProductNotFoundError,
+  ProductNotPendingError,
 } from './products.errors';
-import { type OwnedProductFilter, ProductsRepository } from './products.repository';
+import {
+  type ModerationFilter,
+  type OwnedProductFilter,
+  ProductsRepository,
+} from './products.repository';
 
 @Injectable()
 export class ProductsService {
@@ -33,6 +43,8 @@ export class ProductsService {
     @Inject(productsConfig.KEY) private readonly settings: ConfigType<typeof productsConfig>,
     private readonly products: ProductsRepository,
     private readonly categories: CategoriesService,
+    private readonly sellers: SellersService,
+    private readonly detailsCache: ProductDetailsCache,
     private readonly outbox: OutboxService,
   ) {}
 
@@ -105,6 +117,7 @@ export class ProductsService {
       ]);
       return row;
     });
+    await this.detailsCache.invalidate(id);
     this.logger.log({ msg: 'product.updated', productId: id, sellerId, changed });
     return updated;
   }
@@ -130,6 +143,7 @@ export class ProductsService {
       ]);
       return row;
     });
+    await this.detailsCache.invalidate(id);
     this.logger.log({ msg: 'product.stock_changed', productId: id, sellerId, stock });
     return updated;
   }
@@ -150,7 +164,100 @@ export class ProductsService {
         },
       ]);
     });
+    await this.detailsCache.invalidate(id);
     this.logger.log({ msg: 'product.archived', productId: id, sellerId });
+  }
+
+  /** The public product page, cached; unpublished and archived products are 404. */
+  getPublicDetails(id: string): Promise<ProductDetailsResponseDto> {
+    return this.detailsCache.remember(id, async () => {
+      const product = await this.requirePublished(id);
+      const [seller, category] = await Promise.all([
+        this.sellers.getPublicProfile(product.sellerId),
+        this.categories.findById(product.categoryId),
+      ]);
+      if (category === null) {
+        throw new ProductNotFoundError();
+      }
+      return ProductDetailsResponseDto.from(
+        product,
+        { id: seller.id, storeName: seller.storeName },
+        category,
+      );
+    });
+  }
+
+  /** Always read from the database: clients use it to resync after a reconnect. */
+  getPublicStock(id: string): Promise<Product> {
+    return this.requirePublished(id);
+  }
+
+  /** Other published, in-stock products of the same category (I-18). */
+  async getSimilar(id: string): Promise<Product[]> {
+    const product = await this.requirePublished(id);
+    return this.products.findSimilar(product.categoryId, id, SIMILAR_PRODUCTS_LIMIT);
+  }
+
+  listForModeration(filter: ModerationFilter): Promise<{ items: Product[]; total: number }> {
+    return this.products.listForModeration(filter);
+  }
+
+  approve(adminId: string, id: string): Promise<Product> {
+    return this.moderate(adminId, id, { status: 'APPROVED' });
+  }
+
+  reject(adminId: string, id: string, reason: string): Promise<Product> {
+    return this.moderate(adminId, id, { status: 'REJECTED', reason });
+  }
+
+  /** The decision, the new `isPublished` and `product.moderated` commit together. */
+  private async moderate(
+    adminId: string,
+    id: string,
+    decision: ModerationDecision,
+  ): Promise<Product> {
+    const product = await this.txHost.withTransaction(async () => {
+      const decided = await this.products.decide(
+        id,
+        decision,
+        isPublished(
+          { moderationStatus: decision.status, archivedAt: null },
+          this.settings.premoderation,
+        ),
+      );
+      if (decided === null) {
+        const existing = await this.products.findById(id);
+        throw existing !== null && existing.archivedAt === null
+          ? new ProductNotPendingError()
+          : new ProductNotFoundError();
+      }
+      await this.outbox.add([
+        {
+          type: EVENT_TYPE.PRODUCT_MODERATED,
+          aggregateType: 'Product',
+          aggregateId: id,
+          payload: { productId: id, moderationStatus: decided.moderationStatus },
+          actorId: adminId,
+        },
+      ]);
+      return decided;
+    });
+    await this.detailsCache.invalidate(id);
+    this.logger.log({
+      msg: `moderation.product.${decision.status === 'APPROVED' ? 'approved' : 'rejected'}`,
+      adminId,
+      productId: id,
+      ...(decision.status === 'REJECTED' ? { reason: decision.reason } : {}),
+    });
+    return product;
+  }
+
+  private async requirePublished(id: string): Promise<Product> {
+    const product = await this.products.findPublished(id);
+    if (!product) {
+      throw new ProductNotFoundError();
+    }
+    return product;
   }
 
   private async requireActive(sellerId: string, id: string): Promise<Product> {

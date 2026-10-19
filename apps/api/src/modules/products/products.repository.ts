@@ -4,12 +4,25 @@ import { TransactionHost } from '@nestjs-cls/transactional';
 import type { Prisma, Product as ProductRow } from '../../generated/prisma/client';
 import type { AppTransactionHost } from '../../prisma';
 
-import type { ModerationStatus, NewProduct, Product, ProductChanges, ProductType } from './product';
+import type {
+  ModerationDecision,
+  ModerationStatus,
+  NewProduct,
+  Product,
+  ProductChanges,
+  ProductType,
+} from './product';
 
 export interface OwnedProductFilter {
   readonly categoryId?: string | undefined;
   readonly moderationStatus?: ModerationStatus | undefined;
   readonly type?: ProductType | undefined;
+  readonly page: number;
+  readonly limit: number;
+}
+
+export interface ModerationFilter {
+  readonly status: ModerationStatus;
   readonly page: number;
   readonly limit: number;
 }
@@ -115,5 +128,70 @@ export class ProductsRepository {
       data: { archivedAt: new Date(), isPublished: false, version: { increment: 1 } },
     });
     return count > 0;
+  }
+
+  async findById(id: string): Promise<Product | null> {
+    const row = await this.txHost.tx.product.findUnique({ where: { id } });
+    return row && toProduct(row);
+  }
+
+  /** A product the public catalog shows; anything else is as good as missing. */
+  async findPublished(id: string): Promise<Product | null> {
+    const row = await this.txHost.tx.product.findFirst({
+      where: { id, isPublished: true, archivedAt: null },
+    });
+    return row && toProduct(row);
+  }
+
+  /** Published, in-stock products of a category other than `excludeId`, newest first. */
+  async findSimilar(categoryId: string, excludeId: string, limit: number): Promise<Product[]> {
+    const rows = await this.txHost.tx.product.findMany({
+      where: {
+        categoryId,
+        id: { not: excludeId },
+        isPublished: true,
+        archivedAt: null,
+        stock: { gt: 0 },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      take: limit,
+    });
+    return rows.map(toProduct);
+  }
+
+  /** The moderation queue, oldest first; archived products are not moderated. */
+  async listForModeration(filter: ModerationFilter): Promise<{ items: Product[]; total: number }> {
+    const where: Prisma.ProductWhereInput = {
+      moderationStatus: filter.status,
+      archivedAt: null,
+    };
+    const [rows, total] = await Promise.all([
+      this.txHost.tx.product.findMany({
+        where,
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        skip: (filter.page - 1) * filter.limit,
+        take: filter.limit,
+      }),
+      this.txHost.tx.product.count({ where }),
+    ]);
+    return { items: rows.map(toProduct), total };
+  }
+
+  /** Decides a PENDING product; null when it is missing, archived or already decided. */
+  async decide(
+    id: string,
+    decision: ModerationDecision,
+    isPublished: boolean,
+  ): Promise<Product | null> {
+    const { count } = await this.txHost.tx.product.updateMany({
+      where: { id, moderationStatus: 'PENDING', archivedAt: null },
+      data: {
+        moderationStatus: decision.status,
+        moderationReason: decision.status === 'REJECTED' ? decision.reason : null,
+        isPublished,
+        version: { increment: 1 },
+      },
+    });
+    return count === 0 ? null : this.findById(id);
   }
 }

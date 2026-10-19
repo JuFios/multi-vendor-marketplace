@@ -9,6 +9,12 @@ export const PRODUCT_DESCRIPTION_MAX_LENGTH = 5000;
 export const PRODUCT_MAX_IMAGES = 5;
 export const PRODUCT_IMAGE_URL_MAX_LENGTH = 2048;
 export const PRODUCT_MAX_STOCK = 1_000_000;
+export const MODERATION_REASON_MAX_LENGTH = 500;
+export const SIMILAR_PRODUCTS_LIMIT = 8;
+
+/** A decision on a product awaiting moderation. */
+export type ModerationDecision =
+  { readonly status: 'APPROVED' } | { readonly status: 'REJECTED'; readonly reason: string };
 
 /** A product as the catalog sees it; `priceCents` is null for auction lots. */
 export interface Product {
