@@ -11,6 +11,7 @@ import { IdempotencyModule } from './idempotency';
 import { LoggerModule } from './logger';
 import { MetricsModule } from './metrics';
 import { AuthModule } from './modules/auth';
+import { CartModule } from './modules/cart';
 import { CategoriesModule } from './modules/categories';
 import { ProductsModule } from './modules/products';
 import { SearchSyncModule } from './modules/search-sync';
@@ -42,6 +43,7 @@ import { MeiliModule } from './search';
     CategoriesModule,
     ProductsModule,
     SearchSyncModule,
+    CartModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

@@ -200,6 +200,10 @@ export class ProductsService {
     return this.products.findSimilar(product.categoryId, id, SIMILAR_PRODUCTS_LIMIT);
   }
 
+  findByIds(ids: readonly string[]): Promise<Product[]> {
+    return this.products.findByIds(ids);
+  }
+
   findPublishedByIds(ids: readonly string[]): Promise<Product[]> {
     return this.products.findPublishedByIds(ids);
   }

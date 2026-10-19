@@ -154,6 +154,12 @@ export class ProductsRepository {
     return row && toProduct(row);
   }
 
+  /** The products among `ids`, whatever their state: callers decide what unpublished means. */
+  async findByIds(ids: readonly string[]): Promise<Product[]> {
+    const rows = await this.txHost.tx.product.findMany({ where: { id: { in: [...ids] } } });
+    return rows.map(toProduct);
+  }
+
   /** A product the public catalog shows; anything else is as good as missing. */
   async findPublished(id: string): Promise<Product | null> {
     const row = await this.txHost.tx.product.findFirst({
