@@ -34,6 +34,10 @@ export class CategoriesService {
     return this.categories.list();
   }
 
+  findById(id: string): Promise<Category | null> {
+    return this.categories.findById(id);
+  }
+
   async create(adminId: string, category: NewCategory): Promise<Category> {
     if (category.parentId !== null) {
       await this.requireParent(category.parentId);

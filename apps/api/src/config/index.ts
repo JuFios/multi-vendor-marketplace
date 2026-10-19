@@ -6,6 +6,7 @@ export { httpConfig } from './http.config';
 export { idempotencyConfig } from './idempotency.config';
 export { metricsConfig } from './metrics.config';
 export { outboxConfig } from './outbox.config';
+export { productsConfig } from './products.config';
 export { queueConfig } from './queue.config';
 export { redisConfig } from './redis.config';
 export { searchConfig } from './search.config';

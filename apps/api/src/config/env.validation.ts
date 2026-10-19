@@ -2,6 +2,7 @@ import 'reflect-metadata';
 
 import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsIn,
   IsInt,
@@ -181,6 +182,14 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(1)
   THROTTLE_BID_TTL = 10;
+
+  // true: a product is published only after an admin approves it; false: it is published at
+  // once and reviewed afterwards.
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  PRODUCT_PREMODERATION = false;
 
   @IsUrl({ protocols: ['postgres', 'postgresql'], require_protocol: true, require_tld: false })
   DATABASE_URL!: string;
