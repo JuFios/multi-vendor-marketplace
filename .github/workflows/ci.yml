@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Lint (ESLint and module boundaries)
+        run: npm run lint
+      - name: Check formatting
+        run: npm run format:check
+      - name: Typecheck
+        run: npm run typecheck
+
+  infra-lint:
+    name: Infrastructure lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: actionlint
+        run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color
+      - name: hadolint (api)
+        run: docker run --rm -i -v "$PWD/.hadolint.yaml":/.config/hadolint.yaml hadolint/hadolint < apps/api/Dockerfile
+      - name: hadolint (web)
+        run: docker run --rm -i -v "$PWD/.hadolint.yaml":/.config/hadolint.yaml hadolint/hadolint < apps/web/Dockerfile
+      - name: docker compose config
+        run: docker compose config -q
+      - name: yamllint
+        run: docker run --rm -v "$PWD":/code -w /code pipelinecomponents/yamllint yamllint -s -c .yamllint.yml .
+
+  test-unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # CI=true makes Jest collect coverage for the api workspace.
+      - name: Run unit tests
+        run: npm test
+      - name: Upload coverage
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-coverage
+          path: apps/api/coverage
+          if-no-files-found: error
+          retention-days: 7
+
+  test-e2e:
+    name: E2E tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Ports, credentials and database names mirror .env.test; keep them in sync.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: marketplace
+          POSTGRES_PASSWORD: marketplace
+          POSTGRES_DB: marketplace_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marketplace -d marketplace_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      meilisearch:
+        image: getmeili/meilisearch:v1.55.0
+        env:
+          MEILI_MASTER_KEY: dev-master-key-change-me
+          MEILI_ENV: development
+          MEILI_NO_ANALYTICS: 'true'
+        ports:
+          - 7700:7700
+        options: >-
+          --health-cmd "curl --fail --silent http://127.0.0.1:7700/health"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+          --health-start-period 5s
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # NODE_ENV=test makes the Prisma config read DATABASE_URL from .env.test.
+      - name: Apply migrations
+        run: npm run db:deploy -w apps/api
+        env:
+          NODE_ENV: test
+      - name: Run e2e tests
+        run: npm run test:e2e -w apps/api
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Build all workspaces
+        run: npm run build
+      - uses: docker/setup-buildx-action@v4
+      - name: Build api image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: runtime
+          push: false
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+      - name: Build web image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          target: runtime
+          push: false
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max

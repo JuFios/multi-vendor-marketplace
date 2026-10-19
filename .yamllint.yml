@@ -1,0 +1,22 @@
+extends: default
+
+ignore: |
+  node_modules/
+  apps/*/dist/
+  coverage/
+
+rules:
+  document-start: disable
+  line-length:
+    max: 120
+    allow-non-breakable-inline-mappings: true
+    level: warning
+  # `on:` is a plain key in GitHub workflows, not a boolean.
+  truthy:
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  indentation:
+    spaces: 2
+    indent-sequences: true
