@@ -6,6 +6,7 @@ import { TransactionHost } from '@nestjs-cls/transactional';
 
 import { authConfig } from '../../config';
 import type { AppTransactionHost } from '../../prisma';
+import { SellersService } from '../sellers';
 import { type UserAccount, UsersService } from '../users';
 
 import { AccessTokenService } from './access-token.service';
@@ -51,6 +52,7 @@ export class SessionService {
     private readonly accessTokens: AccessTokenService,
     private readonly auth: AuthRepository,
     private readonly users: UsersService,
+    private readonly sellers: SellersService,
     @Inject(authConfig.KEY) private readonly config: ConfigType<typeof authConfig>,
   ) {}
 
@@ -100,7 +102,7 @@ export class SessionService {
       return { kind: 'rejected', error: new RefreshTokenReusedError() };
     }
 
-    // Roles are read again, so a role granted since the last token appears on the next refresh.
+    // Roles and the store id are read again, so an approved seller gets them on the next refresh.
     const user = await this.users.findById(stored.userId);
     if (!user) {
       return { kind: 'rejected', error: new InvalidRefreshTokenError() };
@@ -127,9 +129,13 @@ export class SessionService {
     if (rotatedFromId !== undefined) {
       await this.auth.markRotated(rotatedFromId, created.id);
     }
+    const sellerId = user.roles.includes('SELLER')
+      ? await this.sellers.findApprovedSellerId(user.id)
+      : undefined;
     const { token, expiresInSec } = await this.accessTokens.issue({
       sub: user.id,
       roles: user.roles,
+      ...(sellerId === undefined ? {} : { sellerId }),
     });
     return {
       accessToken: token,

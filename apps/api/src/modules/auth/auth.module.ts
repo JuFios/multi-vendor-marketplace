@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
 import { authConfig } from '../../config';
+import { SellersModule } from '../sellers';
 import { UsersModule } from '../users';
 
 import { ACCESS_TOKEN_ALGORITHM } from './access-claims';
@@ -26,6 +27,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   imports: [
     PassportModule,
     UsersModule,
+    SellersModule,
     JwtModule.registerAsync({
       inject: [authConfig.KEY],
       useFactory: (config: ConfigType<typeof authConfig>) => ({
