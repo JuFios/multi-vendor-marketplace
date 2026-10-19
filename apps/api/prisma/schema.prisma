@@ -8,3 +8,717 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ───────── Users / Auth ─────────
+
+enum Role {
+  CUSTOMER
+  SELLER
+  ADMIN
+
+  @@map("role")
+}
+
+enum AuthProvider {
+  GOOGLE
+
+  @@map("auth_provider")
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  email         String   @unique
+  passwordHash  String?  @map("password_hash")
+  name          String
+  roles         Role[]   @default([CUSTOMER])
+  emailVerified Boolean  @default(false) @map("email_verified")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  identities    AuthIdentity[]
+  refreshTokens RefreshToken[]
+
+  sellerProfile           SellerProfile?  @relation("SellerProfileOwner")
+  moderatedSellerProfiles SellerProfile[] @relation("SellerProfileModerator")
+
+  bids            Bid[]
+  highestBidderOf Auction[] @relation("AuctionHighestBidder")
+  auctionsWon     Auction[] @relation("AuctionWinner")
+  carts           Cart[]
+
+  orders           Order[]
+  statusChanges    SellerOrderStatusHistory[]
+  refundsMade      Refund[]
+  reviews          Review[]
+  disputesOpened   Dispute[]                  @relation("DisputeCustomer")
+  disputesResolved Dispute[]                  @relation("DisputeResolver")
+  disputeMessages  DisputeMessage[]
+  notifications    Notification[]
+  idempotencyKeys  IdempotencyKey[]
+
+  @@map("users")
+}
+
+model AuthIdentity {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  provider       AuthProvider
+  providerUserId String       @map("provider_user_id")
+  email          String
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("auth_identities")
+}
+
+model RefreshToken {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  familyId     String    @map("family_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash")
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  replacedById String?   @map("replaced_by_id") @db.Uuid
+  userAgent    String?   @map("user_agent")
+  ip           String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy RefreshToken?  @relation("RefreshTokenReplacement", fields: [replacedById], references: [id], onDelete: Cascade)
+  replaces   RefreshToken[] @relation("RefreshTokenReplacement")
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+// ───────── Sellers / Categories ─────────
+
+enum SellerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("seller_status")
+}
+
+model SellerProfile {
+  id              String       @id @default(uuid()) @db.Uuid
+  userId          String       @unique @map("user_id") @db.Uuid
+  storeName       String       @unique @map("store_name")
+  description     String?
+  status          SellerStatus @default(PENDING)
+  rejectionReason String?      @map("rejection_reason")
+  moderatedById   String?      @map("moderated_by_id") @db.Uuid
+  moderatedAt     DateTime?    @map("moderated_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  user              User                  @relation("SellerProfileOwner", fields: [userId], references: [id], onDelete: Restrict)
+  moderatedBy       User?                 @relation("SellerProfileModerator", fields: [moderatedById], references: [id], onDelete: Restrict)
+  products          Product[]
+  auctions          Auction[]
+  sellerOrders      SellerOrder[]
+  ledgerEntries     LedgerEntry[]
+  payouts           Payout[]
+  disputes          Dispute[]
+  salesDaily        SalesDailyBySeller[]
+  productSalesDaily SalesDailyByProduct[]
+
+  @@index([status, createdAt])
+  @@map("seller_profiles")
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String   @unique
+  parentId  String?  @map("parent_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+// ───────── Products (inventory) ─────────
+
+enum ProductType {
+  FIXED_PRICE
+  AUCTION
+
+  @@map("product_type")
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("moderation_status")
+}
+
+model Product {
+  id               String           @id @default(uuid()) @db.Uuid
+  sellerId         String           @map("seller_id") @db.Uuid
+  categoryId       String           @map("category_id") @db.Uuid
+  type             ProductType
+  title            String
+  description      String
+  images           String[]
+  priceCents       Int?             @map("price_cents")
+  stock            Int
+  version          Int              @default(0)
+  moderationStatus ModerationStatus @default(PENDING) @map("moderation_status")
+  moderationReason String?          @map("moderation_reason")
+  isPublished      Boolean          @default(false) @map("is_published")
+  archivedAt       DateTime?        @map("archived_at")
+  ratingSum        Int              @default(0) @map("rating_sum")
+  ratingCount      Int              @default(0) @map("rating_count")
+  ratingAvg        Decimal          @default(0) @map("rating_avg") @db.Decimal(3, 2)
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  seller     SellerProfile         @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  category   Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  auction    Auction?
+  cartItems  CartItem[]
+  orderItems SellerOrderItem[]
+  reviews    Review[]
+  salesDaily SalesDailyByProduct[]
+
+  @@index([sellerId, createdAt])
+  @@index([categoryId])
+  @@index([isPublished, archivedAt])
+  @@index([moderationStatus, createdAt])
+  @@index([id, version])
+  // Backs the degraded (database) title search; created together with the pg_trgm extension in the
+  // `constraints` migration, declared here so that `migrate dev` does not try to drop it.
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "products_title_trgm_idx")
+  @@map("products")
+}
+
+// ───────── Bidding ─────────
+
+enum AuctionStatus {
+  ACTIVE
+  SOLD_TO_WINNER
+  ORDERED
+  NOT_SOLD
+
+  @@map("auction_status")
+}
+
+model Auction {
+  id                String        @id @default(uuid()) @db.Uuid
+  productId         String        @unique @map("product_id") @db.Uuid
+  sellerId          String        @map("seller_id") @db.Uuid
+  startPriceCents   Int           @map("start_price_cents")
+  bidStepCents      Int           @map("bid_step_cents")
+  durationSec       Int           @map("duration_sec")
+  round             Int           @default(1)
+  status            AuctionStatus @default(ACTIVE)
+  endsAt            DateTime      @map("ends_at")
+  currentPriceCents Int?          @map("current_price_cents")
+  highestBidId      String?       @unique @map("highest_bid_id") @db.Uuid
+  highestBidderId   String?       @map("highest_bidder_id") @db.Uuid
+  bidCount          Int           @default(0) @map("bid_count")
+  winnerId          String?       @map("winner_id") @db.Uuid
+  winnerDeadlineAt  DateTime?     @map("winner_deadline_at")
+  version           Int           @default(0)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  product       Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  seller        SellerProfile     @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  highestBid    Bid?              @relation("AuctionHighestBid", fields: [highestBidId], references: [id], onDelete: Restrict)
+  highestBidder User?             @relation("AuctionHighestBidder", fields: [highestBidderId], references: [id], onDelete: Restrict)
+  winner        User?             @relation("AuctionWinner", fields: [winnerId], references: [id], onDelete: Restrict)
+  bids          Bid[]             @relation("AuctionBids")
+  orderItems    SellerOrderItem[]
+
+  @@index([status, endsAt])
+  @@index([status, winnerDeadlineAt])
+  @@index([sellerId, status])
+  @@index([id, version])
+  @@map("auctions")
+}
+
+model Bid {
+  id          String   @id @default(uuid()) @db.Uuid
+  auctionId   String   @map("auction_id") @db.Uuid
+  round       Int
+  bidderId    String   @map("bidder_id") @db.Uuid
+  amountCents Int      @map("amount_cents")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  auction        Auction  @relation("AuctionBids", fields: [auctionId], references: [id], onDelete: Restrict)
+  bidder         User     @relation(fields: [bidderId], references: [id], onDelete: Restrict)
+  highestInRound Auction? @relation("AuctionHighestBid")
+
+  @@index([auctionId, round, amountCents(sort: Desc)])
+  @@index([bidderId, createdAt])
+  @@map("bids")
+}
+
+// ───────── Cart ─────────
+
+enum CartStatus {
+  ACTIVE
+  CONVERTED
+
+  @@map("cart_status")
+}
+
+model Cart {
+  id               String     @id @default(uuid()) @db.Uuid
+  userId           String     @map("user_id") @db.Uuid
+  status           CartStatus @default(ACTIVE)
+  firstItemAddedAt DateTime?  @map("first_item_added_at")
+  convertedAt      DateTime?  @map("converted_at")
+  convertedOrderId String?    @map("converted_order_id") @db.Uuid
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  user           User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  convertedOrder Order?     @relation("CartConvertedOrder", fields: [convertedOrderId], references: [id], onDelete: Restrict)
+  items          CartItem[]
+
+  @@index([userId, status])
+  @@index([firstItemAddedAt])
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  cartId    String   @map("cart_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  quantity  Int
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Restrict)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([cartId, productId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+// ───────── Orders ─────────
+
+enum OrderStatus {
+  NEW
+  PROCESSING
+  PARTIALLY_SHIPPED
+  SHIPPED
+  COMPLETED
+  CANCELLED
+
+  @@map("order_status")
+}
+
+enum SellerOrderStatus {
+  NEW
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  CANCELLED
+
+  @@map("seller_order_status")
+}
+
+enum PaymentStatus {
+  PENDING
+  CAPTURED
+  FAILED
+  REFUNDED
+
+  @@map("payment_status")
+}
+
+enum ActorType {
+  CUSTOMER
+  SELLER
+  ADMIN
+  SYSTEM
+
+  @@map("actor_type")
+}
+
+model Order {
+  id                String      @id @default(uuid()) @db.Uuid
+  customerId        String      @map("customer_id") @db.Uuid
+  status            OrderStatus @default(NEW)
+  hasCancelledParts Boolean     @default(false) @map("has_cancelled_parts")
+  subtotalCents     Int         @map("subtotal_cents")
+  refundedCents     Int         @default(0) @map("refunded_cents")
+  totalCents        Int         @map("total_cents")
+  commissionCents   Int         @map("commission_cents")
+  version           Int         @default(0)
+  correlationId     String?     @map("correlation_id")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  customer     User          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  sellerOrders SellerOrder[]
+  carts        Cart[]        @relation("CartConvertedOrder")
+  disputes     Dispute[]
+
+  @@index([customerId, createdAt])
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model SellerOrder {
+  id                String            @id @default(uuid()) @db.Uuid
+  orderId           String            @map("order_id") @db.Uuid
+  sellerId          String            @map("seller_id") @db.Uuid
+  status            SellerOrderStatus @default(NEW)
+  paymentStatus     PaymentStatus     @default(PENDING) @map("payment_status")
+  subtotalCents     Int               @map("subtotal_cents")
+  refundedCents     Int               @default(0) @map("refunded_cents")
+  commissionRateBps Int               @map("commission_rate_bps")
+  commissionCents   Int               @map("commission_cents")
+  payoutCents       Int               @map("payout_cents")
+  cancelReason      String?           @map("cancel_reason")
+  cancelledBy       ActorType?        @map("cancelled_by")
+  version           Int               @default(0)
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  order          Order                      @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  seller         SellerProfile              @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  items          SellerOrderItem[]
+  statusHistory  SellerOrderStatusHistory[]
+  refunds        Refund[]
+  ledgerEntries  LedgerEntry[]
+  paymentAttempt PaymentAttempt?
+  payout         Payout?
+  disputes       Dispute[]
+
+  @@index([sellerId, status, createdAt])
+  @@index([orderId])
+  @@map("seller_orders")
+}
+
+model SellerOrderItem {
+  id               String  @id @default(uuid()) @db.Uuid
+  sellerOrderId    String  @map("seller_order_id") @db.Uuid
+  productId        String  @map("product_id") @db.Uuid
+  auctionId        String? @map("auction_id") @db.Uuid
+  titleSnapshot    String  @map("title_snapshot")
+  unitPriceCents   Int     @map("unit_price_cents")
+  quantity         Int
+  refundedQuantity Int     @default(0) @map("refunded_quantity")
+  refundedCents    Int     @default(0) @map("refunded_cents")
+
+  sellerOrder SellerOrder @relation(fields: [sellerOrderId], references: [id], onDelete: Restrict)
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  auction     Auction?    @relation(fields: [auctionId], references: [id], onDelete: Restrict)
+  refunds     Refund[]
+  reviews     Review[]
+
+  @@index([sellerOrderId])
+  @@index([productId])
+  @@map("seller_order_items")
+}
+
+model SellerOrderStatusHistory {
+  id            String             @id @default(uuid()) @db.Uuid
+  sellerOrderId String             @map("seller_order_id") @db.Uuid
+  fromStatus    SellerOrderStatus? @map("from_status")
+  toStatus      SellerOrderStatus  @map("to_status")
+  actorType     ActorType          @map("actor_type")
+  actorId       String?            @map("actor_id") @db.Uuid
+  reason        String?
+  createdAt     DateTime           @default(now()) @map("created_at")
+
+  sellerOrder SellerOrder @relation(fields: [sellerOrderId], references: [id], onDelete: Restrict)
+  actor       User?       @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([sellerOrderId, createdAt])
+  @@map("seller_order_status_history")
+}
+
+model Refund {
+  id                String    @id @default(uuid()) @db.Uuid
+  sellerOrderId     String    @map("seller_order_id") @db.Uuid
+  sellerOrderItemId String    @map("seller_order_item_id") @db.Uuid
+  quantity          Int
+  amountCents       Int       @map("amount_cents")
+  reason            String
+  actorType         ActorType @map("actor_type")
+  actorId           String    @map("actor_id") @db.Uuid
+  disputeId         String?   @map("dispute_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  sellerOrder     SellerOrder     @relation(fields: [sellerOrderId], references: [id], onDelete: Restrict)
+  sellerOrderItem SellerOrderItem @relation(fields: [sellerOrderItemId], references: [id], onDelete: Restrict)
+  actor           User            @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  dispute         Dispute?        @relation(fields: [disputeId], references: [id], onDelete: Restrict)
+
+  @@index([sellerOrderId])
+  @@map("refunds")
+}
+
+// ───────── Payments-ledger ─────────
+
+enum LedgerEntryType {
+  SALE
+  COMMISSION
+  REFUND
+  COMMISSION_REVERSAL
+  CANCELLATION
+  PAYOUT
+
+  @@map("ledger_entry_type")
+}
+
+enum PaymentAttemptStatus {
+  CAPTURED
+  FAILED
+
+  @@map("payment_attempt_status")
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+
+  @@map("payout_status")
+}
+
+model LedgerEntry {
+  id            String          @id @default(uuid()) @db.Uuid
+  sellerOrderId String          @map("seller_order_id") @db.Uuid
+  sellerId      String          @map("seller_id") @db.Uuid
+  type          LedgerEntryType
+  amountCents   Int             @map("amount_cents")
+  refId         String?         @map("ref_id")
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  sellerOrder SellerOrder   @relation(fields: [sellerOrderId], references: [id], onDelete: Restrict)
+  seller      SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+
+  @@index([sellerId, createdAt])
+  @@index([type, createdAt])
+  @@index([sellerOrderId])
+  @@map("ledger_entries")
+}
+
+model PaymentAttempt {
+  id            String               @id @default(uuid()) @db.Uuid
+  sellerOrderId String               @unique @map("seller_order_id") @db.Uuid
+  amountCents   Int                  @map("amount_cents")
+  status        PaymentAttemptStatus
+  providerRef   String?              @map("provider_ref")
+  failureReason String?              @map("failure_reason")
+  createdAt     DateTime             @default(now()) @map("created_at")
+
+  sellerOrder SellerOrder @relation(fields: [sellerOrderId], references: [id], onDelete: Restrict)
+
+  @@map("payment_attempts")
+}
+
+model Payout {
+  id            String       @id @default(uuid()) @db.Uuid
+  sellerOrderId String       @unique @map("seller_order_id") @db.Uuid
+  sellerId      String       @map("seller_id") @db.Uuid
+  amountCents   Int          @map("amount_cents")
+  status        PayoutStatus @default(PENDING)
+  paidAt        DateTime?    @map("paid_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  sellerOrder SellerOrder   @relation(fields: [sellerOrderId], references: [id], onDelete: Restrict)
+  seller      SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+
+  @@index([sellerId, createdAt])
+  @@map("payouts")
+}
+
+// ───────── Reviews / Disputes ─────────
+
+model Review {
+  id                String   @id @default(uuid()) @db.Uuid
+  productId         String   @map("product_id") @db.Uuid
+  authorId          String   @map("author_id") @db.Uuid
+  sellerOrderItemId String   @map("seller_order_item_id") @db.Uuid
+  rating            Int
+  text              String
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  author          User            @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  sellerOrderItem SellerOrderItem @relation(fields: [sellerOrderItemId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, authorId])
+  @@index([productId, createdAt])
+  @@index([sellerOrderItemId])
+  @@map("reviews")
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED_BUYER_FAVOR
+  RESOLVED_SELLER_FAVOR
+
+  @@map("dispute_status")
+}
+
+model Dispute {
+  id             String        @id @default(uuid()) @db.Uuid
+  orderId        String        @map("order_id") @db.Uuid
+  sellerOrderId  String        @map("seller_order_id") @db.Uuid
+  customerId     String        @map("customer_id") @db.Uuid
+  sellerId       String        @map("seller_id") @db.Uuid
+  reason         String
+  status         DisputeStatus @default(OPEN)
+  resolutionNote String?       @map("resolution_note")
+  resolvedById   String?       @map("resolved_by_id") @db.Uuid
+  resolvedAt     DateTime?     @map("resolved_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  order       Order            @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  sellerOrder SellerOrder      @relation(fields: [sellerOrderId], references: [id], onDelete: Restrict)
+  customer    User             @relation("DisputeCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  seller      SellerProfile    @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  resolvedBy  User?            @relation("DisputeResolver", fields: [resolvedById], references: [id], onDelete: Restrict)
+  messages    DisputeMessage[]
+  refunds     Refund[]
+
+  @@index([status, createdAt])
+  @@index([customerId])
+  @@index([sellerId])
+  @@index([sellerOrderId])
+  @@map("disputes")
+}
+
+model DisputeMessage {
+  id         String    @id @default(uuid()) @db.Uuid
+  disputeId  String    @map("dispute_id") @db.Uuid
+  authorId   String    @map("author_id") @db.Uuid
+  authorRole ActorType @map("author_role")
+  text       String
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Restrict)
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([disputeId, createdAt])
+  @@map("dispute_messages")
+}
+
+// ───────── Notifications ─────────
+
+model Notification {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  type          String
+  payload       Json
+  sourceEventId String?   @map("source_event_id") @db.Uuid
+  readAt        DateTime? @map("read_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, sourceEventId])
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+// ───────── Analytics read models ─────────
+
+model SalesDailyBySeller {
+  day             DateTime @db.Date
+  sellerId        String   @map("seller_id") @db.Uuid
+  ordersCount     Int      @default(0) @map("orders_count")
+  itemsCount      Int      @default(0) @map("items_count")
+  grossCents      Int      @default(0) @map("gross_cents")
+  refundedCents   Int      @default(0) @map("refunded_cents")
+  commissionCents Int      @default(0) @map("commission_cents")
+
+  seller SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+
+  @@id([day, sellerId])
+  @@index([sellerId])
+  @@map("sales_daily_by_seller")
+}
+
+model SalesDailyByProduct {
+  day           DateTime @db.Date
+  productId     String   @map("product_id") @db.Uuid
+  sellerId      String   @map("seller_id") @db.Uuid
+  quantity      Int      @default(0)
+  grossCents    Int      @default(0) @map("gross_cents")
+  refundedCents Int      @default(0) @map("refunded_cents")
+
+  product Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  seller  SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+
+  @@id([day, productId])
+  @@index([day, sellerId])
+  @@index([productId])
+  @@map("sales_daily_by_product")
+}
+
+// ───────── Infrastructure ─────────
+
+model OutboxEvent {
+  id            String    @id @db.Uuid
+  eventType     String    @map("event_type")
+  aggregateType String    @map("aggregate_type")
+  aggregateId   String    @map("aggregate_id")
+  payload       Json
+  correlationId String?   @map("correlation_id")
+  actorId       String?   @map("actor_id")
+  occurredAt    DateTime  @default(now()) @map("occurred_at")
+  publishedAt   DateTime? @map("published_at")
+  attempts      Int       @default(0)
+  lastError     String?   @map("last_error")
+
+  @@map("outbox_events")
+}
+
+model ProcessedEvent {
+  consumer    String
+  eventId     String   @map("event_id") @db.Uuid
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@id([consumer, eventId])
+  @@map("processed_events")
+}
+
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("idempotency_status")
+}
+
+model IdempotencyKey {
+  id           String            @id @default(uuid()) @db.Uuid
+  userId       String            @map("user_id") @db.Uuid
+  scope        String
+  key          String
+  requestHash  String            @map("request_hash")
+  status       IdempotencyStatus
+  responseCode Int?              @map("response_code")
+  responseBody Json?             @map("response_body")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  expiresAt    DateTime          @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, scope, key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
