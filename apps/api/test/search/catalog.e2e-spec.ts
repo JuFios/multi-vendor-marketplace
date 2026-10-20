@@ -4,9 +4,9 @@ import { Meilisearch as MeilisearchClient } from 'meilisearch';
 import request from 'supertest';
 
 import { Prisma } from '../../src/generated/prisma/client';
-import { SearchIndexer } from '../../src/modules/search-sync';
-import { PrismaService } from '../../src/prisma';
-import { MEILI_CLIENT } from '../../src/search';
+import { SearchIndexer } from '../../src/modules/search-sync/search-indexer.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { MEILI_CLIENT } from '../../src/search/meili.constants';
 import { resetDb } from '../utils/db';
 import { createCategory, createProduct, createSeller } from '../utils/factories';
 import { createTestApp } from '../utils/test-app';

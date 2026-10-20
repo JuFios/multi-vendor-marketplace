@@ -7,7 +7,7 @@ import request from 'supertest';
 import { runSeed } from '../../prisma/seed/run-seed';
 import { parseSeedEnv } from '../../prisma/seed/seed-env';
 import { loadEnvFiles } from '../../src/config/env-files';
-import { PrismaService } from '../../src/prisma';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { cookieValue, refreshCookieOf } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { overrideEnv } from '../utils/env';

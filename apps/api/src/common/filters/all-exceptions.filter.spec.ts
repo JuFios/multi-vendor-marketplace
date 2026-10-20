@@ -3,8 +3,7 @@ import type { Counter } from '@prometheus-io/client';
 import { ClsServiceManager } from 'nestjs-cls';
 import type { PinoLogger } from 'nestjs-pino';
 
-import { AppError } from '../exceptions';
-import '../cls';
+import { AppError } from '../exceptions/app-error';
 
 import { AllExceptionsFilter } from './all-exceptions.filter';
 

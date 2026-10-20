@@ -2,8 +2,9 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Redis } from 'ioredis';
 import request from 'supertest';
 
-import { CacheModule, CacheService } from '../../src/cache';
-import { REDIS_CLIENT } from '../../src/redis';
+import { CacheModule } from '../../src/cache/cache.module';
+import { CacheService } from '../../src/cache/cache.service';
+import { REDIS_CLIENT } from '../../src/redis/redis.constants';
 import { createTestApp } from '../utils/test-app';
 
 describe('cache (e2e)', () => {

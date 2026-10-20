@@ -3,9 +3,9 @@ import { JwtService } from '@nestjs/jwt';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
-import { Public } from '../../src/common/decorators';
-import { Roles } from '../../src/modules/auth';
-import { PrismaService } from '../../src/prisma';
+import { Public } from '../../src/common/decorators/public.decorator';
+import { Roles } from '../../src/modules/auth/decorators/roles.decorator';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { createUser } from '../utils/factories';

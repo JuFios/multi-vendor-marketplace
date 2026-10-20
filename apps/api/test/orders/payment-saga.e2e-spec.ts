@@ -9,11 +9,12 @@ import {
   type CaptureResult,
   PAYMENT_GATEWAY,
   type PaymentGatewayPort,
-} from '../../src/modules/payments-ledger';
-import type { UserRole } from '../../src/modules/users';
-import type { AnyDomainEvent } from '../../src/outbox/events';
-import { PrismaService } from '../../src/prisma';
-import { QUEUE, QUEUE_PUBLISHER, type QueuePublisherPort } from '../../src/queue';
+} from '../../src/modules/payments-ledger/payment-gateway.port';
+import type { UserRole } from '../../src/modules/users/user-role';
+import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { QUEUE } from '../../src/queue/queue-names';
+import { QUEUE_PUBLISHER, type QueuePublisherPort } from '../../src/queue/queue-publisher.port';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { createProduct, createSeller, createUser } from '../utils/factories';

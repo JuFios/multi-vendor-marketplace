@@ -11,8 +11,8 @@ import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { catchError, from, mergeMap, type Observable, of, throwError } from 'rxjs';
 
-import { UnauthorizedError } from '../common/exceptions';
-import { resolveRouteTemplate } from '../common/utils';
+import { UnauthorizedError } from '../common/exceptions/app-error';
+import { resolveRouteTemplate } from '../common/utils/route-template';
 
 import type { IdempotencyContext } from './idempotency-context';
 import {

@@ -1,10 +1,10 @@
 import { Logger } from '@nestjs/common';
 
 import { Prisma } from '../../generated/prisma/client';
-import type { OutboxService } from '../../outbox';
-import { EVENT_TYPE } from '../../outbox/events';
-import type { AppTransactionHost } from '../../prisma';
-import type { UsersService } from '../users';
+import { EVENT_TYPE } from '../../outbox/events/event-types';
+import type { OutboxService } from '../../outbox/outbox.service';
+import type { AppTransactionHost } from '../../prisma/transaction';
+import type { UsersService } from '../users/users.service';
 
 import type { SellerApplication } from './seller-application';
 import {

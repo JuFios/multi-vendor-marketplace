@@ -1,6 +1,6 @@
 import type { ConfigType } from '@nestjs/config';
 
-import type { authConfig } from '../../../config';
+import type { authConfig } from '../../../config/auth.config';
 
 import { JwtStrategy } from './jwt.strategy';
 

@@ -3,7 +3,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { runSeed } from '../../prisma/seed/run-seed';
 import { parseSeedEnv } from '../../prisma/seed/seed-env';
 import { loadEnvFiles } from '../../src/config/env-files';
-import { PrismaService } from '../../src/prisma';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { resetDb } from '../utils/db';
 import { createTestApp } from '../utils/test-app';
 

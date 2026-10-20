@@ -3,13 +3,13 @@ import { TransactionHost } from '@nestjs-cls/transactional';
 import type { Counter } from '@prometheus-io/client';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 
-import { SELLER_ORDERS_CANCELLED_TOTAL } from '../../metrics';
-import { OutboxService } from '../../outbox';
-import { EVENT_TYPE } from '../../outbox/events';
-import type { AppTransactionHost } from '../../prisma';
-import { LedgerService } from '../payments-ledger';
-import { InventoryService } from '../products';
-import { SellersService } from '../sellers';
+import { SELLER_ORDERS_CANCELLED_TOTAL } from '../../metrics/metrics.constants';
+import { EVENT_TYPE } from '../../outbox/events/event-types';
+import { OutboxService } from '../../outbox/outbox.service';
+import type { AppTransactionHost } from '../../prisma/transaction';
+import { LedgerService } from '../payments-ledger/ledger.service';
+import { InventoryService } from '../products/inventory.service';
+import { SellersService } from '../sellers/sellers.service';
 
 import { planCancellation } from './cancellation';
 import { SellerOrderDto } from './dto/order-response.dto';

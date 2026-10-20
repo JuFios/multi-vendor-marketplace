@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { CatalogQuery } from '../../search';
+import type { CatalogQuery } from '../../search/catalog';
 
 export const CATALOG_CACHE = 'catalog';
 export const CATALOG_CACHE_TTL_MS = 60_000;

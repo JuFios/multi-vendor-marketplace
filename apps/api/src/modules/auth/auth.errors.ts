@@ -1,4 +1,4 @@
-import { AppError, UnauthorizedError } from '../../common/exceptions';
+import { AppError, UnauthorizedError } from '../../common/exceptions/app-error';
 
 /** Deliberately the same for an unknown email and a wrong password. */
 export class InvalidCredentialsError extends UnauthorizedError {

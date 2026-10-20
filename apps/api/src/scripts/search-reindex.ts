@@ -2,16 +2,17 @@ import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
 
-import { CacheModule } from '../cache';
-import { AppClsModule } from '../common/cls';
-import { AppConfigModule } from '../config';
-import { LoggerModule } from '../logger';
-import { MetricsModule } from '../metrics';
-import { SearchIndexer, SearchIndexModule } from '../modules/search-sync';
-import { OutboxModule } from '../outbox';
-import { PrismaModule } from '../prisma';
-import { RedisModule } from '../redis';
-import { MeiliModule } from '../search';
+import { CacheModule } from '../cache/cache.module';
+import { AppClsModule } from '../common/cls/app-cls.module';
+import { AppConfigModule } from '../config/config.module';
+import { LoggerModule } from '../logger/logger.module';
+import { MetricsModule } from '../metrics/metrics.module';
+import { SearchIndexModule } from '../modules/search-sync/search-index.module';
+import { SearchIndexer } from '../modules/search-sync/search-indexer.service';
+import { OutboxModule } from '../outbox/outbox.module';
+import { PrismaModule } from '../prisma/prisma.module';
+import { RedisModule } from '../redis/redis.module';
+import { MeiliModule } from '../search/meili.module';
 
 @Module({
   imports: [

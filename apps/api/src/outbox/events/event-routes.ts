@@ -1,4 +1,4 @@
-import { QUEUE, type QueueName } from '../../queue';
+import { QUEUE, type QueueName } from '../../queue/queue-names';
 
 import { EVENT_TYPE, type EventType } from './event-types';
 

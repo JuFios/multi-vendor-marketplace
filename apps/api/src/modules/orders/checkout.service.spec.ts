@@ -1,14 +1,16 @@
 import { Logger } from '@nestjs/common';
 import type { Counter } from '@prometheus-io/client';
 
-import type { IdempotencyService } from '../../idempotency';
-import type { OutboxService } from '../../outbox';
-import type { AppTransactionHost } from '../../prisma';
-import type { CartService, CheckoutLine } from '../cart';
-import type { LedgerService } from '../payments-ledger';
-import { type InventoryService, type ReservedProduct } from '../products';
+import type { IdempotencyService } from '../../idempotency/idempotency.service';
+import type { OutboxService } from '../../outbox/outbox.service';
+import type { AppTransactionHost } from '../../prisma/transaction';
+import type { CheckoutLine } from '../cart/cart';
+import type { CartService } from '../cart/cart.service';
+import type { LedgerService } from '../payments-ledger/ledger.service';
+import type { InventoryService } from '../products/inventory.service';
+import type { ReservedProduct } from '../products/product';
 import { InsufficientStockError } from '../products/products.errors';
-import type { SellersService } from '../sellers';
+import type { SellersService } from '../sellers/sellers.service';
 
 import { CheckoutService } from './checkout.service';
 import type { OrderRecord } from './order';

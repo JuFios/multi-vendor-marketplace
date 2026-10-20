@@ -2,8 +2,8 @@ import { getQueueToken } from '@nestjs/bullmq';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Queue } from 'bullmq';
 
-import { PrismaService } from '../../src/prisma';
-import { QUEUE, QUEUE_NAMES, type QueueName } from '../../src/queue';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { QUEUE, QUEUE_NAMES, type QueueName } from '../../src/queue/queue-names';
 
 import { currentTestApp } from './test-app';
 import { waitUntil } from './wait-until';

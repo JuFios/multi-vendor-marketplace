@@ -13,7 +13,7 @@ import {
   Min,
 } from 'class-validator';
 
-import { MAX_MONEY_CENTS } from '../../../common/decorators';
+import { MAX_MONEY_CENTS } from '../../../common/decorators/is-money-cents.decorator';
 import {
   CATALOG_DEFAULT_LIMIT,
   CATALOG_MAX_LIMIT,
@@ -22,7 +22,7 @@ import {
   type CatalogProductType,
   type CatalogQuery,
   type CatalogSort,
-} from '../../../search';
+} from '../../../search/catalog';
 
 export const CATALOG_SEARCH_TEXT_MAX_LENGTH = 200;
 

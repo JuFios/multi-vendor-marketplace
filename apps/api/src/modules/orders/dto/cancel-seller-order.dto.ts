@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsString, MaxLength, MinLength } from 'class-validator';
 
-import { SanitizeText } from '../../../common/decorators';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 
 export const CANCEL_REASON_MAX_LENGTH = 500;
 

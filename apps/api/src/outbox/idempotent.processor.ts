@@ -7,17 +7,20 @@ import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import type { Job } from 'bullmq';
 import { ClsService } from 'nestjs-cls';
 
-import { queueConfig } from '../config';
+import { queueConfig } from '../config/queue.config';
 import {
   QUEUE_DEAD_LETTER_TOTAL,
   QUEUE_JOB_DURATION_SECONDS,
   QUEUE_JOBS_COMPLETED_TOTAL,
   QUEUE_JOBS_FAILED_TOTAL,
 } from '../metrics/metrics.constants';
-import type { AppTransactionHost } from '../prisma';
-import { isDeadLetter, type QueueName } from '../queue';
+import type { AppTransactionHost } from '../prisma/transaction';
+import { isDeadLetter } from '../queue/dead-letter';
+import type { QueueName } from '../queue/queue-names';
 
-import { type AnyDomainEvent, EVENT_ROUTING, type EventRoutes, type EventType } from './events';
+import type { AnyDomainEvent } from './events/domain-event';
+import { EVENT_ROUTING, type EventRoutes } from './events/event-routes';
+import type { EventType } from './events/event-types';
 
 import '../common/cls/cls-store';
 

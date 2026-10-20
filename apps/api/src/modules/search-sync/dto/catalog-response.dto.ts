@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { CATALOG_PRODUCT_TYPES, type CatalogProductType } from '../../../search';
+import { CATALOG_PRODUCT_TYPES, type CatalogProductType } from '../../../search/catalog';
 import type { CatalogPage } from '../catalog-page';
 
 class RatingDto {

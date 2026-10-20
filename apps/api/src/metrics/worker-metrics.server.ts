@@ -11,7 +11,7 @@ import {
 import { type ConfigType } from '@nestjs/config';
 import { register } from '@prometheus-io/client';
 
-import { metricsConfig } from '../config';
+import { metricsConfig } from '../config/metrics.config';
 
 const SCRAPE_PATH = '/metrics';
 

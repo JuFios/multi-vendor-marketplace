@@ -3,9 +3,9 @@ import type { Meilisearch } from 'meilisearch';
 import { Meilisearch as MeilisearchClient } from 'meilisearch';
 import request from 'supertest';
 
-import { SearchIndexer } from '../../src/modules/search-sync';
-import { PrismaService } from '../../src/prisma';
-import { MEILI_CLIENT } from '../../src/search';
+import { SearchIndexer } from '../../src/modules/search-sync/search-indexer.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { MEILI_CLIENT } from '../../src/search/meili.constants';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { createCategory, createProduct, createSeller } from '../utils/factories';

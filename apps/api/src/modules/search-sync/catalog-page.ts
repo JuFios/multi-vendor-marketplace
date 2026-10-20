@@ -1,4 +1,4 @@
-import type { CatalogItem } from '../../search';
+import type { CatalogItem } from '../../search/catalog';
 
 export interface NamedFacet {
   readonly id: string;

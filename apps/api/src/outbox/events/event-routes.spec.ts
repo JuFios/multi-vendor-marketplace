@@ -1,4 +1,4 @@
-import { QUEUE_NAMES } from '../../queue';
+import { QUEUE_NAMES } from '../../queue/queue-names';
 
 import { EVENT_ROUTES } from './event-routes';
 import { EVENT_TYPES } from './event-types';

@@ -8,7 +8,7 @@ import {
 import { type ConfigType } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-import { databaseConfig } from '../config';
+import { databaseConfig } from '../config/database.config';
 import { PrismaClient } from '../generated/prisma/client';
 
 import { DATABASE_SESSION_OPTIONS } from './session-options';

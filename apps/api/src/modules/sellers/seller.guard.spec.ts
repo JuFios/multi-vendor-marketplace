@@ -1,6 +1,6 @@
 import type { ExecutionContext } from '@nestjs/common';
 
-import { ForbiddenError } from '../../common/exceptions';
+import { ForbiddenError } from '../../common/exceptions/app-error';
 
 import { SellerGuard } from './seller.guard';
 import type { SellersService } from './sellers.service';

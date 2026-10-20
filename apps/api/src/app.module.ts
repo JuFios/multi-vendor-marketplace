@@ -1,29 +1,29 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 
-import { CacheModule } from './cache';
-import { AppClsModule } from './common/cls';
-import { AllExceptionsFilter } from './common/filters';
-import { ThrottlingModule } from './common/throttling';
-import { AppConfigModule } from './config';
+import { CacheModule } from './cache/cache.module';
+import { AppClsModule } from './common/cls/app-cls.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { ThrottlingModule } from './common/throttling/throttling.module';
+import { AppConfigModule } from './config/config.module';
 import { HealthModule } from './health/health.module';
-import { IdempotencyModule } from './idempotency';
-import { LoggerModule } from './logger';
-import { MetricsModule } from './metrics';
-import { AuthModule } from './modules/auth';
-import { CartModule } from './modules/cart';
-import { CategoriesModule } from './modules/categories';
-import { NotificationsModule } from './modules/notifications';
-import { OrdersModule } from './modules/orders';
-import { PaymentsLedgerModule } from './modules/payments-ledger';
-import { ProductsModule } from './modules/products';
-import { SearchSyncModule } from './modules/search-sync';
-import { SellersModule } from './modules/sellers';
-import { UsersModule } from './modules/users';
-import { OutboxModule } from './outbox';
-import { PrismaModule } from './prisma';
-import { RedisModule } from './redis';
-import { MeiliModule } from './search';
+import { IdempotencyModule } from './idempotency/idempotency.module';
+import { LoggerModule } from './logger/logger.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { CartModule } from './modules/cart/cart.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { PaymentsLedgerModule } from './modules/payments-ledger/payments-ledger.module';
+import { ProductsModule } from './modules/products/products.module';
+import { SearchSyncModule } from './modules/search-sync/search-sync.module';
+import { SellersModule } from './modules/sellers/sellers.module';
+import { UsersModule } from './modules/users/users.module';
+import { OutboxModule } from './outbox/outbox.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { RedisModule } from './redis/redis.module';
+import { MeiliModule } from './search/meili.module';
 
 @Module({
   imports: [

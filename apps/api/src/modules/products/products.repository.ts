@@ -2,8 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
 import type { Prisma, Product as ProductRow } from '../../generated/prisma/client';
-import type { AppTransactionHost } from '../../prisma';
-import type { CatalogQuery, CatalogSort } from '../../search';
+import type { AppTransactionHost } from '../../prisma/transaction';
+import type { CatalogQuery, CatalogSort } from '../../search/catalog';
 
 import type {
   ModerationDecision,
@@ -12,6 +12,8 @@ import type {
   Product,
   ProductChanges,
   ProductType,
+  CatalogMatches,
+  ReservedProduct,
 } from './product';
 
 export interface OwnedProductFilter {
@@ -26,25 +28,6 @@ export interface ModerationFilter {
   readonly status: ModerationStatus;
   readonly page: number;
   readonly limit: number;
-}
-
-/** A fixed-price product as it was at the moment its stock was taken. */
-export interface ReservedProduct {
-  readonly productId: string;
-  readonly sellerId: string;
-  readonly title: string;
-  readonly unitPriceCents: number;
-  readonly quantity: number;
-  /** The stock left and the version after the deduction. */
-  readonly stock: number;
-  readonly version: number;
-}
-
-export interface CatalogMatches {
-  readonly items: Product[];
-  readonly total: number;
-  readonly categoryCounts: readonly { categoryId: string; count: number }[];
-  readonly priceRange: { min: number; max: number } | null;
 }
 
 const CATALOG_ORDER: Readonly<Record<CatalogSort, Prisma.ProductOrderByWithRelationInput[]>> = {

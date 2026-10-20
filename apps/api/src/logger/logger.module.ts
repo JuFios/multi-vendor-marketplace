@@ -3,7 +3,7 @@ import { type ConfigType } from '@nestjs/config';
 import { LoggerModule as PinoLoggerModule, type Params } from 'nestjs-pino';
 import type { DestinationStream } from 'pino';
 
-import { appConfig } from '../config';
+import { appConfig } from '../config/app.config';
 import { NodeEnv } from '../config/env.validation';
 
 import { LOG_STREAM } from './logger.constants';

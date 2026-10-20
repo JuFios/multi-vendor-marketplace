@@ -10,22 +10,18 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import type { Counter, Histogram } from '@prometheus-io/client';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 
-import { withTimeout } from '../common/utils';
-import { outboxConfig } from '../config';
+import { withTimeout } from '../common/utils/with-timeout';
+import { outboxConfig } from '../config/outbox.config';
 import {
   OUTBOX_PUBLISH_FAILURES_TOTAL,
   OUTBOX_PUBLISH_LAG_SECONDS,
 } from '../metrics/metrics.constants';
-import { PrismaService } from '../prisma';
-import { QUEUE_PUBLISHER, type QueuePublisherPort } from '../queue';
+import { PrismaService } from '../prisma/prisma.service';
+import { QUEUE_PUBLISHER, type QueuePublisherPort } from '../queue/queue-publisher.port';
 
-import {
-  type AnyDomainEvent,
-  EVENT_ROUTING,
-  EVENT_SCHEMA_VERSION,
-  type EventRoutes,
-  type EventType,
-} from './events';
+import { type AnyDomainEvent, EVENT_SCHEMA_VERSION } from './events/domain-event';
+import { EVENT_ROUTING, type EventRoutes } from './events/event-routes';
+import type { EventType } from './events/event-types';
 
 const INTERVAL_NAME = 'outbox-relay';
 const PUBLISH_TIMEOUT_MS = 5000;

@@ -2,7 +2,7 @@ import { type ArgumentsHost, Catch, type ExceptionFilter, Inject, Logger } from 
 import { type ConfigType } from '@nestjs/config';
 import type { Response } from 'express';
 
-import { httpConfig } from '../../config';
+import { httpConfig } from '../../config/http.config';
 
 import { GoogleLoginFailedError } from './auth.errors';
 

@@ -3,7 +3,7 @@ import { CacheModule as NestCacheModule } from '@nestjs/cache-manager';
 import { Global, Logger, Module } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 
-import { redisConfig } from '../config';
+import { redisConfig } from '../config/redis.config';
 
 import { CacheService } from './cache.service';
 

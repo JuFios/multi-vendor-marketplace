@@ -1,8 +1,9 @@
 import { Processor } from '@nestjs/bullmq';
 
-import { IdempotentProcessor } from '../../outbox';
-import { type AnyDomainEvent, EVENT_TYPE, type EventType } from '../../outbox/events';
-import { QUEUE } from '../../queue';
+import type { AnyDomainEvent } from '../../outbox/events/domain-event';
+import { EVENT_TYPE, type EventType } from '../../outbox/events/event-types';
+import { IdempotentProcessor } from '../../outbox/idempotent.processor';
+import { QUEUE } from '../../queue/queue-names';
 
 import { ProductDetailsCache } from './product-details-cache.service';
 

@@ -2,8 +2,9 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
 
-import { SanitizeText } from '../../../common/decorators';
-import { normalizeEmail, USER_NAME_MAX_LENGTH } from '../../users';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
+import { normalizeEmail } from '../../users/email';
+import { USER_NAME_MAX_LENGTH } from '../../users/user-account';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../password-policy';
 
 import { IsAcceptablePassword } from './is-acceptable-password.decorator';

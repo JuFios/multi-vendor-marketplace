@@ -4,10 +4,11 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
-import { authConfig } from '../../config';
-import type { AppTransactionHost } from '../../prisma';
-import { SellersService } from '../sellers';
-import { type UserAccount, UsersService } from '../users';
+import { authConfig } from '../../config/auth.config';
+import type { AppTransactionHost } from '../../prisma/transaction';
+import { SellersService } from '../sellers/sellers.service';
+import type { UserAccount } from '../users/user-account';
+import { UsersService } from '../users/users.service';
 
 import { AccessTokenService } from './access-token.service';
 import { InvalidRefreshTokenError, RefreshTokenReusedError } from './auth.errors';

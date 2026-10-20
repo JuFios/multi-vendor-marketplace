@@ -4,10 +4,11 @@ import { IsString, MaxLength } from 'class-validator';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
-import { Public } from '../../src/common/decorators';
-import { IsMoneyCents, SanitizeText } from '../../src/common/decorators';
-import { PaginationQueryDto } from '../../src/common/dto';
-import { ParseUuidPipe } from '../../src/common/pipes';
+import { IsMoneyCents } from '../../src/common/decorators/is-money-cents.decorator';
+import { Public } from '../../src/common/decorators/public.decorator';
+import { SanitizeText } from '../../src/common/decorators/sanitize-text.decorator';
+import { PaginationQueryDto } from '../../src/common/dto/pagination-query.dto';
+import { ParseUuidPipe } from '../../src/common/pipes/parse-uuid.pipe';
 import { createTestApp } from '../utils/test-app';
 
 class CreateItemDto {

@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
-import type { UserRole } from '../../src/modules/users';
-import { PrismaService } from '../../src/prisma';
+import type { UserRole } from '../../src/modules/users/user-role';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { createProduct, createSeller, createUser } from '../utils/factories';

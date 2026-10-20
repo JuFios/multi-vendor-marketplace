@@ -3,7 +3,8 @@ import { ClsPluginTransactional } from '@nestjs-cls/transactional';
 import { TransactionalAdapterPrisma } from '@nestjs-cls/transactional-adapter-prisma';
 import { ClsModule } from 'nestjs-cls';
 
-import { PrismaModule, PrismaService } from '../../prisma';
+import { PrismaModule } from '../../prisma/prisma.module';
+import { PrismaService } from '../../prisma/prisma.service';
 
 type PluginAdapter = ConstructorParameters<typeof ClsPluginTransactional>[0]['adapter'];
 

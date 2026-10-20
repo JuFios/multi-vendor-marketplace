@@ -14,7 +14,7 @@ import {
   DependencyUnavailableError,
   NotFoundError,
   ValidationFailedError,
-} from '../exceptions';
+} from '../exceptions/app-error';
 
 import { mapException } from './map-exception';
 

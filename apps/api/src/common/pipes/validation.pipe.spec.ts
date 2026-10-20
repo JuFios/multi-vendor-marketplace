@@ -2,7 +2,7 @@ import type { ArgumentMetadata } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsEmail, IsString, ValidateNested } from 'class-validator';
 
-import { ValidationFailedError } from '../exceptions';
+import { ValidationFailedError } from '../exceptions/app-error';
 
 import { createValidationPipe } from './validation.pipe';
 

@@ -2,7 +2,7 @@ import { applyDecorators } from '@nestjs/common';
 import { Transform } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
 
-import { SanitizeText } from '../../../common/decorators';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import { PRODUCT_IMAGE_URL_MAX_LENGTH, PRODUCT_MAX_IMAGES } from '../product';
 
 const trim = ({ value }: { value: unknown }): unknown =>

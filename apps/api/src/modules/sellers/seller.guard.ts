@@ -1,6 +1,6 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 
-import { ForbiddenError } from '../../common/exceptions';
+import { ForbiddenError } from '../../common/exceptions/app-error';
 import type { AuthUser } from '../auth/auth-user';
 
 import { SellersService } from './sellers.service';

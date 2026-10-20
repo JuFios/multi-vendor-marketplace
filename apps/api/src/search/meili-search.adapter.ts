@@ -2,8 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { Meilisearch, type Index } from 'meilisearch';
 
-import { withTimeout } from '../common/utils';
-import { searchConfig } from '../config';
+import { withTimeout } from '../common/utils/with-timeout';
+import { searchConfig } from '../config/search.config';
 
 import {
   buildMeiliFilter,

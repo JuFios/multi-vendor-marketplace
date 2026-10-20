@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 
-import { IdempotencyModule } from '../../idempotency';
-import { CartModule } from '../cart';
-import { PaymentsLedgerModule } from '../payments-ledger';
-import { ProductsModule } from '../products';
-import { SellersModule } from '../sellers';
+import { IdempotencyModule } from '../../idempotency/idempotency.module';
+import { CartModule } from '../cart/cart.module';
+import { PaymentsLedgerModule } from '../payments-ledger/payments-ledger.module';
+import { ProductsModule } from '../products/products.module';
+import { SellersModule } from '../sellers/sellers.module';
 
 import { AdminOrdersController } from './admin-orders.controller';
 import { AdminSellerOrdersController } from './admin-seller-orders.controller';

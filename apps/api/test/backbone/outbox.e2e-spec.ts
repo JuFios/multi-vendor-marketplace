@@ -5,16 +5,16 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 
 import '../../src/common/cls/cls-store';
-import { OutboxOutsideTransactionError, OutboxService } from '../../src/outbox';
-import {
-  type AnyDomainEvent,
-  EVENT_ROUTES,
-  EVENT_ROUTING,
-  EVENT_TYPE,
-  newEventId,
-} from '../../src/outbox/events';
-import { type AppTransactionHost, PrismaService } from '../../src/prisma';
-import { QUEUE, QUEUE_PUBLISHER, type QueueName, type QueuePublisherPort } from '../../src/queue';
+import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
+import { newEventId } from '../../src/outbox/events/event-id';
+import { EVENT_ROUTES, EVENT_ROUTING } from '../../src/outbox/events/event-routes';
+import { EVENT_TYPE } from '../../src/outbox/events/event-types';
+import { OutboxOutsideTransactionError } from '../../src/outbox/outbox.errors';
+import { OutboxService } from '../../src/outbox/outbox.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import type { AppTransactionHost } from '../../src/prisma/transaction';
+import { QUEUE, type QueueName } from '../../src/queue/queue-names';
+import { QUEUE_PUBLISHER, type QueuePublisherPort } from '../../src/queue/queue-publisher.port';
 import { resetDb } from '../utils/db';
 import { createTestApp } from '../utils/test-app';
 import { waitUntil } from '../utils/wait-until';

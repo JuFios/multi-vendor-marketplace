@@ -3,8 +3,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { LevelWithSilent } from 'pino';
 import type { Options } from 'pino-http';
 
-import { getContextEventId, getContextUserId, getCorrelationId } from '../common/cls';
-import { resolveRouteTemplate } from '../common/utils';
+import {
+  getContextEventId,
+  getContextUserId,
+  getCorrelationId,
+} from '../common/cls/correlation-context';
+import { resolveRouteTemplate } from '../common/utils/route-template';
 
 import { REDACT_CENSOR, REDACT_PATHS } from './logger.constants';
 

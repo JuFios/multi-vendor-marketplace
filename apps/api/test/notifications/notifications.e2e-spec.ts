@@ -3,12 +3,13 @@ import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
-import { CORRELATION_ID_REQUEST_HEADER } from '../../src/common/cls';
+import { CORRELATION_ID_REQUEST_HEADER } from '../../src/common/cls/correlation-id';
 import type { OutboxEvent } from '../../src/generated/prisma/client';
-import type { UserRole } from '../../src/modules/users';
-import type { AnyDomainEvent } from '../../src/outbox/events';
-import { PrismaService } from '../../src/prisma';
-import { QUEUE, QUEUE_PUBLISHER, type QueuePublisherPort } from '../../src/queue';
+import type { UserRole } from '../../src/modules/users/user-role';
+import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { QUEUE } from '../../src/queue/queue-names';
+import { QUEUE_PUBLISHER, type QueuePublisherPort } from '../../src/queue/queue-publisher.port';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { createProduct, createSeller, createUser } from '../utils/factories';

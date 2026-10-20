@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
-import { MEILI_CLIENT } from '../../src/search';
+import { MEILI_CLIENT } from '../../src/search/meili.constants';
 import { createTestApp } from '../utils/test-app';
 
 describe('health (e2e)', () => {

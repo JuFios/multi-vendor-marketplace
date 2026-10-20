@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { ROLES, type UserAccount, type UserRole } from '../../users';
+import type { UserAccount } from '../../users/user-account';
+import { ROLES, type UserRole } from '../../users/user-role';
 
 /** The signed-in user as the sign-in endpoints describe them. */
 export class SessionUserDto {

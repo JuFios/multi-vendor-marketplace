@@ -1,4 +1,4 @@
-import { AppError } from '../../common/exceptions';
+import { AppError } from '../../common/exceptions/app-error';
 
 import type { SellerOrderStatusValue as S } from './order-status';
 import {

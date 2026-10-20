@@ -2,7 +2,7 @@ import { Controller, Get, Module } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
-import { RateLimit } from '../../src/common/throttling';
+import { RateLimit } from '../../src/common/throttling/rate-limit.decorator';
 import { bearerFor } from '../utils/auth';
 import { overrideEnv } from '../utils/env';
 import { createTestApp } from '../utils/test-app';

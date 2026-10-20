@@ -3,10 +3,10 @@ import { HealthIndicatorService, type HealthIndicatorResult } from '@nestjs/term
 import type { Redis } from 'ioredis';
 import type { Meilisearch } from 'meilisearch';
 
-import { withTimeout } from '../common/utils';
-import { PrismaService } from '../prisma';
-import { REDIS_CLIENT } from '../redis';
-import { MEILI_CLIENT } from '../search';
+import { withTimeout } from '../common/utils/with-timeout';
+import { PrismaService } from '../prisma/prisma.service';
+import { REDIS_CLIENT } from '../redis/redis.constants';
+import { MEILI_CLIENT } from '../search/meili.constants';
 
 import { DEPENDENCY_CHECK_TIMEOUT_MS } from './health.constants';
 

@@ -2,8 +2,8 @@ import { Controller, Get, Header, Query, Res } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 
-import { Public } from '../../common/decorators';
-import { ApiErrorResponses } from '../../common/swagger';
+import { Public } from '../../common/decorators/public.decorator';
+import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
 
 import { CatalogService } from './catalog.service';
 import { CatalogQueryDto } from './dto/catalog-query.dto';

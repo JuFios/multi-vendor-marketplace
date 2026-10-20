@@ -5,11 +5,14 @@ import helmet from 'helmet';
 import { ClsMiddleware } from 'nestjs-cls';
 import { Logger } from 'nestjs-pino';
 
-import { bindRequestCorrelationId, CORRELATION_ID_RESPONSE_HEADER } from './common/cls';
-import { createValidationPipe } from './common/pipes';
-import { mountOpenApi } from './common/swagger';
-import { httpConfig } from './config';
-import { createHttpMetricsMiddleware, HttpMetricsService, METRICS_PATH } from './metrics';
+import { bindRequestCorrelationId } from './common/cls/correlation-context';
+import { CORRELATION_ID_RESPONSE_HEADER } from './common/cls/correlation-id';
+import { createValidationPipe } from './common/pipes/validation.pipe';
+import { mountOpenApi } from './common/swagger/openapi';
+import { httpConfig } from './config/http.config';
+import { createHttpMetricsMiddleware } from './metrics/http-metrics.middleware';
+import { HttpMetricsService } from './metrics/http-metrics.service';
+import { METRICS_PATH } from './metrics/metrics.constants';
 
 export const GLOBAL_PREFIX = 'api';
 

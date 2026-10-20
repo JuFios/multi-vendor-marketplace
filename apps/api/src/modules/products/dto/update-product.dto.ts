@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsUUID } from 'class-validator';
 
-import { IsMoneyCents } from '../../../common/decorators';
+import { IsMoneyCents } from '../../../common/decorators/is-money-cents.decorator';
 import {
   PRODUCT_DESCRIPTION_MAX_LENGTH,
   PRODUCT_MAX_IMAGES,

@@ -1,20 +1,22 @@
 import { Module } from '@nestjs/common';
 
-import { CacheModule } from './cache';
-import { AppClsModule } from './common/cls';
-import { AppConfigModule } from './config';
-import { LoggerModule } from './logger';
-import { MetricsModule, WorkerMetricsServer } from './metrics';
-import { NotificationsWorkerModule } from './modules/notifications';
-import { OrdersWorkerModule } from './modules/orders';
-import { PaymentsLedgerWorkerModule } from './modules/payments-ledger';
-import { ProductsWorkerModule } from './modules/products';
-import { SearchSyncWorkerModule } from './modules/search-sync';
-import { OutboxModule, OutboxRelayModule } from './outbox';
-import { PrismaModule } from './prisma';
-import { QueueModule } from './queue';
-import { RedisModule } from './redis';
-import { MeiliModule } from './search';
+import { CacheModule } from './cache/cache.module';
+import { AppClsModule } from './common/cls/app-cls.module';
+import { AppConfigModule } from './config/config.module';
+import { LoggerModule } from './logger/logger.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { WorkerMetricsServer } from './metrics/worker-metrics.server';
+import { NotificationsWorkerModule } from './modules/notifications/notifications-worker.module';
+import { OrdersWorkerModule } from './modules/orders/orders-worker.module';
+import { PaymentsLedgerWorkerModule } from './modules/payments-ledger/payments-ledger-worker.module';
+import { ProductsWorkerModule } from './modules/products/products-worker.module';
+import { SearchSyncWorkerModule } from './modules/search-sync/search-sync-worker.module';
+import { OutboxRelayModule } from './outbox/outbox-relay.module';
+import { OutboxModule } from './outbox/outbox.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { QueueModule } from './queue/queue.module';
+import { RedisModule } from './redis/redis.module';
+import { MeiliModule } from './search/meili.module';
 import { WorkerLifecycle } from './worker.lifecycle';
 
 @Module({

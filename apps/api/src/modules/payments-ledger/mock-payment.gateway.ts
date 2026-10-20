@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 
-import { paymentsConfig } from '../../config';
+import { paymentsConfig } from '../../config/payments.config';
 
 import type { CaptureResult, PaymentGatewayPort } from './payment-gateway.port';
 

@@ -3,10 +3,10 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import {
   EmailAlreadyRegisteredError,
   UserNotFoundError,
-  UsersModule,
-  UsersService,
-} from '../../src/modules/users';
-import { PrismaService } from '../../src/prisma';
+} from '../../src/modules/users/users.errors';
+import { UsersModule } from '../../src/modules/users/users.module';
+import { UsersService } from '../../src/modules/users/users.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { resetDb } from '../utils/db';
 import { createTestApp } from '../utils/test-app';
 

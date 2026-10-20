@@ -1,8 +1,8 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
-import { OutboxService } from '../../src/outbox';
-import { PrismaService } from '../../src/prisma';
+import { OutboxService } from '../../src/outbox/outbox.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { createSeller, createUser } from '../utils/factories';

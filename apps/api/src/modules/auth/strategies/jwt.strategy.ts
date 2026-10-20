@@ -3,7 +3,7 @@ import { type ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
-import { authConfig } from '../../../config';
+import { authConfig } from '../../../config/auth.config';
 import { ACCESS_TOKEN_ALGORITHM, type AccessTokenClaims } from '../access-claims';
 import type { AuthUser } from '../auth-user';
 import { JWT_STRATEGY_NAME } from '../auth.constants';

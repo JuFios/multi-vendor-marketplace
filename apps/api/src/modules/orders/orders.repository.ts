@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
-import { getCorrelationId } from '../../common/cls';
+import { getCorrelationId } from '../../common/cls/correlation-context';
 import type { Prisma } from '../../generated/prisma/client';
-import type { AppTransactionHost } from '../../prisma';
+import type { AppTransactionHost } from '../../prisma/transaction';
 
 import type { OrderRecord, SellerOrderRecord } from './order';
 import type {
