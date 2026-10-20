@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
 import type { AppTransactionHost } from '../../prisma/transaction';
+import type { AuctionRecord } from '../bidding/auction';
+import { AuctionsService } from '../bidding/auctions.service';
 import { ProductsService } from '../products/products.service';
 import { SellersService } from '../sellers/sellers.service';
 
@@ -14,13 +16,23 @@ import {
 } from './cart';
 import {
   CannotBuyOwnProductError,
+  AuctionNotWonError,
   CartInsufficientStockError,
   CartItemNotFoundError,
-  CartProductNotFixedPriceError,
   CartQuantityLimitError,
 } from './cart.errors';
 import { CartRepository } from './cart.repository';
 import { CartResponseDto } from './dto/cart-response.dto';
+
+/** The user won the auction and may still check out, judged by the database clock. */
+function isWonBy(auction: AuctionRecord, userId: string): boolean {
+  return (
+    auction.status === 'SOLD_TO_WINNER' &&
+    auction.winnerId === userId &&
+    auction.winnerDeadlineAt !== null &&
+    auction.winnerDeadlineAt.getTime() > auction.dbNow.getTime()
+  );
+}
 
 @Injectable()
 export class CartService {
@@ -30,17 +42,20 @@ export class CartService {
     @Inject(TransactionHost) private readonly txHost: AppTransactionHost,
     private readonly cart: CartRepository,
     private readonly products: ProductsService,
+    private readonly auctions: AuctionsService,
     private readonly sellers: SellersService,
   ) {}
 
   /** Adds `quantity` to the line, creating the cart and the line on first use. */
   async addItem(userId: string, productId: string, quantity: number): Promise<CartResponseDto> {
     const product = await this.products.getPublicStock(productId);
-    if (product.type !== 'FIXED_PRICE') {
-      throw new CartProductNotFixedPriceError();
-    }
     if ((await this.sellers.findApprovedSellerId(userId)) === product.sellerId) {
       throw new CannotBuyOwnProductError();
+    }
+    if (product.type === 'AUCTION') {
+      await this.addWonLot(userId, productId);
+      this.logger.log({ msg: 'cart.item_added', userId, productId, quantity: 1 });
+      return this.get(userId);
     }
     await this.txHost.withTransaction(async () => {
       const cartId = await this.cart.lockOrCreateActive(userId);
@@ -56,6 +71,22 @@ export class CartService {
     });
     this.logger.log({ msg: 'cart.item_added', userId, productId, quantity });
     return this.get(userId);
+  }
+
+  /**
+   * Puts an auction lot the user has won into their cart (quantity 1, once). Only the winner
+   * can, and only while the checkout window is open on the database clock.
+   */
+  async addWonLot(userId: string, productId: string): Promise<void> {
+    const [auction] = await this.auctions.findByProductIds([productId]);
+    if (auction === undefined || !isWonBy(auction, userId)) {
+      throw new AuctionNotWonError();
+    }
+    await this.txHost.withTransaction(async () => {
+      const cartId = await this.cart.lockOrCreateActive(userId);
+      await this.cart.setQuantity(cartId, productId, 1);
+      await this.cart.markFirstItemAdded(cartId);
+    });
   }
 
   /** Sets the line's quantity; lowering it always works, so a broken line can be fixed. */
@@ -138,16 +169,27 @@ export class CartService {
         product,
       ]),
     );
+    const lots = new Map(
+      (
+        await this.auctions.findByProductIds(
+          [...products.values()].filter((p) => p.type === 'AUCTION').map((p) => p.id),
+        )
+      ).map((auction) => [auction.productId, auction]),
+    );
     const lines: CartLineSource[] = [];
     for (const item of items) {
       const product = products.get(item.productId);
       if (product) {
+        const lot = lots.get(product.id);
+        const won = lot !== undefined && isWonBy(lot, userId);
         lines.push({
           productId: product.id,
           sellerId: product.sellerId,
           title: product.title,
           type: product.type,
-          priceCents: product.priceCents,
+          priceCents:
+            product.type === 'AUCTION' ? (won ? lot.currentPriceCents : null) : product.priceCents,
+          ...(product.type === 'AUCTION' ? { auctionWon: won } : {}),
           stock: product.stock,
           isPublished: product.isPublished,
           archivedAt: product.archivedAt,

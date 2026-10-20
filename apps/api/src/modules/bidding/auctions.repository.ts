@@ -214,6 +214,57 @@ export class AuctionsRepository {
       LIMIT ${limit}`;
   }
 
+  async findByProductIds(productIds: readonly string[]): Promise<AuctionRecord[]> {
+    if (productIds.length === 0) {
+      return [];
+    }
+    const rows = await this.txHost.tx.$queryRaw<AuctionRow[]>`
+      SELECT *, now() AS db_now FROM auctions WHERE product_id = ANY(${[...productIds]}::uuid[])`;
+    return rows.map(toAuction);
+  }
+
+  /**
+   * Hands the lot to the winner's order: SOLD_TO_WINNER to ORDERED, but only for this winner and
+   * only while the checkout window is open on the database clock. Null otherwise. The expiry of
+   * the window is the competing conditional UPDATE of the same row; exactly one of them wins.
+   */
+  async settleWonLot(productId: string, userId: string): Promise<AuctionRecord | null> {
+    const rows = await this.txHost.tx.$queryRaw<AuctionRow[]>`
+      UPDATE auctions
+      SET status = 'ORDERED', version = version + 1, updated_at = now()
+      WHERE product_id = ${productId}::uuid AND status = 'SOLD_TO_WINNER'
+        AND winner_id = ${userId}::uuid AND winner_deadline_at > now()
+      RETURNING *, now() AS db_now`;
+    return rows[0] ? toAuction(rows[0]) : null;
+  }
+
+  /** Offers an ordered lot again (its order was cancelled): a new round with the same terms. */
+  async restartIfOrdered(id: string): Promise<AuctionRecord | null> {
+    const rows = await this.txHost.tx.$queryRaw<AuctionRow[]>`
+      UPDATE auctions
+      SET status = 'ACTIVE', round = round + 1, current_price_cents = NULL,
+          highest_bid_id = NULL, highest_bidder_id = NULL, bid_count = 0,
+          winner_id = NULL, winner_deadline_at = NULL,
+          ends_at = now() + make_interval(secs => duration_sec),
+          version = version + 1, updated_at = now()
+      WHERE id = ${id}::uuid AND status = 'ORDERED'
+      RETURNING *, now() AS db_now`;
+    return rows[0] ? toAuction(rows[0]) : null;
+  }
+
+  /** Locks the product's auction row for the rest of the transaction. */
+  async lockByProductId(productId: string): Promise<AuctionRecord | null> {
+    const rows = await this.txHost.tx.$queryRaw<AuctionRow[]>`
+      SELECT *, now() AS db_now FROM auctions WHERE product_id = ${productId}::uuid FOR UPDATE`;
+    return rows[0] ? toAuction(rows[0]) : null;
+  }
+
+  async markNotSold(id: string): Promise<void> {
+    await this.txHost.tx.$executeRaw`
+      UPDATE auctions SET status = 'NOT_SOLD', version = version + 1, updated_at = now()
+      WHERE id = ${id}::uuid AND status = 'ACTIVE'`;
+  }
+
   /** The bids of one round, highest first (which is also newest first). */
   async listBids(
     auctionId: string,

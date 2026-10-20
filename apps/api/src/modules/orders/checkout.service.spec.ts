@@ -4,6 +4,7 @@ import type { Counter } from '@prometheus-io/client';
 import type { IdempotencyService } from '../../idempotency/idempotency.service';
 import type { OutboxService } from '../../outbox/outbox.service';
 import type { AppTransactionHost } from '../../prisma/transaction';
+import type { AuctionsService } from '../bidding/auctions.service';
 import type { CheckoutLine } from '../cart/cart';
 import type { CartService } from '../cart/cart.service';
 import type { LedgerService } from '../payments-ledger/ledger.service';
@@ -76,6 +77,7 @@ const order: OrderRecord = {
 describe('CheckoutService', () => {
   const cart = { lockActiveLines: jest.fn(), convert: jest.fn() };
   const inventory = { reserve: jest.fn(), invalidateDetails: jest.fn() };
+  const auctions = { settleWonLots: jest.fn() };
   const orders = { create: jest.fn() };
   const ledger = { recordSale: jest.fn() };
   const sellers = { findStoreNames: jest.fn() };
@@ -91,6 +93,7 @@ describe('CheckoutService', () => {
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
     txHost.withTransaction.mockImplementation((work) => work());
     sellers.findStoreNames.mockResolvedValue(new Map());
+    auctions.settleWonLots.mockResolvedValue([]);
     service = new CheckoutService(
       txHost as unknown as AppTransactionHost,
       { commissionBps: 1000 },
@@ -99,6 +102,7 @@ describe('CheckoutService', () => {
       orders as unknown as OrdersRepository,
       cart as unknown as CartService,
       inventory as unknown as InventoryService,
+      auctions as unknown as AuctionsService,
       ledger as unknown as LedgerService,
       sellers as unknown as SellersService,
       outbox as unknown as OutboxService,

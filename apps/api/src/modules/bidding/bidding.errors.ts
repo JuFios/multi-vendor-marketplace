@@ -41,3 +41,21 @@ export class BidConflictError extends ConflictError {
     super('Other bids kept changing the auction; read its state and try again', 'BID_CONFLICT');
   }
 }
+
+export class AuctionWindowExpiredError extends ConflictError {
+  constructor() {
+    super(
+      'The checkout window of an auction lot in the cart has run out',
+      'AUCTION_WINDOW_EXPIRED',
+    );
+  }
+}
+
+export class ProductHasActiveAuctionError extends ConflictError {
+  constructor() {
+    super(
+      'This product has an auction with bids or a winner who has not checked out yet',
+      'PRODUCT_HAS_ACTIVE_AUCTION',
+    );
+  }
+}

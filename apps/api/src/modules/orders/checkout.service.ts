@@ -11,6 +11,7 @@ import { CHECKOUT_FAILURES_TOTAL, ORDERS_CREATED_TOTAL } from '../../metrics/met
 import { EVENT_TYPE } from '../../outbox/events/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 import type { AppTransactionHost } from '../../prisma/transaction';
+import { AuctionsService } from '../bidding/auctions.service';
 import { CartService } from '../cart/cart.service';
 import { LedgerService } from '../payments-ledger/ledger.service';
 import { InventoryService } from '../products/inventory.service';
@@ -19,6 +20,7 @@ import { SellersService } from '../sellers/sellers.service';
 import { findCheckoutProblems } from './checkout-problems';
 import { OrderResponseDto } from './dto/order-response.dto';
 import { CartEmptyError, CartItemsUnavailableError } from './orders.errors';
+import { type CheckoutItem } from './orders.repository';
 import { OrdersRepository } from './orders.repository';
 import { splitCartBySeller } from './split-cart';
 
@@ -34,6 +36,7 @@ export class CheckoutService {
     private readonly orders: OrdersRepository,
     private readonly cart: CartService,
     private readonly inventory: InventoryService,
+    private readonly auctions: AuctionsService,
     private readonly ledger: LedgerService,
     private readonly sellers: SellersService,
     private readonly outbox: OutboxService,
@@ -79,10 +82,36 @@ export class CheckoutService {
 
     // The price and title come back from the same UPDATE that takes the stock, so the order
     // is priced with exactly what was sold.
+    const fixedPrice = locked.lines.filter((line) => line.type === 'FIXED_PRICE');
+    const lots = locked.lines.filter((line) => line.type === 'AUCTION');
     const reserved = await this.inventory.reserve(
-      locked.lines.map((line) => ({ productId: line.productId, quantity: line.quantity })),
+      fixedPrice.map((line) => ({ productId: line.productId, quantity: line.quantity })),
     );
-    const groups = splitCartBySeller(reserved, this.settings.commissionBps);
+    // A won lot is sold at the winning bid and has no stock to take: the conditional update of
+    // the auction is what reserves it, and it fails the whole checkout if the window ran out.
+    const settled = await this.auctions.settleWonLots(
+      userId,
+      lots.map((line) => line.productId),
+    );
+    const titles = new Map(lots.map((line) => [line.productId, line.title]));
+    const items: CheckoutItem[] = [
+      ...reserved.map((item) => ({
+        sellerId: item.sellerId,
+        productId: item.productId,
+        title: item.title,
+        unitPriceCents: item.unitPriceCents,
+        quantity: item.quantity,
+      })),
+      ...settled.map((lot) => ({
+        sellerId: lot.sellerId,
+        productId: lot.productId,
+        title: titles.get(lot.productId) ?? '',
+        unitPriceCents: lot.priceCents,
+        quantity: 1,
+        auctionId: lot.auctionId,
+      })),
+    ].sort((a, b) => (a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0));
+    const groups = splitCartBySeller(items, this.settings.commissionBps);
     const order = await this.orders.create(userId, groups, this.settings.commissionBps);
 
     for (const sellerOrder of order.sellerOrders) {
@@ -109,9 +138,20 @@ export class CheckoutService {
       })),
     );
 
+    if (settled.length > 0) {
+      await this.outbox.add(
+        settled.map((lot) => ({
+          type: EVENT_TYPE.AUCTION_ORDERED,
+          aggregateType: 'Auction',
+          aggregateId: lot.auctionId,
+          payload: { auctionId: lot.auctionId, productId: lot.productId, orderId: order.id },
+        })),
+      );
+    }
+
     const storeNames = await this.sellers.findStoreNames(groups.map((group) => group.sellerId));
     const response = OrderResponseDto.from(order, storeNames);
     await this.idempotency.complete(response);
-    return { response, productIds: reserved.map((item) => item.productId) };
+    return { response, productIds: items.map((item) => item.productId) };
   }
 }

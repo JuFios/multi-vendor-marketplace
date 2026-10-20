@@ -10,6 +10,7 @@ import type { App } from 'supertest/types';
 
 import { getCorrelationId } from '../../src/common/cls/correlation-context';
 import { Public } from '../../src/common/decorators/public.decorator';
+import { CartProcessor } from '../../src/modules/cart/cart.processor';
 import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
 import { EVENT_ROUTES, EVENT_ROUTING } from '../../src/outbox/events/event-routes';
 import { EVENT_TYPE } from '../../src/outbox/events/event-types';
@@ -94,6 +95,8 @@ describe('event backbone (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp(
       [
+        // The queue stands in for one nobody consumes.
+        { token: CartProcessor, useValue: {} },
         {
           token: EVENT_ROUTING,
           useValue: { ...EVENT_ROUTES, [EVENT_TYPE.DISPUTE_OPENED]: [QUEUE.REALTIME] },

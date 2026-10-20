@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { BiddingModule } from '../bidding/bidding.module';
 import { ProductsModule } from '../products/products.module';
 import { SellersModule } from '../sellers/sellers.module';
 
@@ -8,7 +9,7 @@ import { CartRepository } from './cart.repository';
 import { CartService } from './cart.service';
 
 @Module({
-  imports: [ProductsModule, SellersModule],
+  imports: [BiddingModule, ProductsModule, SellersModule],
   controllers: [CartController],
   providers: [CartRepository, CartService],
   exports: [CartService],

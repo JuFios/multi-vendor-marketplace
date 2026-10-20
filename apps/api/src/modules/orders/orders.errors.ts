@@ -21,7 +21,7 @@ export class CartEmptyError extends AppError {
   }
 }
 
-export type CheckoutProblemReason = 'UNAVAILABLE' | 'INSUFFICIENT_STOCK' | 'AUCTION_NOT_SUPPORTED';
+export type CheckoutProblemReason = 'UNAVAILABLE' | 'INSUFFICIENT_STOCK';
 
 export interface CheckoutProblem {
   readonly productId: string;

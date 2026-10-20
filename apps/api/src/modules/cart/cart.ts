@@ -15,6 +15,8 @@ export interface CartLineSource {
   readonly isPublished: boolean;
   readonly archivedAt: Date | null;
   readonly quantity: number;
+  /** Set on auction lots the user has won and can still check out; absent otherwise. */
+  readonly auctionWon?: boolean;
 }
 
 /** A cart row with its product's state and whether it can be bought right now. */
@@ -45,10 +47,16 @@ export interface CartView {
   readonly sellerCount: number;
 }
 
-/** A product that is gone from the catalog cannot be bought; too little stock can be fixed. */
+/**
+ * A product that is gone from the catalog cannot be bought; too little stock can be fixed. An
+ * auction lot can be bought only by its winner, within the checkout window.
+ */
 export function availabilityOf(line: CartLineSource): CartAvailability {
   if (!line.isPublished || line.archivedAt !== null) {
     return 'UNAVAILABLE';
+  }
+  if (line.type === 'AUCTION') {
+    return line.auctionWon === true ? 'AVAILABLE' : 'UNAVAILABLE';
   }
   return line.quantity > line.stock ? 'INSUFFICIENT_STOCK' : 'AVAILABLE';
 }

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { IdempotencyModule } from '../../idempotency/idempotency.module';
+import { BiddingModule } from '../bidding/bidding.module';
 import { CartModule } from '../cart/cart.module';
 import { PaymentsLedgerModule } from '../payments-ledger/payments-ledger.module';
 import { ProductsModule } from '../products/products.module';
@@ -18,7 +19,14 @@ import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
 import { SellerOrdersController } from './seller-orders.controller';
 
 @Module({
-  imports: [IdempotencyModule, CartModule, ProductsModule, PaymentsLedgerModule, SellersModule],
+  imports: [
+    IdempotencyModule,
+    BiddingModule,
+    CartModule,
+    ProductsModule,
+    PaymentsLedgerModule,
+    SellersModule,
+  ],
   controllers: [
     OrdersController,
     SellerOrdersController,

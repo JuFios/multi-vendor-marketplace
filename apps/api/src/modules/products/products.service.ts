@@ -191,8 +191,11 @@ export class ProductsService {
 
   /** Deleting a product archives it (I-16): the row stays, the catalog stops showing it. */
   async archive(sellerId: string, id: string): Promise<void> {
-    await this.requireActive(sellerId, id);
+    const product = await this.requireActive(sellerId, id);
     await this.txHost.withTransaction(async () => {
+      if (product.type === 'AUCTION') {
+        await this.auctions.prepareForArchive(id);
+      }
       if (!(await this.products.archive(id, sellerId))) {
         throw new ProductNotFoundError();
       }

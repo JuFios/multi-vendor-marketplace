@@ -105,6 +105,20 @@ export class AuctionLifecycleService {
     return true;
   }
 
+  /**
+   * The order that took the lot was cancelled: offer it again as a new round (I-03). Part of
+   * the caller's transaction; false when the auction is not ORDERED.
+   */
+  async restartIfOrdered(auctionId: string): Promise<boolean> {
+    const auction = await this.auctions.restartIfOrdered(auctionId);
+    if (auction === null) {
+      return false;
+    }
+    await this.outbox.add([this.startedEvent(auction)]);
+    this.logger.log({ msg: 'auction.restarted', auctionId, round: auction.round });
+    return true;
+  }
+
   /** The timers' backstop: handles whatever is due, whether or not its timer ever fired. */
   async sweep(): Promise<{ closed: number; expired: number }> {
     const due = await this.auctions.findDue(SWEEP_BATCH);

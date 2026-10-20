@@ -7,7 +7,12 @@ import type { AppTransactionHost } from '../../prisma/transaction';
 
 import { type AuctionRecord, isAllowedDuration } from './auction';
 import { AuctionsRepository } from './auctions.repository';
-import { AuctionEndsAtOutOfRangeError, AuctionNotFoundError } from './bidding.errors';
+import {
+  AuctionEndsAtOutOfRangeError,
+  AuctionNotFoundError,
+  AuctionWindowExpiredError,
+  ProductHasActiveAuctionError,
+} from './bidding.errors';
 import { AuctionDto, AuctionPageDto, BidDto, BidPageDto } from './dto/auction-response.dto';
 import type { ListBidsQueryDto } from './dto/list-bids-query.dto';
 
@@ -17,6 +22,14 @@ export interface NewLot {
   readonly startPriceCents: number;
   readonly bidStepCents: number;
   readonly endsAt: Date;
+}
+
+/** A lot handed to an order: the price is the winning bid. */
+export interface SettledLot {
+  readonly auctionId: string;
+  readonly productId: string;
+  readonly sellerId: string;
+  readonly priceCents: number;
 }
 
 /** What other modules and the auction routes may do with auctions. */
@@ -95,5 +108,56 @@ export class AuctionsService {
   async listOfSeller(sellerId: string, page: number, limit: number): Promise<AuctionPageDto> {
     const { items, total } = await this.auctions.listOfSeller(sellerId, page, limit);
     return { items: items.map((auction) => AuctionDto.from(auction)), total, page, limit };
+  }
+
+  /** The auctions of the given products, each read together with the database clock. */
+  findByProductIds(productIds: readonly string[]): Promise<AuctionRecord[]> {
+    return this.auctions.findByProductIds(productIds);
+  }
+
+  /**
+   * Checkout takes the won lots: each goes SOLD_TO_WINNER to ORDERED for this buyer. If the
+   * window ran out or the lot is not the buyer's, the caller's transaction fails as a whole.
+   */
+  async settleWonLots(userId: string, productIds: readonly string[]): Promise<SettledLot[]> {
+    if (!this.txHost.isTransactionActive()) {
+      throw new Error('Auction lots can only be settled inside a transaction');
+    }
+    const settled: SettledLot[] = [];
+    for (const productId of [...productIds].sort()) {
+      const auction = await this.auctions.settleWonLot(productId, userId);
+      const priceCents = auction?.currentPriceCents ?? null;
+      if (auction === null || priceCents === null) {
+        throw new AuctionWindowExpiredError();
+      }
+      settled.push({
+        auctionId: auction.id,
+        productId,
+        sellerId: auction.sellerId,
+        priceCents,
+      });
+    }
+    return settled;
+  }
+
+  /**
+   * Called when a product with an auction is archived (I-16), in the caller's transaction. A
+   * lot with bids, or a winner who has not checked out yet, cannot go; one without bids is
+   * simply not sold.
+   */
+  async prepareForArchive(productId: string): Promise<void> {
+    const auction = await this.auctions.lockByProductId(productId);
+    if (auction === null) {
+      return;
+    }
+    if (
+      auction.status === 'SOLD_TO_WINNER' ||
+      (auction.status === 'ACTIVE' && auction.bidCount > 0)
+    ) {
+      throw new ProductHasActiveAuctionError();
+    }
+    if (auction.status === 'ACTIVE') {
+      await this.auctions.markNotSold(auction.id);
+    }
   }
 }

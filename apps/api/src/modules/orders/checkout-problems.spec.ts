@@ -18,12 +18,13 @@ describe('findCheckoutProblems', () => {
         line({ productId: 'a', availability: 'UNAVAILABLE' }),
         line({ productId: 'b' }),
         line({ productId: 'c', availability: 'INSUFFICIENT_STOCK' }),
-        line({ productId: 'd', type: 'AUCTION' }),
+        line({ productId: 'd', type: 'AUCTION', availability: 'UNAVAILABLE' }),
+        line({ productId: 'e', type: 'AUCTION' }),
       ]),
     ).toEqual([
       { productId: 'a', reason: 'UNAVAILABLE' },
       { productId: 'c', reason: 'INSUFFICIENT_STOCK' },
-      { productId: 'd', reason: 'AUCTION_NOT_SUPPORTED' },
+      { productId: 'd', reason: 'UNAVAILABLE' },
     ]);
   });
 });
