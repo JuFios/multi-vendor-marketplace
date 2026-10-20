@@ -3,9 +3,9 @@ import request from 'supertest';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor } from '../utils/auth';
-import { resetDb } from '../utils/db';
 import { createSellerOrder, createUser } from '../utils/factories';
 import { flushEvents } from '../utils/flush-events';
+import { resetState } from '../utils/reset-state';
 import { createTestApp } from '../utils/test-app';
 
 interface ErrorBody {
@@ -32,10 +32,10 @@ describe('Disputes (e2e)', () => {
     prisma = app.get(PrismaService);
   });
 
-  beforeEach(() => resetDb(prisma));
+  beforeEach(() => resetState(prisma));
 
   afterAll(async () => {
-    await resetDb(prisma);
+    await resetState(prisma);
     await app.close();
   });
 
