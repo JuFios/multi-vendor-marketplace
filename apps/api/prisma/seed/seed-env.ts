@@ -1,7 +1,16 @@
 import 'reflect-metadata';
 
-import { plainToInstance, Transform } from 'class-transformer';
-import { IsEmail, IsString, MinLength, validateSync } from 'class-validator';
+import { plainToInstance, Transform, Type } from 'class-transformer';
+import {
+  IsEmail,
+  IsInt,
+  IsString,
+  IsTimeZone,
+  Max,
+  Min,
+  MinLength,
+  validateSync,
+} from 'class-validator';
 
 class SeedEnvironment {
   @IsString()
@@ -21,6 +30,16 @@ class SeedEnvironment {
   @IsString()
   @MinLength(8)
   SEED_DEMO_PASSWORD!: string;
+
+  // Read by the demo history, so its sales fall on the same days the analytics reports use.
+  @IsTimeZone()
+  ANALYTICS_TIMEZONE = 'Europe/Kyiv';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(10_000)
+  PLATFORM_COMMISSION_BPS = 1000;
 }
 
 export type SeedEnv = Readonly<SeedEnvironment>;
