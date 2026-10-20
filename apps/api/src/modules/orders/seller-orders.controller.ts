@@ -9,12 +9,20 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { ForbiddenError } from '../../common/exceptions/app-error';
 import { ParseUuidPipe } from '../../common/pipes/parse-uuid.pipe';
 import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
 import { BEARER_AUTH } from '../../common/swagger/openapi';
+import { IDEMPOTENCY_SCOPE } from '../../idempotency/idempotency.constants';
+import { Idempotent } from '../../idempotency/idempotent.decorator';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -24,7 +32,9 @@ import { CancelSellerOrderDto } from './dto/cancel-seller-order.dto';
 import { SellerChangeStatusDto } from './dto/change-status.dto';
 import { ListSellerOrdersQueryDto } from './dto/list-orders-query.dto';
 import { SellerOrderDto, SellerOrderPageDto } from './dto/order-response.dto';
+import { CreateRefundDto, RefundResultDto } from './dto/refund.dto';
 import { OrdersService } from './orders.service';
+import { RefundService } from './refund.service';
 import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
 
 /** The store id of an approved seller; `SellerGuard` has already checked the store. */
@@ -44,6 +54,7 @@ export class SellerOrdersController {
   constructor(
     private readonly orders: OrdersService,
     private readonly lifecycle: SellerOrderLifecycleService,
+    private readonly refunds: RefundService,
   ) {}
 
   @Get()
@@ -103,6 +114,27 @@ export class SellerOrdersController {
       dto.reason,
       { type: 'SELLER', userId: user.userId },
       { sellerId },
+    );
+  }
+
+  @Post(':id/refunds')
+  @HttpCode(HttpStatus.CREATED)
+  @Idempotent(IDEMPOTENCY_SCOPE.REFUND)
+  @ApiOperation({
+    summary: 'Refunds items of an own paid seller order; the commission is recomputed.',
+  })
+  @ApiCreatedResponse({ type: RefundResultDto })
+  @ApiErrorResponses(400, 401, 403, 404, 409, 422)
+  refund(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUuidPipe) id: string,
+    @Body() dto: CreateRefundDto,
+  ): Promise<RefundResultDto> {
+    return this.refunds.refund(
+      id,
+      dto,
+      { type: 'SELLER', userId: user.userId },
+      { sellerId: sellerIdOf(user) },
     );
   }
 }

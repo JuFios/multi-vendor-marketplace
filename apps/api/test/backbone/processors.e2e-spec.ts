@@ -228,14 +228,14 @@ describe('queue processors (e2e)', () => {
   });
 
   it('reports the number of waiting jobs per queue', async () => {
-    const payouts = queueOf(app, QUEUE.PAYOUTS);
-    await payouts.add('a', categoryUpdated(), { jobId: newEventId() });
-    await payouts.add('b', categoryUpdated(), { jobId: newEventId() });
+    const cart = queueOf(app, QUEUE.CART);
+    await cart.add('a', categoryUpdated(), { jobId: newEventId() });
+    await cart.add('b', categoryUpdated(), { jobId: newEventId() });
 
     const text = await scrape();
-    await payouts.obliterate({ force: true });
+    await cart.obliterate({ force: true });
 
-    expect(text).toContain('queue_waiting_jobs{queue="payouts"} 2');
+    expect(text).toContain('queue_waiting_jobs{queue="cart"} 2');
     expect(text).toContain('queue_waiting_jobs{queue="realtime"} 0');
   });
 

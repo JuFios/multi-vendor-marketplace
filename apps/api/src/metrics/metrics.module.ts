@@ -25,6 +25,7 @@ import {
   QUEUE_JOBS_COMPLETED_TOTAL,
   QUEUE_JOBS_FAILED_TOTAL,
   SEARCH_DEGRADED_TOTAL,
+  REFUNDS_TOTAL,
   SELLER_ORDERS_CANCELLED_TOTAL,
 } from './metrics.constants';
 import { MetricsController } from './metrics.controller';
@@ -94,6 +95,10 @@ const metricProviders = [
     name: SELLER_ORDERS_CANCELLED_TOTAL,
     help: 'Seller orders cancelled, by who cancelled them.',
     labelNames: ['actor'],
+  }),
+  makeCounterProvider({
+    name: REFUNDS_TOTAL,
+    help: 'Refunds booked on seller orders.',
   }),
   makeCounterProvider({
     name: CHECKOUT_FAILURES_TOTAL,

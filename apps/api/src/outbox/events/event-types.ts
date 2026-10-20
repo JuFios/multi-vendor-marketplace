@@ -124,6 +124,9 @@ export interface EventPayloads {
   [EVENT_TYPE.REFUND_CREATED]: {
     refundIds: string[];
     sellerOrderId: string;
+    orderId: string;
+    sellerId: string;
+    customerId: string;
     amountCents: number;
   };
   [EVENT_TYPE.DISPUTE_OPENED]: DisputePayload;

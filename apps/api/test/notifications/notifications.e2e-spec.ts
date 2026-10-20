@@ -154,6 +154,33 @@ describe('Notifications (e2e)', () => {
       });
     });
 
+    it('tells the buyer about a refund', async () => {
+      const { buyer, seller, product } = await world();
+      const { soId } = await checkout(buyer, product.id);
+      await call('post', `/seller/orders/${soId}/status`, seller, { status: 'PROCESSING' });
+      await flushEvents();
+      await prisma.notification.deleteMany();
+      const item = await prisma.sellerOrderItem.findFirstOrThrow({
+        where: { sellerOrderId: soId },
+      });
+
+      const refunded = await request(app.getHttpServer())
+        .post(`/api/seller/orders/${soId}/refunds`)
+        .set('Authorization', await bearerFor(app, seller))
+        .set('Idempotency-Key', randomUUID())
+        .send({ items: [{ sellerOrderItemId: item.id, quantity: 1 }], reason: 'Damaged' });
+      await flushEvents();
+
+      expect(refunded.status).toBe(201);
+      const items = await inbox(buyer);
+      expect(items.map((entry) => entry.type)).toEqual(['refund.created']);
+      expect(items[0]?.payload).toMatchObject({
+        sellerOrderId: soId,
+        amountCents: item.unitPriceCents,
+      });
+      expect(await inbox(seller)).toEqual([]);
+    });
+
     it('tells the buyer when the seller cancels, and not the seller themselves', async () => {
       const { buyer, seller, product } = await world();
       const { soId } = await checkout(buyer, product.id);

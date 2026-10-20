@@ -186,11 +186,11 @@ describe('event backbone (e2e)', () => {
   });
 
   it('fails clearly when the system does not settle in time', async () => {
-    const payouts = queueOf(app, QUEUE.PAYOUTS);
-    await payouts.add('stuck', {}, { jobId: randomUUID() });
+    const stuckQueue = queueOf(app, QUEUE.CART);
+    await stuckQueue.add('stuck', {}, { jobId: randomUUID() });
 
     await expect(flushEvents({ timeoutMs: 300 })).rejects.toThrow('the outbox and the queues');
 
-    await payouts.obliterate({ force: true });
+    await stuckQueue.obliterate({ force: true });
   });
 });

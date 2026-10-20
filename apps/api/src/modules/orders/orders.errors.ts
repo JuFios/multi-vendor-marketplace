@@ -45,3 +45,26 @@ export class SellerOrderNotFoundError extends NotFoundError {
     super('Seller order not found', 'SELLER_ORDER_NOT_FOUND');
   }
 }
+
+export class RefundNotAllowedError extends ConflictError {
+  constructor(status: string) {
+    super(`A seller order that is ${status} cannot be refunded`, 'REFUND_NOT_ALLOWED', { status });
+  }
+}
+
+export class RefundItemNotFoundError extends AppError {
+  constructor(sellerOrderItemId: string) {
+    super('REFUND_ITEM_NOT_FOUND', 422, 'The item is not part of this seller order', {
+      sellerOrderItemId,
+    });
+  }
+}
+
+export class RefundExceedsRemainingError extends AppError {
+  constructor(sellerOrderItemId: string, remaining: number) {
+    super('REFUND_EXCEEDS_REMAINING', 422, 'More units than are left to refund', {
+      sellerOrderItemId,
+      remaining,
+    });
+  }
+}
