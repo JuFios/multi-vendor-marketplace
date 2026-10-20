@@ -85,18 +85,6 @@ export class OrdersService {
     return this.orders.findCompletedItemId(customerId, productId);
   }
 
-  /** The customer's seller order in brief, for flows that hang off it; anyone else's is 404. */
-  async getHeaderOfCustomer(
-    customerId: string,
-    id: string,
-  ): Promise<{ id: string; orderId: string; sellerId: string; status: SellerOrderStatusValue }> {
-    const header = await this.orders.findHeaderOfCustomer(id, customerId);
-    if (header === null) {
-      throw new SellerOrderNotFoundError();
-    }
-    return header;
-  }
-
   private async page(
     { items, total }: { items: OrderRecord[]; total: number },
     page: number,

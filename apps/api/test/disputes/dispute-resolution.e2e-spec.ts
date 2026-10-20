@@ -13,6 +13,10 @@ interface ErrorBody {
   error: { code: string };
 }
 
+interface OrderBody {
+  sellerOrders: { items: { id: string; productId: string }[] }[];
+}
+
 interface ResolveBody {
   dispute: { id: string; status: string; resolutionNote: string };
   refund: { amountCents: number } | null;
@@ -71,9 +75,11 @@ describe('Dispute resolution (e2e)', () => {
       where: { id: sellerOrder.id },
       data: { status: 'SHIPPED', paymentStatus: 'CAPTURED' },
     });
-    const items = await prisma.sellerOrderItem.findMany({
-      where: { sellerOrderId: sellerOrder.id },
-    });
+    const placed = await http()
+      .get(`/api/orders/${orderId}`)
+      .set('Authorization', buyerAuth)
+      .expect(200);
+    const items = (placed.body as OrderBody).sellerOrders[0]?.items ?? [];
     const dispute = await http()
       .post('/api/disputes')
       .set('Authorization', buyerAuth)
@@ -84,6 +90,8 @@ describe('Dispute resolution (e2e)', () => {
       sellerOrderId: sellerOrder.id,
       disputeId: (dispute.body as { id: string }).id,
       firstItem: items.find((item) => item.productId === first.id)!.id,
+      storeUserId: store.user.id,
+      storeId: store.seller.id,
       firstProductId: first.id,
       adminAuth: await bearerFor(app, {
         id: (await createUser(prisma, { roles: ['ADMIN'] })).id,
@@ -265,5 +273,35 @@ describe('Dispute resolution (e2e)', () => {
     await resolve(buyerAuth, disputeId, body).expect(403);
     await resolve(adminAuth, randomUUID(), body).expect(404);
     await resolve(adminAuth, disputeId, { ...body, note: ' ' }).expect(400);
+  });
+
+  it('cancels a completed, already paid out seller order and leaves the seller owing the payout', async () => {
+    const { adminAuth, disputeId, sellerOrderId, storeUserId, storeId } = await world();
+    await prisma.sellerOrder.update({
+      where: { id: sellerOrderId },
+      data: { status: 'COMPLETED' },
+    });
+    const paidOut = (await prisma.sellerOrder.findUniqueOrThrow({ where: { id: sellerOrderId } }))
+      .payoutCents;
+    await prisma.ledgerEntry.create({
+      data: { sellerOrderId, sellerId: storeId, type: 'PAYOUT', amountCents: -paidOut },
+    });
+
+    await resolve(adminAuth, disputeId, {
+      outcome: 'RESOLVED_BUYER_FAVOR',
+      sellerOrderFinalStatus: 'CANCELLED',
+      note: 'Returned by the buyer',
+    }).expect(200);
+
+    const entries = await prisma.ledgerEntry.findMany({ where: { sellerOrderId } });
+    expect(entries.reduce((sum, entry) => sum + entry.amountCents, 0)).toBe(-paidOut);
+    const finance = await http()
+      .get('/api/seller/finance')
+      .set(
+        'Authorization',
+        await bearerFor(app, { id: storeUserId, roles: ['CUSTOMER', 'SELLER'], sellerId: storeId }),
+      )
+      .expect(200);
+    expect((finance.body as { balanceCents: number }).balanceCents).toBe(-paidOut);
   });
 });

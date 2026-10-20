@@ -15,6 +15,9 @@ const PAYMENT_STATUSES = ['PENDING', 'CAPTURED', 'FAILED', 'REFUNDED'] as const;
 const ACTORS = ['CUSTOMER', 'SELLER', 'ADMIN', 'SYSTEM'] as const;
 
 export class OrderItemDto {
+  @ApiProperty({ format: 'uuid', description: 'The id refunds refer to.' })
+  id: string;
+
   @ApiProperty({ format: 'uuid' })
   productId: string;
 
@@ -113,6 +116,7 @@ export class SellerOrderDto {
       commissionCents: record.commissionCents,
       payoutCents: record.payoutCents,
       items: record.items.map((item) => ({
+        id: item.id,
         productId: item.productId,
         title: item.title,
         unitPriceCents: item.unitPriceCents,

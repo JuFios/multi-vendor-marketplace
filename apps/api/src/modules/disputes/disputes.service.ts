@@ -7,7 +7,10 @@ import { OutboxService } from '../../outbox/outbox.service';
 import type { AppTransactionHost } from '../../prisma/transaction';
 import { OrdersService } from '../orders/orders.service';
 import { RefundService } from '../orders/refund.service';
-import { SellerOrderLifecycleService } from '../orders/seller-order-lifecycle.service';
+import {
+  type LifecycleOutcome,
+  SellerOrderLifecycleService,
+} from '../orders/seller-order-lifecycle.service';
 
 import {
   assertDisputable,
@@ -43,16 +46,19 @@ export class DisputesService {
     private readonly outbox: OutboxService,
   ) {}
 
-  /** Only the customer who placed the order can open a dispute on one of its seller orders. */
+  /**
+   * Only the customer who placed the order can open a dispute on one of its seller orders. The
+   * order is locked first, so a cancellation cannot slip in between the check and the insert.
+   */
   async open(customerId: string, sellerOrderId: string, reason: string): Promise<DisputeDto> {
-    const target = await this.orders.getHeaderOfCustomer(customerId, sellerOrderId);
-    assertDisputable(target.status);
     const dispute = await this.txHost.withTransaction(async () => {
+      const { sellerOrder } = await this.lifecycle.lockAndLoad(sellerOrderId, { customerId });
+      assertDisputable(sellerOrder.status);
       const created = await this.disputes.create({
-        orderId: target.orderId,
-        sellerOrderId: target.id,
+        orderId: sellerOrder.orderId,
+        sellerOrderId: sellerOrder.id,
         customerId,
-        sellerId: target.sellerId,
+        sellerId: sellerOrder.sellerId,
         reason,
       });
       await this.outbox.add([
@@ -71,7 +77,7 @@ export class DisputesService {
       ]);
       return created;
     });
-    this.logger.log({ msg: 'dispute.opened', disputeId: dispute.id, sellerOrderId: target.id });
+    this.logger.log({ msg: 'dispute.opened', disputeId: dispute.id, sellerOrderId });
     return DisputeDto.from(dispute);
   }
 
@@ -159,7 +165,7 @@ export class DisputesService {
     resolution: Resolution,
   ): Promise<ResolveDisputeResultDto> {
     assertValidResolution(resolution);
-    const result = await this.txHost.withTransaction(async () => {
+    const { response, outcomes, sellerOrderId } = await this.txHost.withTransaction(async () => {
       const status = await this.disputes.lockStatus(id);
       if (status === null) {
         throw new DisputeNotFoundError();
@@ -177,7 +183,7 @@ export class DisputesService {
               actor,
               {},
             );
-      await this.applyFinalStatus(dispute.sellerOrderId, resolution, actor);
+      const outcomes = await this.applyFinalStatus(dispute.sellerOrderId, resolution, actor);
 
       await this.disputes.resolve(id, resolution.outcome, resolution.note, adminId);
       await this.outbox.add([
@@ -195,41 +201,54 @@ export class DisputesService {
           actorId: adminId,
         },
       ]);
-      const response: ResolveDisputeResultDto = {
+      const body: ResolveDisputeResultDto = {
         dispute: DisputeDto.from(await this.requireDispute(id)),
         refund,
         sellerOrder: await this.orders.getAnySellerOrder(dispute.sellerOrderId),
       };
-      await this.idempotency.complete(response);
-      return response;
+      await this.idempotency.complete(body);
+      return { response: body, outcomes, sellerOrderId: dispute.sellerOrderId };
     });
+    // Counted and logged only now that everything has committed.
+    if (response.refund !== null) {
+      this.refunds.report(sellerOrderId, response.refund, { type: 'ADMIN', userId: adminId });
+    }
+    outcomes.forEach((outcome) => this.lifecycle.report(outcome));
     this.logger.log({
       msg: 'dispute.resolved',
       disputeId: id,
       outcome: resolution.outcome,
-      refundedCents: result.refund?.amountCents ?? 0,
-      sellerOrderStatus: result.sellerOrder.status,
+      refundedCents: response.refund?.amountCents ?? 0,
+      sellerOrderStatus: response.sellerOrder.status,
     });
-    return result;
+    return response;
   }
 
   private async applyFinalStatus(
     sellerOrderId: string,
     resolution: Resolution,
     actor: { readonly type: 'ADMIN'; readonly userId: string },
-  ): Promise<void> {
+  ): Promise<LifecycleOutcome[]> {
     const target = resolution.sellerOrderFinalStatus;
     if (target === undefined) {
-      return;
+      return [];
     }
     if ((await this.orders.getAnySellerOrder(sellerOrderId)).status === target) {
-      return;
+      return [];
     }
-    if (target === 'CANCELLED') {
-      await this.lifecycle.cancel(sellerOrderId, resolution.note, actor, {}, { viaDispute: true });
-    } else {
-      await this.lifecycle.changeStatus(sellerOrderId, target, actor, {});
-    }
+    const outcome =
+      target === 'CANCELLED'
+        ? await this.lifecycle.applyCancellation(
+            sellerOrderId,
+            resolution.note,
+            actor,
+            {},
+            {
+              viaDispute: true,
+            },
+          )
+        : await this.lifecycle.applyStatusChange(sellerOrderId, target, actor, {});
+    return [outcome];
   }
 
   private async requireDispute(id: string): Promise<DisputeRecord> {

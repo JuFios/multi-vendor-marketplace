@@ -25,7 +25,7 @@ import {
   DisputePageDto,
 } from './dto/dispute.dto';
 
-export function viewerOf(user: AuthUser): DisputeViewer {
+function viewerOf(user: AuthUser): DisputeViewer {
   return { userId: user.userId, sellerId: user.sellerId, isAdmin: user.roles.includes('ADMIN') };
 }
 

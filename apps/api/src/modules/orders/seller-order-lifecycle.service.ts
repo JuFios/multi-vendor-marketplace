@@ -32,6 +32,14 @@ export interface Ownership {
   readonly orderId?: string;
 }
 
+export interface LifecycleOutcome {
+  readonly kind: 'status_changed' | 'cancelled';
+  readonly before: SellerOrderRecord;
+  readonly updated: SellerOrderRecord;
+  readonly actor: Actor;
+  readonly reason?: string;
+}
+
 export interface LockedSellerOrder {
   readonly sellerOrder: SellerOrderRecord;
   readonly customerId: string;
@@ -59,32 +67,11 @@ export class SellerOrderLifecycleService {
     actor: LifecycleActor,
     ownership: Ownership,
   ): Promise<SellerOrderDto> {
-    const result = await this.txHost.withTransaction(async () => {
-      const { sellerOrder, customerId } = await this.lockAndLoad(sellerOrderId, ownership);
-      assertTransition(sellerOrder.status, to, actor.type, {
-        paymentStatus: sellerOrder.paymentStatus,
-      });
-      const version = await this.orders.changeSellerOrderStatus(
-        sellerOrder.id,
-        sellerOrder.status,
-        to,
-        actor,
-        null,
-      );
-      await this.recordChange(sellerOrder, customerId, to, version, actor.userId);
-      return { sellerOrder, updated: await this.requireSellerOrder(sellerOrderId) };
-    });
-    this.logger.log({
-      msg: 'seller_order.status_changed',
-      sellerOrderId,
-      from: result.sellerOrder.status,
-      to,
-      actor: actor.type,
-    });
-    return SellerOrderDto.from(
-      result.updated,
-      await this.sellers.findStoreNames([result.updated.sellerId]),
+    const outcome = await this.txHost.withTransaction(() =>
+      this.applyStatusChange(sellerOrderId, to, actor, ownership),
     );
+    this.report(outcome);
+    return this.toDto(outcome.updated);
   }
 
   /**
@@ -96,79 +83,147 @@ export class SellerOrderLifecycleService {
     reason: string,
     actor: LifecycleActor,
     ownership: Ownership,
-    options: { viaDispute?: boolean } = {},
   ): Promise<SellerOrderDto> {
-    const result = await this.txHost.withTransaction(async () => {
-      const { sellerOrder, customerId } = await this.lockAndLoad(sellerOrderId, ownership);
-      assertTransition(sellerOrder.status, 'CANCELLED', actor.type, {
-        paymentStatus: sellerOrder.paymentStatus,
-        ...(options.viaDispute === undefined ? {} : { viaDispute: options.viaDispute }),
-      });
+    const outcome = await this.txHost.withTransaction(() =>
+      this.applyCancellation(sellerOrderId, reason, actor, ownership),
+    );
+    this.report(outcome);
+    return this.toDto(outcome.updated);
+  }
 
-      // Shipped goods are not restocked and their auction lots are not offered again (I-08).
-      const goodsStillWithSeller =
-        sellerOrder.status === 'NEW' || sellerOrder.status === 'PROCESSING';
-      const restocked = goodsStillWithSeller
-        ? sellerOrder.items
-            .filter((item) => item.auctionId === null)
-            .map((item) => ({ productId: item.productId, quantity: item.quantity }))
-        : [];
-      await this.inventory.restock(restocked);
-      // A cancelled auction lot is offered again as a new round (I-03).
-      const lots = goodsStillWithSeller
-        ? sellerOrder.items
-            .flatMap((item) => (item.auctionId === null ? [] : [item.auctionId]))
-            .sort()
-        : [];
-      for (const auctionId of lots) {
-        await this.auctionLifecycle.restartIfOrdered(auctionId);
-      }
-
-      const plan = planCancellation(sellerOrder);
-      await this.ledger.recordCancellation({
-        sellerOrderId: sellerOrder.id,
-        sellerId: sellerOrder.sellerId,
-        releasedCents: plan.releasedCents,
-        commissionCents: plan.commissionReversalCents,
-      });
-      const version = await this.orders.cancelSellerOrder(
-        sellerOrder.id,
-        sellerOrder.status,
-        actor,
-        reason,
-      );
-      await this.orders.bookRefundedOnOrder(sellerOrder.orderId, plan.releasedCents);
-      await this.outbox.add([
-        {
-          type: EVENT_TYPE.SELLER_ORDER_CANCELLED,
-          aggregateType: 'SellerOrder',
-          aggregateId: sellerOrder.id,
-          payload: {
-            sellerOrderId: sellerOrder.id,
-            orderId: sellerOrder.orderId,
-            sellerId: sellerOrder.sellerId,
-            customerId,
-            actorType: actor.type,
-            reason,
-            restocked,
-          },
-          actorId: actor.userId,
-        },
-      ]);
-      await this.recordChange(sellerOrder, customerId, 'CANCELLED', version, actor.userId);
-      return { before: sellerOrder, updated: await this.requireSellerOrder(sellerOrderId) };
+  /**
+   * The status change itself, for callers that run it inside a transaction of their own. They
+   * hand the outcome to `report` once that transaction has committed.
+   */
+  async applyStatusChange(
+    sellerOrderId: string,
+    to: SellerOrderStatusValue,
+    actor: LifecycleActor,
+    ownership: Ownership,
+  ): Promise<LifecycleOutcome> {
+    const { sellerOrder, customerId } = await this.lockAndLoad(sellerOrderId, ownership);
+    assertTransition(sellerOrder.status, to, actor.type, {
+      paymentStatus: sellerOrder.paymentStatus,
     });
-    this.cancelled.inc({ actor: actor.type });
-    this.logger.log({
-      msg: 'seller_order.cancelled',
-      sellerOrderId,
-      from: result.before.status,
+    const version = await this.orders.changeSellerOrderStatus(
+      sellerOrder.id,
+      sellerOrder.status,
+      to,
+      actor,
+      null,
+    );
+    await this.recordChange(sellerOrder, customerId, to, version, actor.userId);
+    return {
+      kind: 'status_changed',
+      before: sellerOrder,
+      updated: await this.requireSellerOrder(sellerOrderId),
+      actor: actor.type,
+    };
+  }
+
+  /**
+   * The cancellation itself, for callers that run it inside a transaction of their own. A
+   * shipped or completed order can only be cancelled when a dispute decides it (`viaDispute`);
+   * its goods are then not restocked.
+   */
+  async applyCancellation(
+    sellerOrderId: string,
+    reason: string,
+    actor: LifecycleActor,
+    ownership: Ownership,
+    options: { viaDispute?: boolean } = {},
+  ): Promise<LifecycleOutcome> {
+    const { sellerOrder, customerId } = await this.lockAndLoad(sellerOrderId, ownership);
+    assertTransition(sellerOrder.status, 'CANCELLED', actor.type, {
+      paymentStatus: sellerOrder.paymentStatus,
+      ...(options.viaDispute === undefined ? {} : { viaDispute: options.viaDispute }),
+    });
+
+    const goodsStillWithSeller =
+      sellerOrder.status === 'NEW' || sellerOrder.status === 'PROCESSING';
+    const restocked = goodsStillWithSeller
+      ? sellerOrder.items
+          .filter((item) => item.auctionId === null)
+          .map((item) => ({ productId: item.productId, quantity: item.quantity }))
+      : [];
+    await this.inventory.restock(restocked);
+    // A cancelled auction lot is offered again as a new round (I-03).
+    const lots = goodsStillWithSeller
+      ? sellerOrder.items
+          .flatMap((item) => (item.auctionId === null ? [] : [item.auctionId]))
+          .sort()
+      : [];
+    for (const auctionId of lots) {
+      await this.auctionLifecycle.restartIfOrdered(auctionId);
+    }
+
+    const plan = planCancellation(sellerOrder);
+    await this.ledger.recordCancellation({
+      sellerOrderId: sellerOrder.id,
+      sellerId: sellerOrder.sellerId,
+      releasedCents: plan.releasedCents,
+      commissionCents: plan.commissionReversalCents,
+    });
+    const version = await this.orders.cancelSellerOrder(
+      sellerOrder.id,
+      sellerOrder.status,
+      actor,
+      reason,
+    );
+    await this.orders.bookRefundedOnOrder(sellerOrder.orderId, plan.releasedCents);
+    await this.outbox.add([
+      {
+        type: EVENT_TYPE.SELLER_ORDER_CANCELLED,
+        aggregateType: 'SellerOrder',
+        aggregateId: sellerOrder.id,
+        payload: {
+          sellerOrderId: sellerOrder.id,
+          orderId: sellerOrder.orderId,
+          sellerId: sellerOrder.sellerId,
+          customerId,
+          actorType: actor.type,
+          reason,
+          restocked,
+        },
+        actorId: actor.userId,
+      },
+    ]);
+    await this.recordChange(sellerOrder, customerId, 'CANCELLED', version, actor.userId);
+    return {
+      kind: 'cancelled',
+      before: sellerOrder,
+      updated: await this.requireSellerOrder(sellerOrderId),
       actor: actor.type,
       reason,
+    };
+  }
+
+  /** Logs and counts a change; only call it after the transaction that made it has committed. */
+  report(outcome: LifecycleOutcome): void {
+    if (outcome.kind === 'cancelled') {
+      this.cancelled.inc({ actor: outcome.actor });
+      this.logger.log({
+        msg: 'seller_order.cancelled',
+        sellerOrderId: outcome.updated.id,
+        from: outcome.before.status,
+        actor: outcome.actor,
+        reason: outcome.reason,
+      });
+      return;
+    }
+    this.logger.log({
+      msg: 'seller_order.status_changed',
+      sellerOrderId: outcome.updated.id,
+      from: outcome.before.status,
+      to: outcome.updated.status,
+      actor: outcome.actor,
     });
+  }
+
+  async toDto(sellerOrder: SellerOrderRecord): Promise<SellerOrderDto> {
     return SellerOrderDto.from(
-      result.updated,
-      await this.sellers.findStoreNames([result.updated.sellerId]),
+      sellerOrder,
+      await this.sellers.findStoreNames([sellerOrder.sellerId]),
     );
   }
 

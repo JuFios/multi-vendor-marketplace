@@ -103,6 +103,18 @@ describe('Disputes (e2e)', () => {
     },
   );
 
+  it('refuses a seller order that was cancelled', async () => {
+    const { sellerOrderId, buyer } = await world();
+    await prisma.sellerOrder.update({
+      where: { id: sellerOrderId },
+      data: { status: 'CANCELLED' },
+    });
+
+    const response = await open(buyer, sellerOrderId).expect(409);
+
+    expect((response.body as ErrorBody).error.code).toBe('DISPUTE_NOT_ALLOWED');
+  });
+
   it('refuses a seller order that has not been accepted yet', async () => {
     const { sellerOrderId, buyer } = await world('NEW');
 

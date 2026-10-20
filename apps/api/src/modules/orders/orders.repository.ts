@@ -254,22 +254,6 @@ export class OrdersRepository {
     return row?.id ?? null;
   }
 
-  /** The seller order's identity and status, when it belongs to the customer's order. */
-  async findHeaderOfCustomer(
-    id: string,
-    customerId: string,
-  ): Promise<{
-    id: string;
-    orderId: string;
-    sellerId: string;
-    status: SellerOrderStatusValue;
-  } | null> {
-    return this.txHost.tx.sellerOrder.findFirst({
-      where: { id, order: { customerId } },
-      select: { id: true, orderId: true, sellerId: true, status: true },
-    });
-  }
-
   async findSellerOrder(id: string): Promise<SellerOrderRecord | null> {
     const row = await this.txHost.tx.sellerOrder.findUnique({
       where: { id },
