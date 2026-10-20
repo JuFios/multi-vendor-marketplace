@@ -26,7 +26,7 @@ import { ApiErrorResponses, BEARER_AUTH } from '../../common/swagger';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { SellerGuard } from '../sellers';
+import { SellerGuard } from '../sellers/seller.guard';
 
 import { CreateProductDto } from './dto/create-product.dto';
 import { ListOwnedProductsQueryDto } from './dto/list-owned-products-query.dto';

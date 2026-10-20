@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 
-import { CategoriesModule } from '../categories';
-import { SellersModule } from '../sellers';
+import { CategoriesModule } from '../categories/categories.module';
+import { SellersModule } from '../sellers/sellers.module';
 
 import { AdminProductsController } from './admin-products.controller';
 import { InventoryService } from './inventory.service';

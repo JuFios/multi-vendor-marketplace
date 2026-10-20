@@ -6,9 +6,10 @@ import {
   type SearchPort,
   toCatalogDocument,
 } from '../../search';
-import { CategoriesService } from '../categories';
-import { type Product, ProductsService } from '../products';
-import { SellersService } from '../sellers';
+import { CategoriesService } from '../categories/categories.service';
+import type { Product } from '../products/product';
+import { ProductsService } from '../products/products.service';
+import { SellersService } from '../sellers/sellers.service';
 
 import { CatalogNamespace } from './catalog-namespace.service';
 import { REINDEX_BATCH_SIZE } from './search-sync.constants';

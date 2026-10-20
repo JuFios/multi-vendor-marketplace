@@ -2,7 +2,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { type Profile, Strategy } from 'passport-google-oauth20';
 
 import type { GoogleOAuthConfig } from '../../../config';
-import { normalizeEmail } from '../../users';
+import { normalizeEmail } from '../../users/email';
 import { GOOGLE_STRATEGY_NAME } from '../auth.constants';
 import type { GoogleProfile } from '../google-login';
 

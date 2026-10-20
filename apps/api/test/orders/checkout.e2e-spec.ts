@@ -4,7 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { TransactionHost } from '@nestjs-cls/transactional';
 import request from 'supertest';
 
-import { InventoryService } from '../../src/modules/products';
+import { InventoryService } from '../../src/modules/products/inventory.service';
 import { type AppTransactionHost, PrismaService } from '../../src/prisma';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';

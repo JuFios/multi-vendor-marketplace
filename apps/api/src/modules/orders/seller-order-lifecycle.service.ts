@@ -7,9 +7,9 @@ import { SELLER_ORDERS_CANCELLED_TOTAL } from '../../metrics';
 import { OutboxService } from '../../outbox';
 import { EVENT_TYPE } from '../../outbox/events';
 import type { AppTransactionHost } from '../../prisma';
-import { LedgerService } from '../payments-ledger';
-import { InventoryService } from '../products';
-import { SellersService } from '../sellers';
+import { LedgerService } from '../payments-ledger/ledger.service';
+import { InventoryService } from '../products/inventory.service';
+import { SellersService } from '../sellers/sellers.service';
 
 import { planCancellation } from './cancellation';
 import { SellerOrderDto } from './dto/order-response.dto';

@@ -3,7 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
-import { SellerGuard, SellersModule } from '../../src/modules/sellers';
+import { SellerGuard } from '../../src/modules/sellers/seller.guard';
+import { SellersModule } from '../../src/modules/sellers/sellers.module';
 import { PrismaService } from '../../src/prisma';
 import { bearerFor, cookieValue, refreshCookieOf } from '../utils/auth';
 import { resetDb } from '../utils/db';

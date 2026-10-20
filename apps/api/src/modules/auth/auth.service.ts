@@ -2,12 +2,10 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
 import type { AppTransactionHost } from '../../prisma';
-import {
-  EmailAlreadyRegisteredError,
-  normalizeEmail,
-  type UserAccount,
-  UsersService,
-} from '../users';
+import { normalizeEmail } from '../users/email';
+import type { UserAccount } from '../users/user-account';
+import { EmailAlreadyRegisteredError } from '../users/users.errors';
+import { UsersService } from '../users/users.service';
 
 import {
   GoogleAuthFailedError,

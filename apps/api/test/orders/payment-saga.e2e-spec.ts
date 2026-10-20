@@ -9,8 +9,8 @@ import {
   type CaptureResult,
   PAYMENT_GATEWAY,
   type PaymentGatewayPort,
-} from '../../src/modules/payments-ledger';
-import type { UserRole } from '../../src/modules/users';
+} from '../../src/modules/payments-ledger/payment-gateway.port';
+import type { UserRole } from '../../src/modules/users/user-role';
 import type { AnyDomainEvent } from '../../src/outbox/events';
 import { PrismaService } from '../../src/prisma';
 import { QUEUE, QUEUE_PUBLISHER, type QueuePublisherPort } from '../../src/queue';

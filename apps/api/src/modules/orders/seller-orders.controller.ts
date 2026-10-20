@@ -17,7 +17,7 @@ import { ApiErrorResponses, BEARER_AUTH } from '../../common/swagger';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { SellerGuard } from '../sellers';
+import { SellerGuard } from '../sellers/seller.guard';
 
 import { CancelSellerOrderDto } from './dto/cancel-seller-order.dto';
 import { SellerChangeStatusDto } from './dto/change-status.dto';

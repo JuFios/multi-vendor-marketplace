@@ -5,9 +5,10 @@ import { OutboxService } from '../../outbox';
 import { EVENT_TYPE } from '../../outbox/events';
 import type { AppTransactionHost } from '../../prisma';
 
+import type { ReservedProduct } from './product';
 import { ProductDetailsCache } from './product-details-cache.service';
 import { InsufficientStockError } from './products.errors';
-import { type ReservedProduct, ProductsRepository } from './products.repository';
+import { ProductsRepository } from './products.repository';
 import { planStockDeduction, type StockRequest } from './stock-plan';
 
 /** The stock operations other modules may run inside their own transaction. */

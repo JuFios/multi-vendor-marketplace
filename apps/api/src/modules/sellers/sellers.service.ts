@@ -4,7 +4,7 @@ import { TransactionHost } from '@nestjs-cls/transactional';
 import { OutboxService } from '../../outbox';
 import { EVENT_TYPE } from '../../outbox/events';
 import type { AppTransactionHost } from '../../prisma';
-import { UsersService } from '../users';
+import { UsersService } from '../users/users.service';
 
 import type { ModerationDecision } from './moderation';
 import {

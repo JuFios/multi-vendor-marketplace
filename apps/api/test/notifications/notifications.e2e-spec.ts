@@ -5,7 +5,7 @@ import request from 'supertest';
 
 import { CORRELATION_ID_REQUEST_HEADER } from '../../src/common/cls';
 import type { OutboxEvent } from '../../src/generated/prisma/client';
-import type { UserRole } from '../../src/modules/users';
+import type { UserRole } from '../../src/modules/users/user-role';
 import type { AnyDomainEvent } from '../../src/outbox/events';
 import { PrismaService } from '../../src/prisma';
 import { QUEUE, QUEUE_PUBLISHER, type QueuePublisherPort } from '../../src/queue';

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { SellersService } from '../sellers';
+import { SellersService } from '../sellers/sellers.service';
 
 import {
   OrderPageDto,

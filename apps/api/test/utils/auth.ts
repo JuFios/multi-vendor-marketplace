@@ -1,7 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 
-import { AccessTokenService } from '../../src/modules/auth';
-import type { UserRole } from '../../src/modules/users';
+import { AccessTokenService } from '../../src/modules/auth/access-token.service';
+import type { UserRole } from '../../src/modules/users/user-role';
 
 /** `Authorization` header value for a user, signed exactly like a login would. */
 export async function bearerFor(

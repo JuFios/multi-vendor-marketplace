@@ -11,10 +11,10 @@ import { CHECKOUT_FAILURES_TOTAL, ORDERS_CREATED_TOTAL } from '../../metrics';
 import { OutboxService } from '../../outbox';
 import { EVENT_TYPE } from '../../outbox/events';
 import type { AppTransactionHost } from '../../prisma';
-import { CartService } from '../cart';
-import { LedgerService } from '../payments-ledger';
-import { InventoryService } from '../products';
-import { SellersService } from '../sellers';
+import { CartService } from '../cart/cart.service';
+import { LedgerService } from '../payments-ledger/ledger.service';
+import { InventoryService } from '../products/inventory.service';
+import { SellersService } from '../sellers/sellers.service';
 
 import { findCheckoutProblems } from './checkout-problems';
 import { OrderResponseDto } from './dto/order-response.dto';

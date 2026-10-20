@@ -3,7 +3,7 @@ import type { Meilisearch } from 'meilisearch';
 import { Meilisearch as MeilisearchClient } from 'meilisearch';
 import request from 'supertest';
 
-import { SearchIndexer } from '../../src/modules/search-sync';
+import { SearchIndexer } from '../../src/modules/search-sync/search-indexer.service';
 import { PrismaService } from '../../src/prisma';
 import { MEILI_CLIENT } from '../../src/search';
 import { bearerFor } from '../utils/auth';

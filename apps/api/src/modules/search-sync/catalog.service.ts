@@ -11,9 +11,11 @@ import {
   SEARCH_PORT,
   type SearchPort,
 } from '../../search';
-import { CategoriesService } from '../categories';
-import { type CatalogMatches, type Product, ProductsService } from '../products';
-import { SellersService } from '../sellers';
+import { CategoriesService } from '../categories/categories.service';
+import type { Product } from '../products/product';
+import type { CatalogMatches } from '../products/product';
+import { ProductsService } from '../products/products.service';
+import { SellersService } from '../sellers/sellers.service';
 
 import { CATALOG_CACHE, CATALOG_CACHE_TTL_MS, catalogCacheKey } from './catalog-cache-key';
 import { CatalogNamespace } from './catalog-namespace.service';

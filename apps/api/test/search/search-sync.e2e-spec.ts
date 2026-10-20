@@ -4,7 +4,7 @@ import type { Redis } from 'ioredis';
 import type { Meilisearch } from 'meilisearch';
 import request from 'supertest';
 
-import { SearchIndexer } from '../../src/modules/search-sync';
+import { SearchIndexer } from '../../src/modules/search-sync/search-indexer.service';
 import { OutboxService } from '../../src/outbox';
 import { EVENT_TYPE } from '../../src/outbox/events';
 import { PrismaService } from '../../src/prisma';

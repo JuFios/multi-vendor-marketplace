@@ -1,7 +1,8 @@
 import type { SearchPort } from '../../search';
-import type { CategoriesService } from '../categories';
-import type { Product, ProductsService } from '../products';
-import type { SellersService } from '../sellers';
+import type { CategoriesService } from '../categories/categories.service';
+import type { Product } from '../products/product';
+import type { ProductsService } from '../products/products.service';
+import type { SellersService } from '../sellers/sellers.service';
 
 import type { CatalogNamespace } from './catalog-namespace.service';
 import { SearchIndexer } from './search-indexer.service';

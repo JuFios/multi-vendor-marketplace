@@ -1,6 +1,8 @@
 import { Logger } from '@nestjs/common';
 
-import { EmailAlreadyRegisteredError, type UserCredentials, type UsersService } from '../users';
+import type { UserCredentials } from '../users/user-account';
+import { EmailAlreadyRegisteredError } from '../users/users.errors';
+import type { UsersService } from '../users/users.service';
 
 import {
   GoogleAuthFailedError,

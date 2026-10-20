@@ -2,8 +2,9 @@ import { Logger } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 
 import type { authConfig } from '../../config';
-import type { SellersService } from '../sellers';
-import type { UserAccount, UsersService } from '../users';
+import type { SellersService } from '../sellers/sellers.service';
+import type { UserAccount } from '../users/user-account';
+import type { UsersService } from '../users/users.service';
 
 import type { AccessTokenService } from './access-token.service';
 import { InvalidRefreshTokenError, RefreshTokenReusedError } from './auth.errors';

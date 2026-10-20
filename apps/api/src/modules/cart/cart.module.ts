@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 
-import { ProductsModule } from '../products';
-import { SellersModule } from '../sellers';
+import { ProductsModule } from '../products/products.module';
+import { SellersModule } from '../sellers/sellers.module';
 
 import { CartController } from './cart.controller';
 import { CartRepository } from './cart.repository';

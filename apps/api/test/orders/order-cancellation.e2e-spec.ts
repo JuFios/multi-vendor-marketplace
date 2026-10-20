@@ -4,7 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
 import type { Product } from '../../src/generated/prisma/client';
-import type { UserRole } from '../../src/modules/users';
+import type { UserRole } from '../../src/modules/users/user-role';
 import { PrismaService } from '../../src/prisma';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';

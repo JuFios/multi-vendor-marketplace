@@ -4,7 +4,7 @@ import { Meilisearch as MeilisearchClient } from 'meilisearch';
 import request from 'supertest';
 
 import { Prisma } from '../../src/generated/prisma/client';
-import { SearchIndexer } from '../../src/modules/search-sync';
+import { SearchIndexer } from '../../src/modules/search-sync/search-indexer.service';
 import { PrismaService } from '../../src/prisma';
 import { MEILI_CLIENT } from '../../src/search';
 import { resetDb } from '../utils/db';

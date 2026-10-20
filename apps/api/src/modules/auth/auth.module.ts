@@ -5,8 +5,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
 import { authConfig } from '../../config';
-import { SellersModule } from '../sellers';
-import { UsersModule } from '../users';
+import { SellersModule } from '../sellers/sellers.module';
+import { UsersModule } from '../users/users.module';
 
 import { ACCESS_TOKEN_ALGORITHM } from './access-claims';
 import { AccessTokenService } from './access-token.service';

@@ -7,8 +7,8 @@ import { OutboxService } from '../../outbox';
 import { EVENT_TYPE } from '../../outbox/events';
 import type { AppTransactionHost } from '../../prisma';
 import type { CatalogQuery } from '../../search';
-import { CategoriesService } from '../categories';
-import { SellersService } from '../sellers';
+import { CategoriesService } from '../categories/categories.service';
+import { SellersService } from '../sellers/sellers.service';
 
 import { ProductDetailsResponseDto } from './dto/product-details-response.dto';
 import {
@@ -20,6 +20,7 @@ import {
   type ProductChanges,
   type ProductType,
   SIMILAR_PRODUCTS_LIMIT,
+  type CatalogMatches,
 } from './product';
 import { ProductDetailsCache } from './product-details-cache.service';
 import {
@@ -32,7 +33,6 @@ import {
 import {
   type ModerationFilter,
   type OwnedProductFilter,
-  type CatalogMatches,
   ProductsRepository,
 } from './products.repository';
 

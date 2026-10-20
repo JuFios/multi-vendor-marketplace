@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { SellersModule } from '../sellers';
+import { SellersModule } from '../sellers/sellers.module';
 
 import { NoopRealtimePublisher } from './noop-realtime-publisher.service';
 import { NotificationsController } from './notifications.controller';

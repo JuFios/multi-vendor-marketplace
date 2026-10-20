@@ -4,7 +4,7 @@ import { Prisma } from '../../generated/prisma/client';
 import type { OutboxService } from '../../outbox';
 import { EVENT_TYPE } from '../../outbox/events';
 import type { AppTransactionHost } from '../../prisma';
-import type { UsersService } from '../users';
+import type { UsersService } from '../users/users.service';
 
 import type { SellerApplication } from './seller-application';
 import {
