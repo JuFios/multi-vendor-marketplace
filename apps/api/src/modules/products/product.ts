@@ -47,6 +47,17 @@ export interface NewProduct {
   readonly stock: number;
 }
 
+/** An auction lot to create: the product's text plus the terms of its first round. */
+export interface NewAuctionLot {
+  readonly categoryId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly images: readonly string[];
+  readonly startPriceCents: number;
+  readonly bidStepCents: number;
+  readonly endsAt: Date;
+}
+
 /** The fields a seller may edit; stock has its own operation and `type` never changes. */
 export interface ProductChanges {
   readonly categoryId?: string;

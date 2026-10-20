@@ -12,12 +12,6 @@ export class ProductCategoryInvalidError extends AppError {
   }
 }
 
-export class AuctionProductsNotSupportedError extends AppError {
-  constructor() {
-    super('NOT_SUPPORTED_YET', 400, 'Auction products cannot be created yet');
-  }
-}
-
 export class FixedPriceOnlyError extends AppError {
   constructor() {
     super(

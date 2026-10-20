@@ -65,7 +65,12 @@ export interface EventPayloads {
   [EVENT_TYPE.CATEGORY_UPDATED]: { categoryId: string };
   [EVENT_TYPE.SELLER_APPROVED]: SellerDecisionPayload;
   [EVENT_TYPE.SELLER_REJECTED]: SellerDecisionPayload & { reason?: string };
-  [EVENT_TYPE.AUCTION_STARTED]: { auctionId: string; round: number; endsAt: string };
+  [EVENT_TYPE.AUCTION_STARTED]: {
+    auctionId: string;
+    productId: string;
+    round: number;
+    endsAt: string;
+  };
   [EVENT_TYPE.AUCTION_BID_PLACED]: {
     auctionId: string;
     productId: string;

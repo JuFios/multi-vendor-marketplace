@@ -11,6 +11,7 @@ import { IdempotencyModule } from './idempotency/idempotency.module';
 import { LoggerModule } from './logger/logger.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { BiddingModule } from './modules/bidding/bidding.module';
 import { CartModule } from './modules/cart/cart.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -45,6 +46,7 @@ import { MeiliModule } from './search/meili.module';
     SellersModule,
     CategoriesModule,
     ProductsModule,
+    BiddingModule,
     SearchSyncModule,
     CartModule,
     PaymentsLedgerModule,
