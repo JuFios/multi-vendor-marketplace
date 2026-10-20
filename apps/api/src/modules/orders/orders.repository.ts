@@ -244,6 +244,16 @@ export class OrdersRepository {
     return row ? { orderId: row.id, customerId: row.customer_id } : null;
   }
 
+  /** An item of the product in one of the customer's completed seller orders, if any. */
+  async findCompletedItemId(customerId: string, productId: string): Promise<string | null> {
+    const row = await this.txHost.tx.sellerOrderItem.findFirst({
+      where: { productId, sellerOrder: { status: 'COMPLETED', order: { customerId } } },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+    return row?.id ?? null;
+  }
+
   async findSellerOrder(id: string): Promise<SellerOrderRecord | null> {
     const row = await this.txHost.tx.sellerOrder.findUnique({
       where: { id },

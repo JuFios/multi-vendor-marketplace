@@ -29,6 +29,11 @@ export class UsersService {
     return user && toAccount(user);
   }
 
+  /** Display names by user id; unknown ids are left out. */
+  findNames(ids: readonly string[]): Promise<Map<string, string>> {
+    return this.users.findNames(ids);
+  }
+
   async getById(id: string): Promise<UserAccount> {
     const user = await this.findById(id);
     if (!user) {

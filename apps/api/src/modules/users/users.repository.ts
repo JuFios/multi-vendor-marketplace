@@ -57,6 +57,14 @@ export class UsersRepository {
     return count === 0 ? null : this.findById(id);
   }
 
+  async findNames(ids: readonly string[]): Promise<Map<string, string>> {
+    const rows = await this.txHost.tx.user.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, name: true },
+    });
+    return new Map(rows.map((row) => [row.id, row.name]));
+  }
+
   async markEmailVerified(id: string): Promise<void> {
     await this.txHost.tx.user.updateMany({ where: { id }, data: { emailVerified: true } });
   }
