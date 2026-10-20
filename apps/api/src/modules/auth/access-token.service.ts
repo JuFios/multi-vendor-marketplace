@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { authConfig } from '../../config/auth.config';
 
 import type { AccessTokenClaims } from './access-claims';
+import { authUserFromClaims, type AuthUser } from './auth-user';
 
 export interface IssuedAccessToken {
   readonly token: string;
@@ -25,5 +26,15 @@ export class AccessTokenService {
     };
     const token = await this.jwt.signAsync(payload, { subject: claims.sub });
     return { token, expiresInSec: this.config.accessTtlSec };
+  }
+
+  /** The caller behind a token, or null when it is malformed, forged or expired. */
+  async verify(token: string): Promise<AuthUser | null> {
+    try {
+      return authUserFromClaims(await this.jwt.verifyAsync<Partial<AccessTokenClaims>>(token));
+    } catch {
+      // Every failure (bad signature, expiry, wrong shape) means the same to the caller: no user.
+      return null;
+    }
   }
 }

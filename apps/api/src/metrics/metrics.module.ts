@@ -2,6 +2,7 @@ import { Global, Module, type OnApplicationShutdown } from '@nestjs/common';
 import { register } from '@prometheus-io/client';
 import {
   makeCounterProvider,
+  makeGaugeProvider,
   makeHistogramProvider,
   PrometheusModule,
 } from '@willsoto/nestjs-prometheus';
@@ -30,6 +31,7 @@ import {
   BIDS_REJECTED_TOTAL,
   REFUNDS_TOTAL,
   SELLER_ORDERS_CANCELLED_TOTAL,
+  WS_CONNECTIONS,
 } from './metrics.constants';
 import { MetricsController } from './metrics.controller';
 
@@ -117,6 +119,10 @@ const metricProviders = [
     name: CHECKOUT_FAILURES_TOTAL,
     help: 'Checkouts that failed, by error code.',
     labelNames: ['reason'],
+  }),
+  makeGaugeProvider({
+    name: WS_CONNECTIONS,
+    help: 'WebSocket connections open on this process.',
   }),
   makeCounterProvider({
     name: SEARCH_DEGRADED_TOTAL,

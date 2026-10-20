@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { ClsMiddleware } from 'nestjs-cls';
 import { Logger } from 'nestjs-pino';
 
+import { RedisIoAdapter } from './adapters/redis-io.adapter';
 import { bindRequestCorrelationId } from './common/cls/correlation-context';
 import { CORRELATION_ID_RESPONSE_HEADER } from './common/cls/correlation-id';
 import { createValidationPipe } from './common/pipes/validation.pipe';
@@ -21,6 +22,7 @@ export function configureApp(app: NestExpressApplication): void {
   const http = app.get<ConfigType<typeof httpConfig>>(httpConfig.KEY);
 
   app.useLogger(app.get(Logger));
+  app.useWebSocketAdapter(new RedisIoAdapter(app));
   app.setGlobalPrefix(GLOBAL_PREFIX, { exclude: [METRICS_PATH] });
   app.set('trust proxy', http.trustProxy);
 
