@@ -1,11 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import {
-  type IndexableProduct,
-  SEARCH_PORT,
-  type SearchPort,
-  toCatalogDocument,
-} from '../../search';
+import { type IndexableProduct, toCatalogDocument } from '../../search/catalog';
+import { SEARCH_PORT, type SearchPort } from '../../search/search.port';
 import { CategoriesService } from '../categories/categories.service';
 import type { Product } from '../products/product';
 import { ProductsService } from '../products/products.service';

@@ -5,7 +5,7 @@ import request from 'supertest';
 
 import type { Product } from '../../src/generated/prisma/client';
 import type { UserRole } from '../../src/modules/users/user-role';
-import { PrismaService } from '../../src/prisma';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { createProduct, createSeller, createUser } from '../utils/factories';

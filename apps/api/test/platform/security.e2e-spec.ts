@@ -8,7 +8,7 @@ import type { App } from 'supertest/types';
 
 import { Public } from '../../src/common/decorators/public.decorator';
 import { RateLimit } from '../../src/common/throttling/rate-limit.decorator';
-import { REDIS_CLIENT } from '../../src/redis';
+import { REDIS_CLIENT } from '../../src/redis/redis.constants';
 import { createTestApp } from '../utils/test-app';
 
 @Public()

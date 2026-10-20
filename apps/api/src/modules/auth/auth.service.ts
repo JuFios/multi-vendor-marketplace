@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
-import type { AppTransactionHost } from '../../prisma';
+import type { AppTransactionHost } from '../../prisma/transaction';
 import { normalizeEmail } from '../users/email';
 import type { UserAccount } from '../users/user-account';
 import { EmailAlreadyRegisteredError } from '../users/users.errors';

@@ -2,7 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { Meilisearch } from 'meilisearch';
 
-import { searchConfig } from '../config';
+import { searchConfig } from '../config/search.config';
 
 import { MeiliSearchAdapter } from './meili-search.adapter';
 import { MEILI_CLIENT } from './meili.constants';

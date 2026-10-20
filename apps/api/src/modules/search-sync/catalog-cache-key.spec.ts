@@ -1,4 +1,4 @@
-import type { CatalogQuery } from '../../search';
+import type { CatalogQuery } from '../../search/catalog';
 
 import { catalogCacheKey } from './catalog-cache-key';
 

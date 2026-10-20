@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import { type AnyDomainEvent, EVENT_TYPE } from '../../outbox/events';
+import type { AnyDomainEvent } from '../../outbox/events/domain-event';
+import { EVENT_TYPE } from '../../outbox/events/event-types';
 import { SellersService } from '../sellers/sellers.service';
 
 import {

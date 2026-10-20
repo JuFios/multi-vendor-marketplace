@@ -5,7 +5,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
-import { appConfig } from './config';
+import { appConfig } from './config/app.config';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });

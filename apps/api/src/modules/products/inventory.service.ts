@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
-import { OutboxService } from '../../outbox';
-import { EVENT_TYPE } from '../../outbox/events';
-import type { AppTransactionHost } from '../../prisma';
+import { EVENT_TYPE } from '../../outbox/events/event-types';
+import { OutboxService } from '../../outbox/outbox.service';
+import type { AppTransactionHost } from '../../prisma/transaction';
 
 import type { ReservedProduct } from './product';
 import { ProductDetailsCache } from './product-details-cache.service';

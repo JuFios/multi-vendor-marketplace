@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
 import { Prisma } from '../../generated/prisma/client';
-import type { AppTransactionHost } from '../../prisma';
+import type { AppTransactionHost } from '../../prisma/transaction';
 
 import type { Category, CategoryChanges, NewCategory } from './category';
 

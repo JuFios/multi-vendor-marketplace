@@ -1,13 +1,9 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Meilisearch } from 'meilisearch';
 
-import {
-  MEILI_CLIENT,
-  SEARCH_PORT,
-  type CatalogDocument,
-  type CatalogQuery,
-  type SearchPort,
-} from '../../src/search';
+import type { CatalogDocument, CatalogQuery } from '../../src/search/catalog';
+import { MEILI_CLIENT } from '../../src/search/meili.constants';
+import { SEARCH_PORT, type SearchPort } from '../../src/search/search.port';
 import { createTestApp } from '../utils/test-app';
 
 const INDEX = 'test_products';

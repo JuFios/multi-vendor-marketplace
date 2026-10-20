@@ -5,12 +5,12 @@ import type { Counter } from '@prometheus-io/client';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 
 import { AppError } from '../../common/exceptions/app-error';
-import { ordersConfig } from '../../config';
-import { IdempotencyService } from '../../idempotency';
-import { CHECKOUT_FAILURES_TOTAL, ORDERS_CREATED_TOTAL } from '../../metrics';
-import { OutboxService } from '../../outbox';
-import { EVENT_TYPE } from '../../outbox/events';
-import type { AppTransactionHost } from '../../prisma';
+import { ordersConfig } from '../../config/orders.config';
+import { IdempotencyService } from '../../idempotency/idempotency.service';
+import { CHECKOUT_FAILURES_TOTAL, ORDERS_CREATED_TOTAL } from '../../metrics/metrics.constants';
+import { EVENT_TYPE } from '../../outbox/events/event-types';
+import { OutboxService } from '../../outbox/outbox.service';
+import type { AppTransactionHost } from '../../prisma/transaction';
 import { CartService } from '../cart/cart.service';
 import { LedgerService } from '../payments-ledger/ledger.service';
 import { InventoryService } from '../products/inventory.service';

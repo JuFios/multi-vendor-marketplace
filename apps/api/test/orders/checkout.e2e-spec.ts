@@ -5,7 +5,8 @@ import { TransactionHost } from '@nestjs-cls/transactional';
 import request from 'supertest';
 
 import { InventoryService } from '../../src/modules/products/inventory.service';
-import { type AppTransactionHost, PrismaService } from '../../src/prisma';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import type { AppTransactionHost } from '../../src/prisma/transaction';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { createProduct, createSeller, createUser } from '../utils/factories';

@@ -32,7 +32,8 @@ import { ApiErrorResponses } from '../../common/swagger/api-error-responses.deco
 import { REFRESH_COOKIE_AUTH, REFRESH_COOKIE_NAME } from '../../common/swagger/openapi';
 import { RateLimit } from '../../common/throttling/rate-limit.decorator';
 import { THROTTLER } from '../../common/throttling/throttler-names';
-import { authConfig, httpConfig } from '../../config';
+import { authConfig } from '../../config/auth.config';
+import { httpConfig } from '../../config/http.config';
 
 import { InvalidRefreshTokenError } from './auth.errors';
 import { AuthService } from './auth.service';

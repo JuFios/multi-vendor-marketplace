@@ -3,8 +3,8 @@ import { Writable } from 'node:stream';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
-import { LOG_STREAM } from '../../src/logger';
-import { PrismaService } from '../../src/prisma';
+import { LOG_STREAM } from '../../src/logger/logger.constants';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { overrideEnv } from '../utils/env';

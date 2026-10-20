@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
-import type { AppTransactionHost } from '../../prisma';
+import type { AppTransactionHost } from '../../prisma/transaction';
 import { ProductsService } from '../products/products.service';
 import { SellersService } from '../sellers/sellers.service';
 

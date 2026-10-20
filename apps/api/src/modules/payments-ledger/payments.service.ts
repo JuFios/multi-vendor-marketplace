@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import { OutboxService } from '../../outbox';
-import { EVENT_TYPE } from '../../outbox/events';
+import { EVENT_TYPE } from '../../outbox/events/event-types';
+import { OutboxService } from '../../outbox/outbox.service';
 
 import { PaymentAttemptsRepository } from './payment-attempts.repository';
 import { PAYMENT_GATEWAY, type PaymentGatewayPort } from './payment-gateway.port';

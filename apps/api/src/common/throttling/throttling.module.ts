@@ -9,8 +9,8 @@ import {
 } from '@nestjs/throttler';
 import type { Redis } from 'ioredis';
 
-import { throttleConfig, type ThrottleRule } from '../../config';
-import { REDIS_CLIENT } from '../../redis';
+import { throttleConfig, type ThrottleRule } from '../../config/throttle.config';
+import { REDIS_CLIENT } from '../../redis/redis.constants';
 
 import { rateLimitMetadataKey } from './rate-limit.decorator';
 import { RedisThrottlerStorage } from './redis-throttler.storage';

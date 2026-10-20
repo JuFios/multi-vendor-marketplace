@@ -5,7 +5,7 @@ import { type ConfigType } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import type { CookieOptions, Request, Response } from 'express';
 
-import { authConfig } from '../../../config';
+import { authConfig } from '../../../config/auth.config';
 import { GOOGLE_STATE_COOKIE, GOOGLE_STRATEGY_NAME } from '../auth.constants';
 import { GoogleAuthFailedError, ProviderDisabledError } from '../auth.errors';
 

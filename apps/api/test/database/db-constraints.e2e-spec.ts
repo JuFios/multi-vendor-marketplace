@@ -1,6 +1,6 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 
-import { PrismaService } from '../../src/prisma';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { resetDb } from '../utils/db';
 import {
   createAuction,

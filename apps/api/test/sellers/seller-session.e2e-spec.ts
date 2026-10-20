@@ -5,7 +5,7 @@ import request from 'supertest';
 
 import { SellerGuard } from '../../src/modules/sellers/seller.guard';
 import { SellersModule } from '../../src/modules/sellers/sellers.module';
-import { PrismaService } from '../../src/prisma';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor, cookieValue, refreshCookieOf } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { createSeller, createUser } from '../utils/factories';

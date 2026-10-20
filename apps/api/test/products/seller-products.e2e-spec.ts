@@ -1,8 +1,8 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
-import { productsConfig } from '../../src/config';
-import { PrismaService } from '../../src/prisma';
+import { productsConfig } from '../../src/config/products.config';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { createCategory, createProduct, createSeller, createUser } from '../utils/factories';

@@ -3,7 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { makeGaugeProvider } from '@willsoto/nestjs-prometheus';
 
 import { OUTBOX_PENDING_EVENTS } from '../metrics/metrics.constants';
-import { PrismaService } from '../prisma';
+import { PrismaService } from '../prisma/prisma.service';
 
 import { OutboxRelay } from './outbox.relay';
 

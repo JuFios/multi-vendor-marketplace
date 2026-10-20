@@ -11,7 +11,8 @@ import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { ParseUuidPipe } from '../../common/pipes/parse-uuid.pipe';
 import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
 import { BEARER_AUTH } from '../../common/swagger/openapi';
-import { IDEMPOTENCY_SCOPE, Idempotent } from '../../idempotency';
+import { IDEMPOTENCY_SCOPE } from '../../idempotency/idempotency.constants';
+import { Idempotent } from '../../idempotency/idempotent.decorator';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 

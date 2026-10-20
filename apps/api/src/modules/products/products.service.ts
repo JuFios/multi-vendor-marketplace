@@ -2,11 +2,11 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
-import { productsConfig } from '../../config';
-import { OutboxService } from '../../outbox';
-import { EVENT_TYPE } from '../../outbox/events';
-import type { AppTransactionHost } from '../../prisma';
-import type { CatalogQuery } from '../../search';
+import { productsConfig } from '../../config/products.config';
+import { EVENT_TYPE } from '../../outbox/events/event-types';
+import { OutboxService } from '../../outbox/outbox.service';
+import type { AppTransactionHost } from '../../prisma/transaction';
+import type { CatalogQuery } from '../../search/catalog';
 import { CategoriesService } from '../categories/categories.service';
 import { SellersService } from '../sellers/sellers.service';
 

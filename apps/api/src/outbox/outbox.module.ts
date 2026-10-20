@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 
-import { EVENT_ROUTES, EVENT_ROUTING } from './events';
+import { EVENT_ROUTES, EVENT_ROUTING } from './events/event-routes';
 import { OutboxService } from './outbox.service';
 
 /** Recording events and the routing table; available to the api and to the worker alike. */

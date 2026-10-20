@@ -1,4 +1,4 @@
-import type { SearchPort } from '../../search';
+import type { SearchPort } from '../../search/search.port';
 import type { CategoriesService } from '../categories/categories.service';
 import type { Product } from '../products/product';
 import type { ProductsService } from '../products/products.service';

@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
 import type { Notification as NotificationRow } from '../../generated/prisma/client';
-import type { AppTransactionHost } from '../../prisma';
+import type { AppTransactionHost } from '../../prisma/transaction';
 
 import type { NewNotification, Notification } from './notification';
 

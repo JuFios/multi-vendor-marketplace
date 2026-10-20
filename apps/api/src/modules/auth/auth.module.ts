@@ -4,7 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
-import { authConfig } from '../../config';
+import { authConfig } from '../../config/auth.config';
 import { SellersModule } from '../sellers/sellers.module';
 import { UsersModule } from '../users/users.module';
 

@@ -1,4 +1,4 @@
-import type { AnyDomainEvent } from '../outbox/events';
+import type { AnyDomainEvent } from '../outbox/events/domain-event';
 
 import type { QueueName } from './queue-names';
 

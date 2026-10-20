@@ -22,7 +22,7 @@ import {
   type CatalogProductType,
   type CatalogQuery,
   type CatalogSort,
-} from '../../../search';
+} from '../../../search/catalog';
 
 export const CATALOG_SEARCH_TEXT_MAX_LENGTH = 200;
 

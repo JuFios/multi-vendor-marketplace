@@ -10,15 +10,14 @@ import type { App } from 'supertest/types';
 
 import { getCorrelationId } from '../../src/common/cls/correlation-context';
 import { Public } from '../../src/common/decorators/public.decorator';
-import { IdempotentProcessor, OutboxService } from '../../src/outbox';
-import {
-  type AnyDomainEvent,
-  EVENT_ROUTES,
-  EVENT_ROUTING,
-  EVENT_TYPE,
-} from '../../src/outbox/events';
-import { type AppTransactionHost, PrismaService } from '../../src/prisma';
-import { QUEUE } from '../../src/queue';
+import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
+import { EVENT_ROUTES, EVENT_ROUTING } from '../../src/outbox/events/event-routes';
+import { EVENT_TYPE } from '../../src/outbox/events/event-types';
+import { IdempotentProcessor } from '../../src/outbox/idempotent.processor';
+import { OutboxService } from '../../src/outbox/outbox.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import type { AppTransactionHost } from '../../src/prisma/transaction';
+import { QUEUE } from '../../src/queue/queue-names';
 import { resetDb } from '../utils/db';
 import { flushEvents, queueOf } from '../utils/flush-events';
 import { createTestApp } from '../utils/test-app';

@@ -1,7 +1,7 @@
 import type { ConfigType } from '@nestjs/config';
 import { JwtService, type JwtModuleOptions } from '@nestjs/jwt';
 
-import type { authConfig } from '../../config';
+import type { authConfig } from '../../config/auth.config';
 
 import { ACCESS_TOKEN_ALGORITHM } from './access-claims';
 import { AccessTokenService } from './access-token.service';

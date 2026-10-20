@@ -4,7 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
 import { Prisma } from '../../generated/prisma/client';
-import type { AppTransactionHost } from '../../prisma';
+import type { AppTransactionHost } from '../../prisma/transaction';
 
 import { GoogleAuthFailedError } from './auth.errors';
 import type { LinkedGoogleIdentity } from './google-login';

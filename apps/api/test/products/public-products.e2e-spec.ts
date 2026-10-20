@@ -2,7 +2,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
 import { Prisma } from '../../src/generated/prisma/client';
-import { PrismaService } from '../../src/prisma';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { createCategory, createProduct, createSeller } from '../utils/factories';

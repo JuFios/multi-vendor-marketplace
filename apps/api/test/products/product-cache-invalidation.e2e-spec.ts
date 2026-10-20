@@ -2,10 +2,10 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { TransactionHost } from '@nestjs-cls/transactional';
 import request from 'supertest';
 
-import { OutboxService } from '../../src/outbox';
-import { EVENT_TYPE } from '../../src/outbox/events';
-import { PrismaService } from '../../src/prisma';
-import type { AppTransactionHost } from '../../src/prisma';
+import { EVENT_TYPE } from '../../src/outbox/events/event-types';
+import { OutboxService } from '../../src/outbox/outbox.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import type { AppTransactionHost } from '../../src/prisma/transaction';
 import { resetDb } from '../utils/db';
 import { createProduct } from '../utils/factories';
 import { flushEvents } from '../utils/flush-events';

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { CacheService } from '../../cache';
+import { CacheService } from '../../cache/cache.service';
 
 import type { ProductDetailsResponseDto } from './dto/product-details-response.dto';
 

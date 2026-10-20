@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { Redis } from 'ioredis';
 
-import { redisConfig } from '../config';
+import { redisConfig } from '../config/redis.config';
 
 export interface RedisConnectionOptions {
   /** BullMQ requires `null`; the shared client uses a small finite value. */

@@ -2,15 +2,10 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Counter } from '@prometheus-io/client';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 
-import { CacheService } from '../../cache';
+import { CacheService } from '../../cache/cache.service';
 import { SEARCH_DEGRADED_TOTAL } from '../../metrics/metrics.constants';
-import {
-  type CatalogItem,
-  type CatalogQuery,
-  type CatalogResult,
-  SEARCH_PORT,
-  type SearchPort,
-} from '../../search';
+import type { CatalogItem, CatalogQuery, CatalogResult } from '../../search/catalog';
+import { SEARCH_PORT, type SearchPort } from '../../search/search.port';
 import { CategoriesService } from '../categories/categories.service';
 import type { Product } from '../products/product';
 import type { CatalogMatches } from '../products/product';

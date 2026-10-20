@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 
-import { SEARCH_PORT, type SearchPort } from '../../search';
+import { SEARCH_PORT, type SearchPort } from '../../search/search.port';
 
 import { SearchIndexer } from './search-indexer.service';
 

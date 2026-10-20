@@ -2,9 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
 import type { Prisma } from '../generated/prisma/client';
-import type { AppTransactionHost } from '../prisma';
+import type { AppTransactionHost } from '../prisma/transaction';
 
-import { type AnyNewDomainEvent, createDomainEventDraft } from './events';
+import { type AnyNewDomainEvent, createDomainEventDraft } from './events/domain-event';
 import { OutboxOutsideTransactionError } from './outbox.errors';
 
 @Injectable()

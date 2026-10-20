@@ -2,7 +2,7 @@ import { HealthIndicatorService } from '@nestjs/terminus';
 import type { Redis } from 'ioredis';
 import type { Meilisearch } from 'meilisearch';
 
-import type { PrismaService } from '../prisma';
+import type { PrismaService } from '../prisma/prisma.service';
 
 import { DependencyHealthIndicators } from './dependency-health.indicators';
 

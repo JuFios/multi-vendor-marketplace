@@ -4,7 +4,7 @@ import { type ConfigType } from '@nestjs/config';
 import { makeGaugeProvider } from '@willsoto/nestjs-prometheus';
 import type { Queue } from 'bullmq';
 
-import { redisConfig } from '../config';
+import { redisConfig } from '../config/redis.config';
 import { QUEUE_WAITING_JOBS } from '../metrics/metrics.constants';
 
 import { BullMqQueuePublisher } from './bullmq-queue.publisher';

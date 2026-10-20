@@ -3,7 +3,7 @@ import request from 'supertest';
 
 import type { GoogleProfile } from '../../src/modules/auth/google-login';
 import { GoogleStrategy } from '../../src/modules/auth/strategies/google.strategy';
-import { PrismaService } from '../../src/prisma';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { cookieValue, refreshCookieOf } from '../utils/auth';
 import { resetDb } from '../utils/db';
 import { overrideEnv } from '../utils/env';

@@ -20,10 +20,13 @@ import type { App } from 'supertest/types';
 
 import { Public } from '../../src/common/decorators/public.decorator';
 import { ConflictError } from '../../src/common/exceptions/app-error';
-import { IDEMPOTENCY_SCOPE, IdempotencyService, Idempotent } from '../../src/idempotency';
-import { OutboxService } from '../../src/outbox';
-import { EVENT_TYPE } from '../../src/outbox/events';
-import { type AppTransactionHost, PrismaService } from '../../src/prisma';
+import { IDEMPOTENCY_SCOPE } from '../../src/idempotency/idempotency.constants';
+import { IdempotencyService } from '../../src/idempotency/idempotency.service';
+import { Idempotent } from '../../src/idempotency/idempotent.decorator';
+import { EVENT_TYPE } from '../../src/outbox/events/event-types';
+import { OutboxService } from '../../src/outbox/outbox.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import type { AppTransactionHost } from '../../src/prisma/transaction';
 import { resetDb } from '../utils/db';
 import { createUser } from '../utils/factories';
 import { createTestApp } from '../utils/test-app';

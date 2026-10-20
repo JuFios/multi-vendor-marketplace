@@ -1,6 +1,6 @@
 import type { Queue } from 'bullmq';
 
-import type { AnyDomainEvent } from '../outbox/events';
+import type { AnyDomainEvent } from '../outbox/events/domain-event';
 
 import type { QueueName } from './queue-names';
 import type { QueuePublisherPort } from './queue-publisher.port';

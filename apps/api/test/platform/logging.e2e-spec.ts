@@ -4,7 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
-import { LOG_STREAM } from '../../src/logger';
+import { LOG_STREAM } from '../../src/logger/logger.constants';
 import { createTestApp } from '../utils/test-app';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

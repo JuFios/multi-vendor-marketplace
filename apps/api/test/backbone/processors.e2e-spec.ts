@@ -5,21 +5,18 @@ import type { Queue } from 'bullmq';
 import request from 'supertest';
 
 import { getContextEventId, getCorrelationId } from '../../src/common/cls/correlation-context';
-import { IdempotentProcessor, ProcessorConfigurationError } from '../../src/outbox';
+import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
+import { newEventId } from '../../src/outbox/events/event-id';
+import { EVENT_ROUTES, EVENT_ROUTING } from '../../src/outbox/events/event-routes';
+import { EVENT_TYPE } from '../../src/outbox/events/event-types';
 import {
-  type AnyDomainEvent,
-  EVENT_ROUTES,
-  EVENT_ROUTING,
-  EVENT_TYPE,
-  newEventId,
-} from '../../src/outbox/events';
-import { PrismaService } from '../../src/prisma';
-import {
-  DEFAULT_JOB_OPTIONS,
-  QUEUE,
-  QUEUE_PUBLISHER,
-  type QueuePublisherPort,
-} from '../../src/queue';
+  IdempotentProcessor,
+  ProcessorConfigurationError,
+} from '../../src/outbox/idempotent.processor';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { QUEUE } from '../../src/queue/queue-names';
+import { QUEUE_PUBLISHER, type QueuePublisherPort } from '../../src/queue/queue-publisher.port';
+import { DEFAULT_JOB_OPTIONS } from '../../src/queue/queue.constants';
 import { resetDb } from '../utils/db';
 import { queueOf } from '../utils/flush-events';
 import { createTestApp } from '../utils/test-app';
