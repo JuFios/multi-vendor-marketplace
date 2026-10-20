@@ -14,9 +14,9 @@ import type {
 } from '../../src/modules/notifications/ws-events';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor } from '../utils/auth';
-import { resetDb } from '../utils/db';
 import { createAuction, createProduct, createSeller, createUser } from '../utils/factories';
 import { flushEvents } from '../utils/flush-events';
+import { resetState } from '../utils/reset-state';
 import { createTestApp } from '../utils/test-app';
 import { connectSocket, listenOn, type TestSocket } from '../utils/ws-client';
 
@@ -66,7 +66,7 @@ describe('Realtime pushes (e2e)', () => {
     url = await listenOn(app);
   });
 
-  beforeEach(() => resetDb(prisma));
+  beforeEach(() => resetState(prisma));
 
   afterEach(() => {
     for (const client of open.splice(0)) {
@@ -75,7 +75,7 @@ describe('Realtime pushes (e2e)', () => {
   });
 
   afterAll(async () => {
-    await resetDb(prisma);
+    await resetState(prisma);
     await app.close();
   });
 
@@ -154,7 +154,12 @@ describe('Realtime pushes (e2e)', () => {
     expect(ship.status).toBe(200);
     await flushEvents();
 
-    const forBuyer = await buyerSocket.waitForEvent<OrderStatusPayload>('order.status');
+    // A seller order change reaches the buyer twice: with the seller order and as the aggregate.
+    const forBuyer = await buyerSocket.waitForEvent<OrderStatusPayload>(
+      'order.status',
+      5000,
+      (payload) => payload.sellerOrderId !== undefined,
+    );
     expect(forBuyer).toMatchObject({
       orderId: order.id,
       status: 'PROCESSING',

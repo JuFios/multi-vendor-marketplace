@@ -14,9 +14,9 @@ import type { CatalogQuery } from '../../src/search/catalog';
 import { MEILI_CLIENT } from '../../src/search/meili.constants';
 import { SEARCH_PORT, type SearchPort } from '../../src/search/search.port';
 import { bearerFor } from '../utils/auth';
-import { resetDb } from '../utils/db';
 import { createCategory, createProduct, createSeller, createUser } from '../utils/factories';
 import { flushEvents } from '../utils/flush-events';
+import { resetState } from '../utils/reset-state';
 import { createTestApp } from '../utils/test-app';
 
 const INDEX = 'test_products';
@@ -38,12 +38,12 @@ describe('search index synchronization (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await resetDb(prisma);
+    await resetState(prisma);
     await meili.index(INDEX).deleteAllDocuments().waitTask();
   });
 
   afterAll(async () => {
-    await resetDb(prisma);
+    await resetState(prisma);
     await meili.index(INDEX).deleteAllDocuments().waitTask();
     await app.close();
   });
