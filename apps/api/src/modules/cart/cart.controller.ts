@@ -33,7 +33,10 @@ export class CartController {
   }
 
   @Post('items')
-  @ApiOperation({ summary: 'Adds to the quantity of a published fixed-price product.' })
+  @ApiOperation({
+    summary:
+      'Adds to the quantity of a published fixed-price product, or adds an auction lot you won.',
+  })
   @ApiCreatedResponse({ type: CartResponseDto })
   @ApiErrorResponses(400, 401, 404, 409, 422)
   addItem(@CurrentUser() user: AuthUser, @Body() dto: AddCartItemDto): Promise<CartResponseDto> {

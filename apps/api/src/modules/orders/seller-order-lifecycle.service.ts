@@ -7,6 +7,7 @@ import { SELLER_ORDERS_CANCELLED_TOTAL } from '../../metrics/metrics.constants';
 import { EVENT_TYPE } from '../../outbox/events/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 import type { AppTransactionHost } from '../../prisma/transaction';
+import { AuctionLifecycleService } from '../bidding/auction-lifecycle.service';
 import { LedgerService } from '../payments-ledger/ledger.service';
 import { InventoryService } from '../products/inventory.service';
 import { SellersService } from '../sellers/sellers.service';
@@ -49,6 +50,7 @@ export class SellerOrderLifecycleService {
     private readonly outbox: OutboxService,
     private readonly inventory: InventoryService,
     private readonly ledger: LedgerService,
+    private readonly auctionLifecycle: AuctionLifecycleService,
   ) {}
 
   async changeStatus(
@@ -102,11 +104,17 @@ export class SellerOrderLifecycleService {
       });
 
       // Only NEW and PROCESSING cancellations reach this point; shipped goods are not restocked.
-      // TODO: start a new auction round when the cancelled item was an auction lot
       const restocked = sellerOrder.items
         .filter((item) => item.auctionId === null)
         .map((item) => ({ productId: item.productId, quantity: item.quantity }));
       await this.inventory.restock(restocked);
+      // A cancelled auction lot is offered again as a new round (I-03).
+      const lots = sellerOrder.items
+        .flatMap((item) => (item.auctionId === null ? [] : [item.auctionId]))
+        .sort();
+      for (const auctionId of lots) {
+        await this.auctionLifecycle.restartIfOrdered(auctionId);
+      }
 
       const plan = planCancellation(sellerOrder);
       await this.ledger.recordCancellation({

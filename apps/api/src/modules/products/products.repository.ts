@@ -8,6 +8,7 @@ import type { CatalogQuery, CatalogSort } from '../../search/catalog';
 import type {
   ModerationDecision,
   ModerationStatus,
+  NewAuctionLot,
   NewProduct,
   Product,
   ProductChanges,
@@ -74,6 +75,28 @@ export class ProductsRepository {
         type: 'FIXED_PRICE',
         ...product,
         images: [...product.images],
+        isPublished,
+      },
+    });
+    return toProduct(row);
+  }
+
+  /** An auction lot's product: no price of its own, and one unit that the auction sells. */
+  async createAuctionLot(
+    sellerId: string,
+    lot: Pick<NewAuctionLot, 'categoryId' | 'title' | 'description' | 'images'>,
+    isPublished: boolean,
+  ): Promise<Product> {
+    const row = await this.txHost.tx.product.create({
+      data: {
+        sellerId,
+        type: 'AUCTION',
+        categoryId: lot.categoryId,
+        title: lot.title,
+        description: lot.description,
+        images: [...lot.images],
+        priceCents: null,
+        stock: 1,
         isPublished,
       },
     });

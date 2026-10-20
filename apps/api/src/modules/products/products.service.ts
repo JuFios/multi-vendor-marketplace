@@ -7,6 +7,8 @@ import { EVENT_TYPE } from '../../outbox/events/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 import type { AppTransactionHost } from '../../prisma/transaction';
 import type { CatalogQuery } from '../../search/catalog';
+import type { AuctionRecord } from '../bidding/auction';
+import { AuctionsService } from '../bidding/auctions.service';
 import { CategoriesService } from '../categories/categories.service';
 import { SellersService } from '../sellers/sellers.service';
 
@@ -15,16 +17,15 @@ import {
   changedFields,
   isPublished,
   type ModerationDecision,
+  type NewAuctionLot,
   type NewProduct,
   type Product,
   type ProductChanges,
-  type ProductType,
   SIMILAR_PRODUCTS_LIMIT,
   type CatalogMatches,
 } from './product';
 import { ProductDetailsCache } from './product-details-cache.service';
 import {
-  AuctionProductsNotSupportedError,
   FixedPriceOnlyError,
   ProductCategoryInvalidError,
   ProductNotFoundError,
@@ -46,15 +47,12 @@ export class ProductsService {
     private readonly products: ProductsRepository,
     private readonly categories: CategoriesService,
     private readonly sellers: SellersService,
+    private readonly auctions: AuctionsService,
     private readonly detailsCache: ProductDetailsCache,
     private readonly outbox: OutboxService,
   ) {}
 
-  async create(sellerId: string, type: ProductType, input: NewProduct): Promise<Product> {
-    if (type === 'AUCTION') {
-      // TODO: auction creation
-      throw new AuctionProductsNotSupportedError();
-    }
+  async create(sellerId: string, input: NewProduct): Promise<Product> {
     await this.requireCategory(input.categoryId);
     const published = isPublished(
       { moderationStatus: 'PENDING', archivedAt: null },
@@ -74,6 +72,47 @@ export class ProductsService {
     });
     this.logger.log({ msg: 'product.created', productId: product.id, sellerId });
     return product;
+  }
+
+  /**
+   * Creates an auction lot: the product and its first round commit together, so a lot never
+   * exists without an auction.
+   */
+  async createAuction(
+    sellerId: string,
+    lot: NewAuctionLot,
+  ): Promise<{ product: Product; auction: AuctionRecord }> {
+    await this.requireCategory(lot.categoryId);
+    const published = isPublished(
+      { moderationStatus: 'PENDING', archivedAt: null },
+      this.settings.premoderation,
+    );
+    const created = await this.txHost.withTransaction(async () => {
+      const product = await this.products.createAuctionLot(sellerId, lot, published);
+      const auction = await this.auctions.createForProduct({
+        productId: product.id,
+        sellerId,
+        startPriceCents: lot.startPriceCents,
+        bidStepCents: lot.bidStepCents,
+        endsAt: lot.endsAt,
+      });
+      await this.outbox.add([
+        {
+          type: EVENT_TYPE.PRODUCT_CREATED,
+          aggregateType: 'Product',
+          aggregateId: product.id,
+          payload: { productId: product.id, version: product.version },
+        },
+      ]);
+      return { product, auction };
+    });
+    this.logger.log({
+      msg: 'product.created',
+      productId: created.product.id,
+      sellerId,
+      auctionId: created.auction.id,
+    });
+    return created;
   }
 
   listOwned(
@@ -152,8 +191,11 @@ export class ProductsService {
 
   /** Deleting a product archives it (I-16): the row stays, the catalog stops showing it. */
   async archive(sellerId: string, id: string): Promise<void> {
-    await this.requireActive(sellerId, id);
+    const product = await this.requireActive(sellerId, id);
     await this.txHost.withTransaction(async () => {
+      if (product.type === 'AUCTION') {
+        await this.auctions.prepareForArchive(id);
+      }
       if (!(await this.products.archive(id, sellerId))) {
         throw new ProductNotFoundError();
       }

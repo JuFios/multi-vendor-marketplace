@@ -12,10 +12,6 @@ export function findCheckoutProblems(lines: readonly CheckoutLineState[]): Check
     if (line.availability === 'UNAVAILABLE') {
       return [{ productId: line.productId, reason: 'UNAVAILABLE' }];
     }
-    // TODO: settle auction lots at checkout
-    if (line.type === 'AUCTION') {
-      return [{ productId: line.productId, reason: 'AUCTION_NOT_SUPPORTED' }];
-    }
     return line.availability === 'INSUFFICIENT_STOCK'
       ? [{ productId: line.productId, reason: 'INSUFFICIENT_STOCK' }]
       : [];

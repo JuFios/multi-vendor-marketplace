@@ -201,7 +201,7 @@ describe('Seller products (e2e)', () => {
       expect(stored.title).toBe('Phone');
     });
 
-    it('rejects an auction product for now', async () => {
+    it('rejects an auction product without the terms of its first round', async () => {
       const { auth } = await sellerAuth();
       const category = await createCategory(prisma);
 
@@ -216,7 +216,7 @@ describe('Seller products (e2e)', () => {
         })
         .expect(400);
 
-      expect((response.body as ErrorBody).error.code).toBe('NOT_SUPPORTED_YET');
+      expect((response.body as ErrorBody).error.code).toBe('VALIDATION_FAILED');
       expect(await prisma.product.count()).toBe(0);
     });
 

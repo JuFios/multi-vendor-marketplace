@@ -25,6 +25,9 @@ import {
   QUEUE_JOBS_COMPLETED_TOTAL,
   QUEUE_JOBS_FAILED_TOTAL,
   SEARCH_DEGRADED_TOTAL,
+  BID_OPTIMISTIC_RETRIES_TOTAL,
+  BIDS_PLACED_TOTAL,
+  BIDS_REJECTED_TOTAL,
   REFUNDS_TOTAL,
   SELLER_ORDERS_CANCELLED_TOTAL,
 } from './metrics.constants';
@@ -95,6 +98,16 @@ const metricProviders = [
     name: SELLER_ORDERS_CANCELLED_TOTAL,
     help: 'Seller orders cancelled, by who cancelled them.',
     labelNames: ['actor'],
+  }),
+  makeCounterProvider({ name: BIDS_PLACED_TOTAL, help: 'Bids accepted.' }),
+  makeCounterProvider({
+    name: BIDS_REJECTED_TOTAL,
+    help: 'Bids refused, by reason.',
+    labelNames: ['reason'],
+  }),
+  makeCounterProvider({
+    name: BID_OPTIMISTIC_RETRIES_TOTAL,
+    help: 'Bid attempts repeated because another bid changed the auction first.',
   }),
   makeCounterProvider({
     name: REFUNDS_TOTAL,

@@ -1,4 +1,9 @@
-import { AppError, ConflictError, NotFoundError } from '../../common/exceptions/app-error';
+import {
+  AppError,
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+} from '../../common/exceptions/app-error';
 
 export class CartItemNotFoundError extends NotFoundError {
   constructor() {
@@ -12,9 +17,9 @@ export class CannotBuyOwnProductError extends AppError {
   }
 }
 
-export class CartProductNotFixedPriceError extends AppError {
+export class AuctionNotWonError extends ForbiddenError {
   constructor() {
-    super('PRODUCT_NOT_FIXED_PRICE', 400, 'Only fixed-price products can be added to the cart');
+    super('Only the winner can add an auction lot, within the checkout window', 'AUCTION_NOT_WON');
   }
 }
 

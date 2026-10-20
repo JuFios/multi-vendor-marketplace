@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min, ValidateIf } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsISO8601,
+  IsOptional,
+  IsUUID,
+  Max,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 import { IsMoneyCents } from '../../../common/decorators/is-money-cents.decorator';
 import {
@@ -50,4 +59,25 @@ export class CreateProductDto {
   @Min(0)
   @Max(PRODUCT_MAX_STOCK)
   stock?: number;
+
+  @ApiPropertyOptional({ minimum: 1, description: 'Starting bid in cents; required for AUCTION.' })
+  @ValidateIf((product: CreateProductDto) => product.type === 'AUCTION')
+  @IsMoneyCents()
+  startPriceCents?: number;
+
+  @ApiPropertyOptional({
+    minimum: 1,
+    description: 'Minimum raise per bid in cents; required for AUCTION.',
+  })
+  @ValidateIf((product: CreateProductDto) => product.type === 'AUCTION')
+  @IsMoneyCents()
+  bidStepCents?: number;
+
+  @ApiPropertyOptional({
+    format: 'date-time',
+    description: 'When the first round ends, 1 minute to 30 days from now; required for AUCTION.',
+  })
+  @ValidateIf((product: CreateProductDto) => product.type === 'AUCTION')
+  @IsISO8601({ strict: true })
+  endsAt?: string;
 }

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { BiddingModule } from '../bidding/bidding.module';
 import { CategoriesModule } from '../categories/categories.module';
 import { SellersModule } from '../sellers/sellers.module';
 
@@ -12,7 +13,7 @@ import { ProductsService } from './products.service';
 import { SellerProductsController } from './seller-products.controller';
 
 @Module({
-  imports: [CategoriesModule, SellersModule],
+  imports: [BiddingModule, CategoriesModule, SellersModule],
   controllers: [SellerProductsController, ProductsController, AdminProductsController],
   providers: [ProductsRepository, ProductDetailsCache, ProductsService, InventoryService],
   exports: [ProductsService, InventoryService],

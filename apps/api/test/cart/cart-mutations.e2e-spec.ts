@@ -5,7 +5,7 @@ import type { UserRole } from '../../src/modules/users/user-role';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
-import { createProduct, createSeller, createUser } from '../utils/factories';
+import { createAuction, createProduct, createSeller, createUser } from '../utils/factories';
 import { createTestApp } from '../utils/test-app';
 
 interface CartBody {
@@ -145,14 +145,17 @@ describe('Cart mutations (e2e)', () => {
       }
     });
 
-    it('refuses an auction lot', async () => {
+    it('refuses an auction lot that the user has not won', async () => {
       const buyer = await createUser(prisma);
-      const lot = await createProduct(prisma, { type: 'AUCTION', priceCents: null, stock: 1 });
+      const lot = await createAuction(prisma);
 
-      const response = await call('post', '/items', buyer, { productId: lot.id, quantity: 1 });
+      const response = await call('post', '/items', buyer, {
+        productId: lot.productId,
+        quantity: 1,
+      });
 
-      expect(response.status).toBe(400);
-      expect((response.body as ErrorBody).error.code).toBe('PRODUCT_NOT_FIXED_PRICE');
+      expect(response.status).toBe(403);
+      expect((response.body as ErrorBody).error.code).toBe('AUCTION_NOT_WON');
     });
 
     it('answers 422 CANNOT_BUY_OWN_PRODUCT to the seller of the product', async () => {

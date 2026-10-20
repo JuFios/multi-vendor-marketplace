@@ -5,6 +5,7 @@ import type { Queue } from 'bullmq';
 import request from 'supertest';
 
 import { getContextEventId, getCorrelationId } from '../../src/common/cls/correlation-context';
+import { CartProcessor } from '../../src/modules/cart/cart.processor';
 import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
 import { newEventId } from '../../src/outbox/events/event-id';
 import { EVENT_ROUTES, EVENT_ROUTING } from '../../src/outbox/events/event-routes';
@@ -121,9 +122,16 @@ describe('queue processors (e2e)', () => {
     (await request(app.getHttpServer()).get('/metrics')).text;
 
   beforeAll(async () => {
-    app = await createTestApp([{ token: EVENT_ROUTING, useValue: ROUTES }], {
-      imports: [SpecProcessorsModule],
-    });
+    app = await createTestApp(
+      [
+        { token: EVENT_ROUTING, useValue: ROUTES },
+        // The queue stands in for one nobody consumes.
+        { token: CartProcessor, useValue: {} },
+      ],
+      {
+        imports: [SpecProcessorsModule],
+      },
+    );
     prisma = app.get(PrismaService);
     realtime = queueOf(app, QUEUE.REALTIME);
     analytics = queueOf(app, QUEUE.ANALYTICS);

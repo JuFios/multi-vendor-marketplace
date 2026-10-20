@@ -65,7 +65,12 @@ export interface EventPayloads {
   [EVENT_TYPE.CATEGORY_UPDATED]: { categoryId: string };
   [EVENT_TYPE.SELLER_APPROVED]: SellerDecisionPayload;
   [EVENT_TYPE.SELLER_REJECTED]: SellerDecisionPayload & { reason?: string };
-  [EVENT_TYPE.AUCTION_STARTED]: { auctionId: string; round: number; endsAt: string };
+  [EVENT_TYPE.AUCTION_STARTED]: {
+    auctionId: string;
+    productId: string;
+    round: number;
+    endsAt: string;
+  };
   [EVENT_TYPE.AUCTION_BID_PLACED]: {
     auctionId: string;
     productId: string;
@@ -73,9 +78,13 @@ export interface EventPayloads {
     currentPriceCents: number;
     bidCount: number;
     version: number;
+    endsAt: string;
   };
   [EVENT_TYPE.AUCTION_CLOSED]: {
     auctionId: string;
+    productId: string;
+    sellerId: string;
+    round: number;
     outcome: Extract<AuctionStatus, 'SOLD_TO_WINNER' | 'NOT_SOLD'>;
     winnerId?: string;
     priceCents?: number;
@@ -83,10 +92,12 @@ export interface EventPayloads {
   };
   [EVENT_TYPE.AUCTION_WINNER_EXPIRED]: {
     auctionId: string;
+    productId: string;
+    sellerId: string;
     previousWinnerId: string;
     newRound: number;
   };
-  [EVENT_TYPE.AUCTION_ORDERED]: { auctionId: string; orderId: string };
+  [EVENT_TYPE.AUCTION_ORDERED]: { auctionId: string; productId: string; orderId: string };
   [EVENT_TYPE.SELLER_ORDER_CREATED]: {
     sellerOrderId: string;
     orderId: string;

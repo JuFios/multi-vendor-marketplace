@@ -77,11 +77,24 @@ export class SellerProductsController {
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateProductDto,
   ): Promise<SellerProductResponseDto> {
-    const product = await this.products.create(sellerIdOf(user), dto.type, {
+    const sellerId = sellerIdOf(user);
+    const text = {
       categoryId: dto.categoryId,
       title: dto.title,
       description: dto.description,
       images: dto.images ?? [],
+    };
+    if (dto.type === 'AUCTION') {
+      const { product, auction } = await this.products.createAuction(sellerId, {
+        ...text,
+        startPriceCents: dto.startPriceCents ?? 0,
+        bidStepCents: dto.bidStepCents ?? 0,
+        endsAt: new Date(dto.endsAt ?? ''),
+      });
+      return SellerProductResponseDto.from(product, auction.id);
+    }
+    const product = await this.products.create(sellerId, {
+      ...text,
       priceCents: dto.priceCents ?? 0,
       stock: dto.stock ?? 0,
     });

@@ -28,6 +28,8 @@ export interface CheckoutItem {
   readonly title: string;
   readonly unitPriceCents: number;
   readonly quantity: number;
+  /** Set on an auction lot; its price is the winning bid. */
+  readonly auctionId?: string;
 }
 
 const SELLER_ORDER_INCLUDE = {
@@ -117,6 +119,7 @@ export class OrdersRepository {
             items: {
               create: group.items.map((item) => ({
                 productId: item.productId,
+                ...(item.auctionId === undefined ? {} : { auctionId: item.auctionId }),
                 titleSnapshot: item.title,
                 unitPriceCents: item.unitPriceCents,
                 quantity: item.quantity,

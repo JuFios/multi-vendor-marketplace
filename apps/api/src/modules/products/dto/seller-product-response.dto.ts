@@ -64,8 +64,17 @@ export class SellerProductResponseDto {
   @ApiProperty({ format: 'date-time' })
   updatedAt: string;
 
-  static from(product: Product): SellerProductResponseDto {
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'The auction of an AUCTION product, set when the lot is created.',
+  })
+  auctionId: string | null;
+
+  static from(product: Product, auctionId: string | null = null): SellerProductResponseDto {
     return {
+      auctionId,
       id: product.id,
       sellerId: product.sellerId,
       categoryId: product.categoryId,
