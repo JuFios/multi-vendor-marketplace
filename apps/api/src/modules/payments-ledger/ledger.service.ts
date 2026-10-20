@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 
-import { LedgerRepository, type NewLedgerEntry } from './ledger.repository';
+import { ValidationFailedError } from '../../common/exceptions/app-error';
+
+import type { AdminLedgerQueryDto, LedgerRangeQueryDto } from './dto/ledger-query.dto';
+import { type LedgerPageDto, LedgerEntryDto } from './dto/ledger-response.dto';
+import { type FinanceSummary, summarizeLedger } from './finance-summary';
+import { type LedgerFilter, LedgerRepository, type NewLedgerEntry } from './ledger.repository';
 
 export interface SaleRecord {
   readonly sellerOrderId: string;
@@ -95,4 +100,37 @@ export class LedgerService {
     }
     return this.ledger.append(entries);
   }
+
+  /** Figures for one store over the period; the balance always covers all time. */
+  async summaryOf(sellerId: string, range: LedgerRangeQueryDto): Promise<FinanceSummary> {
+    const filter = { sellerId, ...parseRange(range) };
+    const [totals, balance] = await Promise.all([
+      this.ledger.totalsByType(filter),
+      this.ledger.balanceOf(sellerId),
+    ]);
+    return summarizeLedger(totals, balance);
+  }
+
+  async listEntries(query: AdminLedgerQueryDto): Promise<LedgerPageDto> {
+    const filter: LedgerFilter = {
+      ...(query.sellerId === undefined ? {} : { sellerId: query.sellerId }),
+      ...parseRange(query),
+    };
+    const { items, total } = await this.ledger.list(filter, query.page, query.limit);
+    return {
+      items: items.map((item) => LedgerEntryDto.from(item)),
+      total,
+      page: query.page,
+      limit: query.limit,
+    };
+  }
+}
+
+function parseRange(range: LedgerRangeQueryDto): { from?: Date; to?: Date } {
+  const from = range.from === undefined ? undefined : new Date(range.from);
+  const to = range.to === undefined ? undefined : new Date(range.to);
+  if (from !== undefined && to !== undefined && from > to) {
+    throw new ValidationFailedError([{ field: 'from', message: '`from` must not be after `to`' }]);
+  }
+  return { ...(from === undefined ? {} : { from }), ...(to === undefined ? {} : { to }) };
 }
