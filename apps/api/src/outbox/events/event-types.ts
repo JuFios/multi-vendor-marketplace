@@ -78,6 +78,7 @@ export interface EventPayloads {
     currentPriceCents: number;
     bidCount: number;
     version: number;
+    endsAt: string;
   };
   [EVENT_TYPE.AUCTION_CLOSED]: {
     auctionId: string;

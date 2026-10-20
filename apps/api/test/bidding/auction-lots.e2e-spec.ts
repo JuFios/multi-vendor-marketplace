@@ -241,7 +241,7 @@ describe('Auction lots (e2e)', () => {
       const body = response.body as BidsBody;
       expect(body.total).toBe(3);
       expect(body.items.map((bid) => bid.amountCents)).toEqual([11_000, 10_500, 10_000]);
-      expect(body.items.every((bid) => !bid.isOwn && bid.bidder.startsWith("Bidder #"))).toBe(true);
+      expect(body.items.every((bid) => !bid.isOwn && bid.bidder.startsWith('Bidder #'))).toBe(true);
       expect(body.items[0]?.bidder).toBe(body.items[2]?.bidder);
       expect(JSON.stringify(body)).not.toContain(alice.id);
     });

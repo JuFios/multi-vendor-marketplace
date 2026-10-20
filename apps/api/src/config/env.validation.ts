@@ -207,6 +207,13 @@ export class EnvironmentVariables {
   @Max(1)
   MOCK_PAYMENT_FAILURE_RATE = 0;
 
+  // How often a bid is retried when another bid wins the race for the same auction state.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  BID_MAX_RETRIES = 3;
+
   @IsUrl({ protocols: ['postgres', 'postgresql'], require_protocol: true, require_tld: false })
   DATABASE_URL!: string;
 

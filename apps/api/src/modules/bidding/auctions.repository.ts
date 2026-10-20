@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { Inject, Injectable } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
@@ -102,6 +104,61 @@ export class AuctionsRepository {
       this.txHost.tx.auction.count({ where: { sellerId } }),
     ]);
     return { items: rows.map(toAuction), total };
+  }
+
+  /**
+   * Makes the bid the leading one, but only while the auction is still in the state the bidder
+   * saw (`version`), is ACTIVE and has not reached its deadline on the database clock. Null
+   * when any of that no longer holds; then nothing was written.
+   *
+   * This and the close of the auction are conditional UPDATEs of one row, so the row lock
+   * puts every bid either before the close or after it, never both.
+   *
+   * The bid row and the auction update are one statement. Inserting the bid first would take a
+   * shared lock on the auction row (foreign key) that two concurrent bidders then hold while
+   * both wait to update it: a deadlock. In one statement the update takes the exclusive lock
+   * first, and the foreign keys are checked once both rows exist.
+   */
+  async placeBid(
+    auctionId: string,
+    version: number,
+    bidderId: string,
+    amountCents: number,
+  ): Promise<{ auction: AuctionRecord; bid: BidRecord } | null> {
+    const bidId = randomUUID();
+    const rows = await this.txHost.tx.$queryRaw<(AuctionRow & { bid_created_at: Date })[]>`
+      WITH advanced AS (
+        UPDATE auctions
+        SET current_price_cents = ${amountCents}, highest_bid_id = ${bidId}::uuid,
+            highest_bidder_id = ${bidderId}::uuid, bid_count = bid_count + 1,
+            version = version + 1, updated_at = now()
+        WHERE id = ${auctionId}::uuid AND version = ${version} AND status = 'ACTIVE'
+          AND ends_at > now()
+        RETURNING *
+      ), inserted AS (
+        INSERT INTO bids (id, auction_id, round, bidder_id, amount_cents, created_at)
+        SELECT ${bidId}::uuid, id, round, ${bidderId}::uuid, ${amountCents}, now()
+        FROM advanced
+        RETURNING created_at
+      )
+      SELECT advanced.*, now() AS db_now, (SELECT created_at FROM inserted) AS bid_created_at
+      FROM advanced`;
+    const row = rows[0];
+    if (row === undefined) {
+      return null;
+    }
+    const auction = toAuction(row);
+    return {
+      auction,
+      bid: {
+        id: bidId,
+        auctionId,
+        round: auction.round,
+        bidderId,
+        amountCents,
+        createdAt: row.bid_created_at,
+      },
+    };
   }
 
   /** The bids of one round, highest first (which is also newest first). */
