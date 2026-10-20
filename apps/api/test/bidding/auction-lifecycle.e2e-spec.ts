@@ -13,10 +13,10 @@ import { PrismaService } from '../../src/prisma/prisma.service';
 import type { AppTransactionHost } from '../../src/prisma/transaction';
 import { QUEUE } from '../../src/queue/queue-names';
 import { bearerFor } from '../utils/auth';
-import { resetDb } from '../utils/db';
 import { overrideEnv } from '../utils/env';
 import { createAuction, createSeller, createUser } from '../utils/factories';
 import { flushEvents, queueOf } from '../utils/flush-events';
+import { resetState } from '../utils/reset-state';
 import { createTestApp } from '../utils/test-app';
 import { waitUntil } from '../utils/wait-until';
 
@@ -48,14 +48,14 @@ describe('Auction lifecycle (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await resetDb(prisma);
+    await resetState(prisma);
     // Timers of earlier tests must not fire into this one.
     await queueOf(app, QUEUE.AUCTIONS).obliterate({ force: true });
   });
 
   afterAll(async () => {
     await flushEvents();
-    await resetDb(prisma);
+    await resetState(prisma);
     await app.close();
     restoreEnv();
   });

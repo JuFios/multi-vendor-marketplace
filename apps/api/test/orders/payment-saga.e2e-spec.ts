@@ -16,9 +16,9 @@ import { PrismaService } from '../../src/prisma/prisma.service';
 import { QUEUE } from '../../src/queue/queue-names';
 import { QUEUE_PUBLISHER, type QueuePublisherPort } from '../../src/queue/queue-publisher.port';
 import { bearerFor } from '../utils/auth';
-import { resetDb } from '../utils/db';
 import { createProduct, createSeller, createUser } from '../utils/factories';
 import { flushEvents, queueOf } from '../utils/flush-events';
+import { resetState } from '../utils/reset-state';
 import { createTestApp } from '../utils/test-app';
 
 class FakePaymentGateway implements PaymentGatewayPort {
@@ -79,11 +79,11 @@ describe('Payment saga (e2e)', () => {
 
   beforeEach(async () => {
     gateway.reset();
-    await resetDb(prisma);
+    await resetState(prisma);
   });
 
   afterAll(async () => {
-    await resetDb(prisma);
+    await resetState(prisma);
     await app.close();
   });
 

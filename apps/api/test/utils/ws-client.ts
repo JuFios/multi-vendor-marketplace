@@ -18,7 +18,15 @@ export interface TestSocket {
   readonly received: Received[];
   /** Events of one name received so far, oldest first. */
   eventsOf<T = unknown>(event: string): T[];
-  waitForEvent<T = unknown>(event: string, timeoutMs?: number): Promise<T>;
+  /**
+   * The latest event of that name, or, with `matching`, the latest one it accepts. Use `matching`
+   * when several events share a name and the order they arrive in is not guaranteed.
+   */
+  waitForEvent<T = unknown>(
+    event: string,
+    timeoutMs?: number,
+    matching?: (payload: T) => boolean,
+  ): Promise<T>;
   subscribe(channel: string, id: string): Promise<SubscribeAck>;
   close(): void;
 }
@@ -48,12 +56,18 @@ export function connectSocket(baseUrl: string, token?: string): Promise<TestSock
     received,
     eventsOf: <T>(event: string) =>
       received.filter((entry) => entry.event === event).map((entry) => entry.payload as T),
-    waitForEvent: async <T>(event: string, timeoutMs = 5000) => {
-      await waitUntil(() => received.some((entry) => entry.event === event), {
+    waitForEvent: async <T>(
+      event: string,
+      timeoutMs = 5000,
+      matching: (payload: T) => boolean = () => true,
+    ) => {
+      const found = () =>
+        received.filter((entry) => entry.event === event && matching(entry.payload as T)).at(-1);
+      await waitUntil(() => found() !== undefined, {
         timeoutMs,
-        label: `a "${event}" event`,
+        label: `a matching "${event}" event`,
       });
-      return received.filter((entry) => entry.event === event).at(-1)?.payload as T;
+      return found()?.payload as T;
     },
     subscribe: (channel, id) =>
       socket.emitWithAck('subscribe', { channel, id }) as Promise<SubscribeAck>,

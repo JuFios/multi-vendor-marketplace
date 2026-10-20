@@ -1,9 +1,9 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 
 import { PrismaService } from '../../src/prisma/prisma.service';
-import { resetDb } from '../utils/db';
 import { createAuction, createSeller, createUser } from '../utils/factories';
 import { flushEvents } from '../utils/flush-events';
+import { resetState } from '../utils/reset-state';
 import { createTestApp } from '../utils/test-app';
 import { waitUntil } from '../utils/wait-until';
 
@@ -16,11 +16,11 @@ describe('Auction sweeper (e2e)', () => {
     prisma = app.get(PrismaService);
   });
 
-  beforeEach(() => resetDb(prisma));
+  beforeEach(() => resetState(prisma));
 
   afterAll(async () => {
     await flushEvents();
-    await resetDb(prisma);
+    await resetState(prisma);
     await app.close();
   });
 

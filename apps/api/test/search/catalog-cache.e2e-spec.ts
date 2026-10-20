@@ -7,9 +7,9 @@ import { SearchIndexer } from '../../src/modules/search-sync/search-indexer.serv
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { MEILI_CLIENT } from '../../src/search/meili.constants';
 import { bearerFor } from '../utils/auth';
-import { resetDb } from '../utils/db';
 import { createCategory, createProduct, createSeller } from '../utils/factories';
 import { flushEvents } from '../utils/flush-events';
+import { resetState } from '../utils/reset-state';
 import { createTestApp } from '../utils/test-app';
 
 const INDEX = 'test_products';
@@ -31,12 +31,12 @@ describe('catalog cache (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await resetDb(prisma);
+    await resetState(prisma);
     await meili.index(INDEX).deleteAllDocuments().waitTask();
   });
 
   afterAll(async () => {
-    await resetDb(prisma);
+    await resetState(prisma);
     await meili.index(INDEX).deleteAllDocuments().waitTask();
     await app.close();
   });
@@ -137,10 +137,10 @@ describe('catalog cache without the search index (e2e)', () => {
     prisma = app.get(PrismaService);
   });
 
-  beforeEach(() => resetDb(prisma));
+  beforeEach(() => resetState(prisma));
 
   afterAll(async () => {
-    await resetDb(prisma);
+    await resetState(prisma);
     await app.close();
   });
 
