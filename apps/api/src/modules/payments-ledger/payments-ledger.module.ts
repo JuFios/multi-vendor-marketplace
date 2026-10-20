@@ -9,6 +9,8 @@ import { MockPaymentGateway } from './mock-payment.gateway';
 import { PaymentAttemptsRepository } from './payment-attempts.repository';
 import { PAYMENT_GATEWAY } from './payment-gateway.port';
 import { PaymentsService } from './payments.service';
+import { PayoutsRepository } from './payouts.repository';
+import { PayoutsService } from './payouts.service';
 import { SellerFinanceController } from './seller-finance.controller';
 
 @Module({
@@ -19,8 +21,10 @@ import { SellerFinanceController } from './seller-finance.controller';
     LedgerService,
     PaymentAttemptsRepository,
     PaymentsService,
+    PayoutsRepository,
+    PayoutsService,
     { provide: PAYMENT_GATEWAY, useClass: MockPaymentGateway },
   ],
-  exports: [LedgerService, PaymentsService],
+  exports: [LedgerService, PaymentsService, PayoutsService],
 })
 export class PaymentsLedgerModule {}

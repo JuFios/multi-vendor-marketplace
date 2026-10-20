@@ -4,6 +4,7 @@ import { TransactionHost } from '@nestjs-cls/transactional';
 import { NotificationsProcessor } from '../../src/modules/notifications/notifications.processor';
 import { OrdersSagaProcessor } from '../../src/modules/orders/orders-saga.processor';
 import { PaymentsProcessor } from '../../src/modules/payments-ledger/payments.processor';
+import { PayoutsProcessor } from '../../src/modules/payments-ledger/payouts.processor';
 import { ProductsCacheProcessor } from '../../src/modules/products/products-cache.processor';
 import { SearchSyncProcessor } from '../../src/modules/search-sync/search-sync.processor';
 import { newEventId } from '../../src/outbox/events/event-id';
@@ -31,6 +32,7 @@ describe('outbox relay with an unreachable Redis (e2e)', () => {
       { token: ProductsCacheProcessor, useValue: {} },
       { token: SearchSyncProcessor, useValue: {} },
       { token: PaymentsProcessor, useValue: {} },
+      { token: PayoutsProcessor, useValue: {} },
       { token: OrdersSagaProcessor, useValue: {} },
       { token: NotificationsProcessor, useValue: {} },
       {

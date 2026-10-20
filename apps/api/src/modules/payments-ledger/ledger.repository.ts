@@ -65,6 +65,14 @@ export class LedgerRepository {
     return Object.fromEntries(rows.map((row) => [row.type, row._sum.amountCents ?? 0]));
   }
 
+  async sumOfSellerOrder(sellerOrderId: string): Promise<number> {
+    const total = await this.txHost.tx.ledgerEntry.aggregate({
+      where: { sellerOrderId },
+      _sum: { amountCents: true },
+    });
+    return total._sum.amountCents ?? 0;
+  }
+
   async balanceOf(sellerId: string): Promise<number> {
     const total = await this.txHost.tx.ledgerEntry.aggregate({
       where: { sellerId },
