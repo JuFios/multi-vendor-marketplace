@@ -32,6 +32,7 @@ import {
   REFUNDS_TOTAL,
   SELLER_ORDERS_CANCELLED_TOTAL,
   WS_CONNECTIONS,
+  WS_EVENTS_EMITTED_TOTAL,
 } from './metrics.constants';
 import { MetricsController } from './metrics.controller';
 
@@ -123,6 +124,11 @@ const metricProviders = [
   makeGaugeProvider({
     name: WS_CONNECTIONS,
     help: 'WebSocket connections open on this process.',
+  }),
+  makeCounterProvider({
+    name: WS_EVENTS_EMITTED_TOTAL,
+    help: 'WebSocket events pushed to rooms, by event.',
+    labelNames: ['event'],
   }),
   makeCounterProvider({
     name: SEARCH_DEGRADED_TOTAL,

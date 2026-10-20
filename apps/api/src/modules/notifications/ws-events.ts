@@ -1,4 +1,5 @@
 import type { AuctionStatus } from '../bidding/auction';
+import type { OrderStatusValue, SellerOrderStatusValue } from '../orders/order-status';
 
 /** Socket.IO namespace every realtime connection joins. */
 export const WS_NAMESPACE = '/realtime';
@@ -57,6 +58,46 @@ export interface AuctionStatePayload {
   readonly version: number;
   readonly serverTime: string;
   readonly correlationId?: string | null;
+}
+
+/**
+ * Status of an order for its customer. With `sellerOrderId` the change comes from that seller
+ * order and `version` is the seller order's, otherwise it is the order's own: a client keeps
+ * the latest version per `sellerOrderId ?? orderId`.
+ */
+export interface OrderStatusPayload {
+  readonly orderId: string;
+  readonly status: OrderStatusValue;
+  readonly hasCancelledParts: boolean;
+  readonly sellerOrderId?: string;
+  readonly sellerOrderStatus?: SellerOrderStatusValue;
+  readonly version: number;
+  readonly correlationId?: string | null;
+}
+
+/** A seller order appeared in the store; it starts as NEW at version 0. */
+export interface SellerOrderCreatedPayload {
+  readonly sellerOrderId: string;
+  readonly orderId: string;
+  readonly status: SellerOrderStatusValue;
+  readonly amountCents: number;
+  readonly version: number;
+  readonly correlationId?: string | null;
+}
+
+export interface SellerOrderStatusPayload {
+  readonly sellerOrderId: string;
+  readonly orderId: string;
+  readonly status: SellerOrderStatusValue;
+  readonly version: number;
+  readonly correlationId?: string | null;
+}
+
+export interface NotificationPayload {
+  readonly id: string;
+  readonly type: string;
+  readonly payload: unknown;
+  readonly createdAt: string;
 }
 
 export type SubscribeSnapshot =

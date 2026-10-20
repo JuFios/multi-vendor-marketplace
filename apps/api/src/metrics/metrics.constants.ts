@@ -19,6 +19,7 @@ export const QUEUE_JOBS_FAILED_TOTAL = 'queue_jobs_failed_total';
 export const QUEUE_DEAD_LETTER_TOTAL = 'queue_dead_letter_total';
 export const QUEUE_WAITING_JOBS = 'queue_waiting_jobs';
 export const WS_CONNECTIONS = 'ws_connections';
+export const WS_EVENTS_EMITTED_TOTAL = 'ws_events_emitted_total';
 export const SEARCH_DEGRADED_TOTAL = 'search_degraded_total';
 export const CACHE_HITS_TOTAL = 'cache_hits_total';
 export const CACHE_MISSES_TOTAL = 'cache_misses_total';
