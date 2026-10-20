@@ -93,4 +93,38 @@ describe('recipientsOf', () => {
       ]);
     },
   );
+
+  it('tells the seller about a new dispute', () => {
+    expect(
+      recipientsOf({ type: 'dispute.opened', payload: { customerId: 'c1', sellerId: 's1' } }),
+    ).toEqual([{ kind: 'seller', sellerId: 's1' }]);
+  });
+
+  it.each([
+    ['CUSTOMER', [{ kind: 'seller', sellerId: 's1' }]],
+    ['SELLER', [{ kind: 'user', userId: 'c1' }]],
+    [
+      'ADMIN',
+      [
+        { kind: 'user', userId: 'c1' },
+        { kind: 'seller', sellerId: 's1' },
+      ],
+    ],
+  ])('tells the other side about a dispute message from %s', (authorRole, expected) => {
+    expect(
+      recipientsOf({
+        type: 'dispute.message_added',
+        payload: { customerId: 'c1', sellerId: 's1', authorRole },
+      }),
+    ).toEqual(expected);
+  });
+
+  it('tells both sides that a dispute was resolved', () => {
+    expect(
+      recipientsOf({ type: 'dispute.resolved', payload: { customerId: 'c1', sellerId: 's1' } }),
+    ).toEqual([
+      { kind: 'user', userId: 'c1' },
+      { kind: 'seller', sellerId: 's1' },
+    ]);
+  });
 });

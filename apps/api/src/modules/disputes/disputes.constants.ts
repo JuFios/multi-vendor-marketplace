@@ -1,0 +1,2 @@
+export const DISPUTE_REASON_MAX_LENGTH = 2_000;
+export const DISPUTE_MESSAGE_MAX_LENGTH = 2_000;

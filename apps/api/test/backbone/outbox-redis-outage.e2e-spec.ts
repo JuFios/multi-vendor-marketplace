@@ -69,7 +69,12 @@ describe('outbox relay with an unreachable Redis (e2e)', () => {
           type: EVENT_TYPE.DISPUTE_OPENED,
           aggregateType: 'Dispute',
           aggregateId: productId,
-          payload: { disputeId: productId, sellerOrderId: productId },
+          payload: {
+            disputeId: productId,
+            sellerOrderId: productId,
+            customerId: productId,
+            sellerId: productId,
+          },
         },
       ]),
     );

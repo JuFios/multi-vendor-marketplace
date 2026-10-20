@@ -6,6 +6,7 @@ import request from 'supertest';
 
 import { getContextEventId, getCorrelationId } from '../../src/common/cls/correlation-context';
 import { CartProcessor } from '../../src/modules/cart/cart.processor';
+import { NotificationsProcessor } from '../../src/modules/notifications/notifications.processor';
 import { RealtimeProcessor } from '../../src/modules/notifications/realtime.processor';
 import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
 import { newEventId } from '../../src/outbox/events/event-id';
@@ -92,7 +93,12 @@ const productCreated = (correlationId: string): AnyDomainEvent => {
     correlationId,
     actorId: null,
     schemaVersion: 1,
-    payload: { disputeId: productId, sellerOrderId: productId },
+    payload: {
+      disputeId: productId,
+      sellerOrderId: productId,
+      customerId: productId,
+      sellerId: productId,
+    },
   };
 };
 
@@ -107,7 +113,13 @@ const categoryUpdated = (): AnyDomainEvent => {
     correlationId: 'req-dlq',
     actorId: null,
     schemaVersion: 1,
-    payload: { disputeId: productId, sellerOrderId: productId },
+    payload: {
+      disputeId: productId,
+      sellerOrderId: productId,
+      customerId: productId,
+      sellerId: productId,
+      authorRole: 'CUSTOMER',
+    },
   };
 };
 
@@ -129,6 +141,7 @@ describe('queue processors (e2e)', () => {
         // The queue stands in for one nobody consumes.
         { token: CartProcessor, useValue: {} },
         // The spec runs its own consumer on the realtime queue.
+        { token: NotificationsProcessor, useValue: {} },
         { token: RealtimeProcessor, useValue: {} },
       ],
       {

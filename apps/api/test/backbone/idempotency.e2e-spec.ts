@@ -81,7 +81,13 @@ class SpecOrderService {
           type: EVENT_TYPE.DISPUTE_MESSAGE_ADDED,
           aggregateType: 'Dispute',
           aggregateId: categoryId,
-          payload: { disputeId: categoryId, sellerOrderId: categoryId },
+          payload: {
+            disputeId: categoryId,
+            sellerOrderId: categoryId,
+            customerId: categoryId,
+            sellerId: categoryId,
+            authorRole: 'CUSTOMER',
+          },
         },
       ]);
       const failure = this.failNext;

@@ -45,6 +45,8 @@ interface SellerDecisionPayload {
 interface DisputePayload {
   disputeId: string;
   sellerOrderId: string;
+  customerId: string;
+  sellerId: string;
 }
 
 /**
@@ -145,7 +147,7 @@ export interface EventPayloads {
     amountCents: number;
   };
   [EVENT_TYPE.DISPUTE_OPENED]: DisputePayload;
-  [EVENT_TYPE.DISPUTE_MESSAGE_ADDED]: DisputePayload;
+  [EVENT_TYPE.DISPUTE_MESSAGE_ADDED]: DisputePayload & { authorRole: ActorType };
   [EVENT_TYPE.DISPUTE_RESOLVED]: DisputePayload & {
     outcome: Extract<DisputeStatus, 'RESOLVED_BUYER_FAVOR' | 'RESOLVED_SELLER_FAVOR'>;
   };

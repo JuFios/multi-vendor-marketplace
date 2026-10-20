@@ -12,6 +12,14 @@ export type RuleEvent =
       payload: { sellerId: string; outcome: string; winnerId?: string };
     }
   | { type: 'auction.winner_expired'; payload: { sellerId: string; previousWinnerId: string } }
+  | {
+      type: 'dispute.opened' | 'dispute.resolved';
+      payload: { customerId: string; sellerId: string };
+    }
+  | {
+      type: 'dispute.message_added';
+      payload: { customerId: string; sellerId: string; authorRole: string };
+    }
   | { type: 'seller.approved' | 'seller.rejected'; payload: { userId: string } };
 
 export type Recipient =
@@ -51,6 +59,22 @@ export function recipientsOf(event: RuleEvent): Recipient[] {
       ];
     case 'refund.created':
       return [{ kind: 'user', userId: event.payload.customerId }];
+    case 'dispute.opened':
+      return [{ kind: 'seller', sellerId: event.payload.sellerId }];
+    case 'dispute.message_added':
+      return [
+        ...(event.payload.authorRole === 'CUSTOMER'
+          ? []
+          : [{ kind: 'user', userId: event.payload.customerId } as const]),
+        ...(event.payload.authorRole === 'SELLER'
+          ? []
+          : [{ kind: 'seller', sellerId: event.payload.sellerId } as const]),
+      ];
+    case 'dispute.resolved':
+      return [
+        { kind: 'user', userId: event.payload.customerId },
+        { kind: 'seller', sellerId: event.payload.sellerId },
+      ];
     case 'seller.approved':
     case 'seller.rejected':
       return [{ kind: 'user', userId: event.payload.userId }];

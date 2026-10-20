@@ -11,6 +11,7 @@ import type { App } from 'supertest/types';
 import { getCorrelationId } from '../../src/common/cls/correlation-context';
 import { Public } from '../../src/common/decorators/public.decorator';
 import { CartProcessor } from '../../src/modules/cart/cart.processor';
+import { NotificationsProcessor } from '../../src/modules/notifications/notifications.processor';
 import { RealtimeProcessor } from '../../src/modules/notifications/realtime.processor';
 import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
 import { EVENT_ROUTES, EVENT_ROUTING } from '../../src/outbox/events/event-routes';
@@ -46,7 +47,13 @@ class BackboneProcessor extends IdempotentProcessor {
           type: EVENT_TYPE.DISPUTE_MESSAGE_ADDED,
           aggregateType: 'Dispute',
           aggregateId: event.aggregateId,
-          payload: { disputeId: event.aggregateId, sellerOrderId: event.aggregateId },
+          payload: {
+            disputeId: event.aggregateId,
+            sellerOrderId: event.aggregateId,
+            customerId: event.aggregateId,
+            sellerId: event.aggregateId,
+            authorRole: 'CUSTOMER',
+          },
         },
       ]);
     });
@@ -70,7 +77,12 @@ class BackboneController {
           type: EVENT_TYPE.DISPUTE_OPENED,
           aggregateType: 'Dispute',
           aggregateId: productId,
-          payload: { disputeId: productId, sellerOrderId: productId },
+          payload: {
+            disputeId: productId,
+            sellerOrderId: productId,
+            customerId: productId,
+            sellerId: productId,
+          },
         },
       ]);
       if (body.rollback) {
@@ -99,10 +111,16 @@ describe('event backbone (e2e)', () => {
         // The queue stands in for one nobody consumes.
         { token: CartProcessor, useValue: {} },
         // The spec runs its own consumer on the realtime queue.
+        { token: NotificationsProcessor, useValue: {} },
         { token: RealtimeProcessor, useValue: {} },
         {
           token: EVENT_ROUTING,
-          useValue: { ...EVENT_ROUTES, [EVENT_TYPE.DISPUTE_OPENED]: [QUEUE.REALTIME] },
+          useValue: {
+            ...EVENT_ROUTES,
+            [EVENT_TYPE.DISPUTE_OPENED]: [QUEUE.REALTIME],
+            // The event the processor derives has no consumer here.
+            [EVENT_TYPE.DISPUTE_MESSAGE_ADDED]: [],
+          },
         },
       ],
       { imports: [BackboneModule] },
@@ -179,7 +197,12 @@ describe('event backbone (e2e)', () => {
         correlationId: original.correlationId,
         actorId: original.actorId,
         schemaVersion: 1,
-        payload: { disputeId: original.aggregateId, sellerOrderId: original.aggregateId },
+        payload: {
+          disputeId: original.aggregateId,
+          sellerOrderId: original.aggregateId,
+          customerId: original.aggregateId,
+          sellerId: original.aggregateId,
+        },
       },
       { jobId: `${original.id}-again` },
     );

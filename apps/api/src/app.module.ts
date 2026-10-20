@@ -14,6 +14,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BiddingModule } from './modules/bidding/bidding.module';
 import { CartModule } from './modules/cart/cart.module';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { DisputesModule } from './modules/disputes/disputes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsLedgerModule } from './modules/payments-ledger/payments-ledger.module';
@@ -54,6 +55,7 @@ import { MeiliModule } from './search/meili.module';
     OrdersModule,
     NotificationsModule,
     ReviewsModule,
+    DisputesModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })
