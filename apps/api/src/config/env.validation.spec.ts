@@ -19,6 +19,16 @@ describe('validate', () => {
     expect(validate({ ...validEnv, PORT: '4010' }).PORT).toBe(4010);
   });
 
+  it('defaults the analytics time zone and rejects an unknown one', () => {
+    expect(validate(validEnv).ANALYTICS_TIMEZONE).toBe('Europe/Kyiv');
+    expect(
+      validate({ ...validEnv, ANALYTICS_TIMEZONE: 'America/New_York' }).ANALYTICS_TIMEZONE,
+    ).toBe('America/New_York');
+    expect(() => validate({ ...validEnv, ANALYTICS_TIMEZONE: 'Mars/Olympus' })).toThrow(
+      'ANALYTICS_TIMEZONE',
+    );
+  });
+
   it.each(['DATABASE_URL', 'REDIS_URL', 'MEILI_HOST', 'MEILI_MASTER_KEY', 'JWT_ACCESS_SECRET'])(
     'fails fast when %s is missing',
     (name) => {

@@ -110,6 +110,11 @@ export class AuctionsService {
     return { items: items.map((auction) => AuctionDto.from(auction)), total, page, limit };
   }
 
+  /** The store's auctions that are still taking bids, the ones ending first up front. */
+  listActiveOfSeller(sellerId: string, limit: number): Promise<AuctionRecord[]> {
+    return this.auctions.listActiveOfSeller(sellerId, limit);
+  }
+
   /** The auctions of the given products, each read together with the database clock. */
   findByProductIds(productIds: readonly string[]): Promise<AuctionRecord[]> {
     return this.auctions.findByProductIds(productIds);

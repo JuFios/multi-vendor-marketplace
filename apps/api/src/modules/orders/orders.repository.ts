@@ -12,6 +12,7 @@ import type {
   SellerOrderStatusValue,
 } from './order-status';
 import type { RefundPlan } from './refund';
+import type { RefundSource, SaleSource } from './sales-facts';
 import type { Actor, PaymentStatusValue } from './seller-order-state-machine';
 import type { SellerGroup } from './split-cart';
 
@@ -209,6 +210,24 @@ export class OrdersRepository {
     return { items: rows.map(toSellerOrder), total };
   }
 
+  /** Seller orders of the store placed on a day of the period (in `timeZone`), by status. */
+  async countSellerOrdersByStatus(
+    sellerId: string,
+    period: { from: string; to: string },
+    timeZone: string,
+  ): Promise<Map<SellerOrderStatusValue, number>> {
+    const rows = await this.txHost.tx.$queryRaw<
+      { status: SellerOrderStatusValue; count: number }[]
+    >`
+      SELECT status::text AS status, count(*)::int AS count
+      FROM seller_orders
+      WHERE seller_id = ${sellerId}::uuid
+        AND ((created_at AT TIME ZONE 'UTC') AT TIME ZONE ${timeZone})::date
+            BETWEEN ${period.from}::date AND ${period.to}::date
+      GROUP BY status`;
+    return new Map(rows.map((row) => [row.status, row.count]));
+  }
+
   private async listOrders(
     where: Prisma.OrderWhereInput,
     page: number,
@@ -360,6 +379,82 @@ export class OrdersRepository {
       },
     });
     return row.version;
+  }
+
+  /** The stored figures of a seller order, with its creation day in `timeZone` (database time). */
+  async findSaleSource(sellerOrderId: string, timeZone: string): Promise<SaleSource | null> {
+    const row = await this.txHost.tx.sellerOrder.findUnique({
+      where: { id: sellerOrderId },
+      select: {
+        sellerId: true,
+        subtotalCents: true,
+        refundedCents: true,
+        commissionRateBps: true,
+        items: {
+          select: { productId: true, quantity: true, unitPriceCents: true, refundedCents: true },
+        },
+      },
+    });
+    if (row === null) {
+      return null;
+    }
+    return { sellerOrderId, ...row, day: await this.dayOf(sellerOrderId, timeZone) };
+  }
+
+  /** A batch of refunds of one seller order, and the amount refunded on it before the batch. */
+  async findRefundSource(
+    sellerOrderId: string,
+    refundIds: readonly string[],
+    timeZone: string,
+  ): Promise<RefundSource | null> {
+    const tx = this.txHost.tx;
+    const [order, refunds] = await Promise.all([
+      tx.sellerOrder.findUnique({
+        where: { id: sellerOrderId },
+        select: { sellerId: true, subtotalCents: true, commissionRateBps: true },
+      }),
+      tx.refund.findMany({
+        where: { sellerOrderId, id: { in: [...refundIds] } },
+        select: {
+          amountCents: true,
+          createdAt: true,
+          sellerOrderItem: { select: { productId: true } },
+        },
+      }),
+    ]);
+    const first = refunds.map((refund) => refund.createdAt.getTime()).sort((a, b) => a - b)[0];
+    if (order === null || first === undefined) {
+      return null;
+    }
+    const before = await tx.refund.aggregate({
+      where: {
+        sellerOrderId,
+        id: { notIn: [...refundIds] },
+        createdAt: { lt: new Date(first) },
+      },
+      _sum: { amountCents: true },
+    });
+    return {
+      sellerOrderId,
+      ...order,
+      day: await this.dayOf(sellerOrderId, timeZone),
+      refundedBeforeCents: before._sum.amountCents ?? 0,
+      lines: refunds.map((refund) => ({
+        productId: refund.sellerOrderItem.productId,
+        amountCents: refund.amountCents,
+      })),
+    };
+  }
+
+  private async dayOf(sellerOrderId: string, timeZone: string): Promise<string> {
+    const [row] = await this.txHost.tx.$queryRaw<{ day: string }[]>`
+      SELECT to_char(((created_at AT TIME ZONE 'UTC') AT TIME ZONE ${timeZone})::date, 'YYYY-MM-DD') AS day
+      FROM seller_orders
+      WHERE id = ${sellerOrderId}::uuid`;
+    if (row === undefined) {
+      throw new Error(`seller order ${sellerOrderId} disappeared while reading its day`);
+    }
+    return row.day;
   }
 
   /** Books the refunded or cancelled amount on the order and re-sums its commission. */

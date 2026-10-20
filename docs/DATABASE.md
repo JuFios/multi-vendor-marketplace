@@ -245,3 +245,14 @@ Optimistic updates (`UPDATE ... WHERE id = $1 AND version = $2`) reach the row t
 It needs `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `SEED_DEMO_PASSWORD` (see `.env.example`) and creates the admin,
 three approved sellers, one pending seller application, three buyers, six categories, 42 fixed-price products
 (some with a stock of 1-3) and four auctions: one ending in about five minutes, one with bids.
+
+### Demo sales history
+
+`npm run db:seed:history -w apps/api` (after `db:seed`) adds orders for the last 60 days, about two a day, spread over the
+stores and buyers. Each order comes with what the application would have written for it: status history, payment
+attempts, ledger entries (sale, commission, refunds, cancellations, payouts), a converted cart, and, for about one
+order in eight, a partial refund; some orders are cancelled. It also creates 40 extra buyers, most of whom leave an
+unconverted cart behind, so the cart-to-order conversion is not 100%. The daily sales read models are filled with one SQL
+aggregation over exactly these orders, in `ANALYTICS_TIMEZONE`. Rows have fixed ids and only seller orders that
+were not yet there are counted, so running it again later adds just the days that have become due. It writes no outbox
+events.

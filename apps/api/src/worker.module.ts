@@ -6,6 +6,7 @@ import { AppConfigModule } from './config/config.module';
 import { LoggerModule } from './logger/logger.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { WorkerMetricsServer } from './metrics/worker-metrics.server';
+import { AnalyticsWorkerModule } from './modules/analytics/analytics-worker.module';
 import { BiddingWorkerModule } from './modules/bidding/bidding-worker.module';
 import { CartWorkerModule } from './modules/cart/cart-worker.module';
 import { NotificationsWorkerModule } from './modules/notifications/notifications-worker.module';
@@ -41,6 +42,7 @@ import { WorkerLifecycle } from './worker.lifecycle';
     NotificationsWorkerModule,
     BiddingWorkerModule,
     CartWorkerModule,
+    AnalyticsWorkerModule,
   ],
   providers: [WorkerLifecycle, WorkerMetricsServer],
 })

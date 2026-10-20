@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
+import { analyticsConfig } from './analytics.config';
 import { appConfig } from './app.config';
 import { authConfig } from './auth.config';
 import { biddingConfig } from './bidding.config';
@@ -26,6 +27,7 @@ import { throttleConfig } from './throttle.config';
       isGlobal: true,
       envFilePath: resolveEnvFilePaths(),
       load: [
+        analyticsConfig,
         appConfig,
         authConfig,
         biddingConfig,

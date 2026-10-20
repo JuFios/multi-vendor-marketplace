@@ -68,6 +68,22 @@ export class OrdersService {
     return SellerOrderDto.from(sellerOrder, await this.sellers.findStoreNames([sellerId]));
   }
 
+  /** How many of the store's seller orders placed in the period are in each status. */
+  async countOfSellerByStatus(
+    sellerId: string,
+    period: { from: string; to: string },
+    timeZone: string,
+  ): Promise<Record<SellerOrderStatusValue, number>> {
+    const counts = await this.orders.countSellerOrdersByStatus(sellerId, period, timeZone);
+    return {
+      NEW: counts.get('NEW') ?? 0,
+      PROCESSING: counts.get('PROCESSING') ?? 0,
+      SHIPPED: counts.get('SHIPPED') ?? 0,
+      COMPLETED: counts.get('COMPLETED') ?? 0,
+      CANCELLED: counts.get('CANCELLED') ?? 0,
+    };
+  }
+
   /** Any seller order, for admin flows. */
   async getAnySellerOrder(id: string): Promise<SellerOrderDto> {
     const sellerOrder = await this.orders.findSellerOrder(id);

@@ -10,6 +10,7 @@ import type { App } from 'supertest/types';
 
 import { getCorrelationId } from '../../src/common/cls/correlation-context';
 import { Public } from '../../src/common/decorators/public.decorator';
+import { AnalyticsProcessor } from '../../src/modules/analytics/analytics.processor';
 import { CartProcessor } from '../../src/modules/cart/cart.processor';
 import { NotificationsProcessor } from '../../src/modules/notifications/notifications.processor';
 import { RealtimeProcessor } from '../../src/modules/notifications/realtime.processor';
@@ -110,6 +111,7 @@ describe('event backbone (e2e)', () => {
       [
         // The queue stands in for one nobody consumes.
         { token: CartProcessor, useValue: {} },
+        { token: AnalyticsProcessor, useValue: {} },
         // The spec runs its own consumer on the realtime queue.
         { token: NotificationsProcessor, useValue: {} },
         { token: RealtimeProcessor, useValue: {} },

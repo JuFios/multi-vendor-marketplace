@@ -15,6 +15,7 @@ import { OrdersRepository } from './orders.repository';
 import { OrdersService } from './orders.service';
 import { PaymentSagaService } from './payment-saga.service';
 import { RefundService } from './refund.service';
+import { SalesFactsService } from './sales-facts.service';
 import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
 import { SellerOrdersController } from './seller-orders.controller';
 
@@ -40,7 +41,14 @@ import { SellerOrdersController } from './seller-orders.controller';
     SellerOrderLifecycleService,
     PaymentSagaService,
     RefundService,
+    SalesFactsService,
   ],
-  exports: [OrdersService, PaymentSagaService, RefundService, SellerOrderLifecycleService],
+  exports: [
+    OrdersService,
+    PaymentSagaService,
+    RefundService,
+    SalesFactsService,
+    SellerOrderLifecycleService,
+  ],
 })
 export class OrdersModule {}
