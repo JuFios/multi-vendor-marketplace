@@ -262,6 +262,24 @@ describe('Notifications (e2e)', () => {
       await request(app.getHttpServer()).get('/api/notifications').expect(401);
     });
 
+    it('returns only what is newer than `after`, so a reconnecting client can catch up', async () => {
+      const alice = await createUser(prisma);
+      const bob = await createUser(prisma);
+      await seed(alice.id, 4);
+      await seed(bob.id, 4);
+      const after = encodeURIComponent(new Date(Date.UTC(2026, 0, 1, 0, 0, 1)).toISOString());
+
+      const page = (await call('get', `/notifications?after=${after}`, alice)).body as PageBody;
+
+      expect(page.total).toBe(2);
+      expect(page.items.map((item) => item.payload.index)).toEqual([3, 2]);
+      const none = encodeURIComponent(new Date(Date.UTC(2026, 0, 2)).toISOString());
+      expect(
+        ((await call('get', `/notifications?after=${none}`, alice)).body as PageBody).items,
+      ).toEqual([]);
+      expect((await call('get', '/notifications?after=yesterday', alice)).status).toBe(400);
+    });
+
     it('counts unread notifications and marks one read', async () => {
       const alice = await createUser(prisma);
       await seed(alice.id, 3);
