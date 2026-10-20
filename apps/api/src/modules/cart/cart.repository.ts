@@ -86,4 +86,22 @@ export class CartRepository {
     });
     return rows;
   }
+
+  /**
+   * Carts that got their first item on a day of the period (in `timeZone`), and how many of
+   * them became an order.
+   */
+  async countConversion(
+    period: { from: string; to: string },
+    timeZone: string,
+  ): Promise<{ cartsWithItems: number; convertedCarts: number }> {
+    const [row] = await this.txHost.tx.$queryRaw<{ with_items: number; converted: number }[]>`
+      SELECT count(*)::int AS with_items,
+             (count(*) FILTER (WHERE status = 'CONVERTED'))::int AS converted
+      FROM carts
+      WHERE first_item_added_at IS NOT NULL
+        AND ((first_item_added_at AT TIME ZONE 'UTC') AT TIME ZONE ${timeZone})::date
+            BETWEEN ${period.from}::date AND ${period.to}::date`;
+    return { cartsWithItems: row?.with_items ?? 0, convertedCarts: row?.converted ?? 0 };
+  }
 }

@@ -156,6 +156,14 @@ export class CartService {
     };
   }
 
+  /** Carts started in the period and how many of them became orders (conversion, I-14). */
+  conversionStats(
+    period: { from: string; to: string },
+    timeZone: string,
+  ): Promise<{ cartsWithItems: number; convertedCarts: number }> {
+    return this.cart.countConversion(period, timeZone);
+  }
+
   /** Marks the cart as turned into an order; part of the checkout transaction. */
   convert(cartId: string, orderId: string): Promise<void> {
     return this.cart.markConverted(cartId, orderId);

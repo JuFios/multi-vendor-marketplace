@@ -3,17 +3,14 @@ import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
-import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
-import { newEventId } from '../../src/outbox/events/event-id';
-import { EVENT_TYPE } from '../../src/outbox/events/event-types';
 import { PrismaService } from '../../src/prisma/prisma.service';
-import { QUEUE } from '../../src/queue/queue-names';
-import { QUEUE_PUBLISHER, type QueuePublisherPort } from '../../src/queue/queue-publisher.port';
 import { bearerFor } from '../utils/auth';
 import { createSeller, createSellerOrder } from '../utils/factories';
 import { flushEvents } from '../utils/flush-events';
 import { resetState } from '../utils/reset-state';
 import { createTestApp } from '../utils/test-app';
+
+import { deliverToAnalytics, sellerOrderCreated } from './analytics-events';
 
 describe('Sales read models (e2e)', () => {
   let app: NestExpressApplication;
@@ -30,26 +27,6 @@ describe('Sales read models (e2e)', () => {
     await resetState(prisma);
     await app.close();
   });
-
-  const createdEvent = (
-    sellerOrderId: string,
-    orderId: string,
-    sellerId: string,
-  ): AnyDomainEvent => ({
-    id: newEventId(),
-    type: EVENT_TYPE.SELLER_ORDER_CREATED,
-    aggregateType: 'seller_order',
-    aggregateId: sellerOrderId,
-    occurredAt: new Date().toISOString(),
-    correlationId: null,
-    actorId: null,
-    schemaVersion: 1,
-    payload: { sellerOrderId, orderId, sellerId, customerId: randomUUID(), amountCents: 0 },
-  });
-
-  /** Hands the event to the analytics consumer only, as the relay would. */
-  const deliver = (event: AnyDomainEvent) =>
-    app.get<QueuePublisherPort>(QUEUE_PUBLISHER).publish(QUEUE.ANALYTICS, event);
 
   const sellerRows = () =>
     prisma.salesDailyBySeller.findMany({ orderBy: [{ day: 'asc' }, { sellerId: 'asc' }] });
@@ -80,9 +57,7 @@ describe('Sales read models (e2e)', () => {
       unitPriceCents: 2_000,
       createdAt: new Date('2026-03-05T12:00:00Z'),
     });
-    const events = [first, second, third].map((made) =>
-      createdEvent(made.sellerOrder.id, made.order.id, made.sellerOrder.sellerId),
-    );
+    const events = [first, second, third].map(sellerOrderCreated);
     return { storeA, storeB, first, second, third, events };
   };
 
@@ -90,7 +65,7 @@ describe('Sales read models (e2e)', () => {
     const { storeA, storeB, events } = await world();
 
     for (const event of events) {
-      await deliver(event);
+      await deliverToAnalytics(app, event);
     }
     await flushEvents();
 
@@ -137,9 +112,9 @@ describe('Sales read models (e2e)', () => {
     const { events } = await world();
     const [event] = events;
 
-    await deliver(event!);
+    await deliverToAnalytics(app, event!);
     await flushEvents();
-    await deliver(event!);
+    await deliverToAnalytics(app, event!);
     await flushEvents();
 
     const rows = await sellerRows();
@@ -151,7 +126,7 @@ describe('Sales read models (e2e)', () => {
   it('books a refund on the day of its order and gives back commission', async () => {
     const { storeA, second, events } = await world();
     for (const event of events) {
-      await deliver(event);
+      await deliverToAnalytics(app, event);
     }
     await flushEvents();
     await prisma.sellerOrder.update({
@@ -193,7 +168,7 @@ describe('Sales read models (e2e)', () => {
   it('takes a cancelled order, with its refunds, out of the totals', async () => {
     const { storeB, third, events } = await world();
     for (const event of events) {
-      await deliver(event);
+      await deliverToAnalytics(app, event);
     }
     await flushEvents();
 

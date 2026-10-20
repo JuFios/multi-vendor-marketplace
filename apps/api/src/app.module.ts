@@ -10,6 +10,7 @@ import { HealthModule } from './health/health.module';
 import { IdempotencyModule } from './idempotency/idempotency.module';
 import { LoggerModule } from './logger/logger.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BiddingModule } from './modules/bidding/bidding.module';
 import { CartModule } from './modules/cart/cart.module';
@@ -56,6 +57,7 @@ import { MeiliModule } from './search/meili.module';
     NotificationsModule,
     ReviewsModule,
     DisputesModule,
+    AnalyticsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })
