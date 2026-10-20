@@ -1,4 +1,4 @@
-import { assertDisputable, assertOpen, roleInDispute } from './dispute';
+import { assertDisputable, assertOpen, assertValidResolution, roleInDispute } from './dispute';
 
 describe('assertDisputable', () => {
   it.each(['PROCESSING', 'SHIPPED', 'COMPLETED'])('accepts %s', (status) => {
@@ -38,5 +38,41 @@ describe('roleInDispute', () => {
     expect(roleInDispute(dispute, { userId: 'c1', sellerId: 's1', isAdmin: false })).toBe(
       'CUSTOMER',
     );
+  });
+});
+
+describe('assertValidResolution', () => {
+  it('accepts a buyer decision with a refund and a final status', () => {
+    expect(() =>
+      assertValidResolution({
+        outcome: 'RESOLVED_BUYER_FAVOR',
+        refundItems: [{ sellerOrderItemId: 'i1', quantity: 1 }],
+        sellerOrderFinalStatus: 'CANCELLED',
+        note: 'ok',
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts a plain seller decision', () => {
+    expect(() =>
+      assertValidResolution({ outcome: 'RESOLVED_SELLER_FAVOR', refundItems: [], note: 'ok' }),
+    ).not.toThrow();
+  });
+
+  it('refuses refunds and status changes on a seller decision', () => {
+    expect(() =>
+      assertValidResolution({
+        outcome: 'RESOLVED_SELLER_FAVOR',
+        refundItems: [{ sellerOrderItemId: 'i1', quantity: 1 }],
+        note: 'x',
+      }),
+    ).toThrow(/in favour of the seller/);
+    expect(() =>
+      assertValidResolution({
+        outcome: 'RESOLVED_SELLER_FAVOR',
+        sellerOrderFinalStatus: 'COMPLETED',
+        note: 'x',
+      }),
+    ).toThrow(/in favour of the seller/);
   });
 });

@@ -1,4 +1,8 @@
-import { DisputeClosedError, DisputeNotAllowedError } from './disputes.errors';
+import {
+  DisputeClosedError,
+  DisputeNotAllowedError,
+  InvalidResolutionError,
+} from './disputes.errors';
 
 export type DisputeStatusValue =
   'OPEN' | 'UNDER_REVIEW' | 'RESOLVED_BUYER_FAVOR' | 'RESOLVED_SELLER_FAVOR';
@@ -77,4 +81,28 @@ export function roleInDispute(
     return 'SELLER';
   }
   return null;
+}
+
+export type ResolutionOutcome = Extract<
+  DisputeStatusValue,
+  'RESOLVED_BUYER_FAVOR' | 'RESOLVED_SELLER_FAVOR'
+>;
+export type FinalSellerOrderStatus = 'CANCELLED' | 'COMPLETED';
+
+export interface Resolution {
+  readonly outcome: ResolutionOutcome;
+  readonly refundItems?: readonly { sellerOrderItemId: string; quantity: number }[] | undefined;
+  readonly sellerOrderFinalStatus?: FinalSellerOrderStatus | undefined;
+  readonly note: string;
+}
+
+/** Refunds and a new seller order status only make sense when the decision favours the buyer. */
+export function assertValidResolution(resolution: Resolution): void {
+  const changesAnything =
+    (resolution.refundItems?.length ?? 0) > 0 || resolution.sellerOrderFinalStatus !== undefined;
+  if (resolution.outcome === 'RESOLVED_SELLER_FAVOR' && changesAnything) {
+    throw new InvalidResolutionError(
+      'A decision in favour of the seller cannot refund items or change the seller order status',
+    );
+  }
 }

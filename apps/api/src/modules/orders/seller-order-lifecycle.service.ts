@@ -96,22 +96,30 @@ export class SellerOrderLifecycleService {
     reason: string,
     actor: LifecycleActor,
     ownership: Ownership,
+    options: { viaDispute?: boolean } = {},
   ): Promise<SellerOrderDto> {
     const result = await this.txHost.withTransaction(async () => {
       const { sellerOrder, customerId } = await this.lockAndLoad(sellerOrderId, ownership);
       assertTransition(sellerOrder.status, 'CANCELLED', actor.type, {
         paymentStatus: sellerOrder.paymentStatus,
+        ...(options.viaDispute === undefined ? {} : { viaDispute: options.viaDispute }),
       });
 
-      // Only NEW and PROCESSING cancellations reach this point; shipped goods are not restocked.
-      const restocked = sellerOrder.items
-        .filter((item) => item.auctionId === null)
-        .map((item) => ({ productId: item.productId, quantity: item.quantity }));
+      // Shipped goods are not restocked and their auction lots are not offered again (I-08).
+      const goodsStillWithSeller =
+        sellerOrder.status === 'NEW' || sellerOrder.status === 'PROCESSING';
+      const restocked = goodsStillWithSeller
+        ? sellerOrder.items
+            .filter((item) => item.auctionId === null)
+            .map((item) => ({ productId: item.productId, quantity: item.quantity }))
+        : [];
       await this.inventory.restock(restocked);
       // A cancelled auction lot is offered again as a new round (I-03).
-      const lots = sellerOrder.items
-        .flatMap((item) => (item.auctionId === null ? [] : [item.auctionId]))
-        .sort();
+      const lots = goodsStillWithSeller
+        ? sellerOrder.items
+            .flatMap((item) => (item.auctionId === null ? [] : [item.auctionId]))
+            .sort()
+        : [];
       for (const auctionId of lots) {
         await this.auctionLifecycle.restartIfOrdered(auctionId);
       }

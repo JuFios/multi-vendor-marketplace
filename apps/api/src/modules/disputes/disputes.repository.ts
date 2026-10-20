@@ -10,6 +10,7 @@ import type {
   DisputeRecord,
   DisputeStatusValue,
   DisputeViewer,
+  ResolutionOutcome,
   NewDispute,
 } from './dispute';
 import { DisputeAlreadyOpenError } from './disputes.errors';
@@ -56,6 +57,52 @@ export class DisputesRepository {
       this.txHost.tx.dispute.count({ where }),
     ]);
     return { items, total };
+  }
+
+  async findById(id: string): Promise<DisputeRecord | null> {
+    return this.txHost.tx.dispute.findUnique({ where: { id } });
+  }
+
+  async listAll(
+    status: DisputeStatusValue | undefined,
+    page: number,
+    limit: number,
+  ): Promise<{ items: DisputeRecord[]; total: number }> {
+    const where: Prisma.DisputeWhereInput = status === undefined ? {} : { status };
+    const [items, total] = await Promise.all([
+      this.txHost.tx.dispute.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.txHost.tx.dispute.count({ where }),
+    ]);
+    return { items, total };
+  }
+
+  /** OPEN → UNDER_REVIEW; false when the dispute was not OPEN. */
+  async markUnderReview(id: string): Promise<boolean> {
+    const { count } = await this.txHost.tx.dispute.updateMany({
+      where: { id, status: 'OPEN' },
+      data: { status: 'UNDER_REVIEW' },
+    });
+    return count > 0;
+  }
+
+  /** Closes an unresolved dispute; the time is the database's, like every deadline. */
+  async resolve(
+    id: string,
+    outcome: ResolutionOutcome,
+    note: string,
+    adminId: string,
+  ): Promise<boolean> {
+    const count = await this.txHost.tx.$executeRaw`
+      UPDATE disputes
+      SET status = ${outcome}::dispute_status, resolution_note = ${note},
+          resolved_by_id = ${adminId}::uuid, resolved_at = now(), updated_at = now()
+      WHERE id = ${id}::uuid AND status IN ('OPEN', 'UNDER_REVIEW')`;
+    return count > 0;
   }
 
   /** Locks the dispute row and returns its status, so a message and a resolution take turns. */

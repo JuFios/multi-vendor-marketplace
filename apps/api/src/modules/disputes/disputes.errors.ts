@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError } from '../../common/exceptions/app-error';
+import { AppError, ConflictError, NotFoundError } from '../../common/exceptions/app-error';
 
 export class DisputeNotFoundError extends NotFoundError {
   constructor() {
@@ -27,5 +27,17 @@ export class DisputeAlreadyOpenError extends ConflictError {
 export class DisputeClosedError extends ConflictError {
   constructor() {
     super('This dispute is already resolved', 'DISPUTE_CLOSED');
+  }
+}
+
+export class DisputeAlreadyUnderReviewError extends ConflictError {
+  constructor() {
+    super('This dispute is already under review', 'DISPUTE_ALREADY_UNDER_REVIEW');
+  }
+}
+
+export class InvalidResolutionError extends AppError {
+  constructor(message: string) {
+    super('DISPUTE_RESOLUTION_INVALID', 400, message);
   }
 }

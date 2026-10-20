@@ -26,6 +26,8 @@ export interface RefundActor {
 export interface RefundInput {
   readonly items: readonly RefundRequestLine[];
   readonly reason: string;
+  /** Set when an admin's dispute decision orders the refund. */
+  readonly disputeId?: string;
 }
 
 /** Partial refunds on the level of single items; stock is never touched. */
@@ -79,6 +81,7 @@ export class RefundService {
     const refunds = await this.orders.applyRefund(sellerOrder.id, plan, {
       reason: input.reason,
       actor,
+      ...(input.disputeId === undefined ? {} : { disputeId: input.disputeId }),
     });
     await this.ledger.recordRefund({
       sellerOrderId: sellerOrder.id,

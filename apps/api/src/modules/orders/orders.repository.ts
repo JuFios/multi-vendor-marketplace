@@ -401,7 +401,7 @@ export class OrdersRepository {
   async applyRefund(
     sellerOrderId: string,
     plan: RefundPlan,
-    refund: { reason: string; actor: { type: Actor; userId: string } },
+    refund: { reason: string; actor: { type: Actor; userId: string }; disputeId?: string },
   ): Promise<RefundRecord[]> {
     const tx = this.txHost.tx;
     for (const line of plan.lines) {
@@ -422,6 +422,7 @@ export class OrdersRepository {
         reason: refund.reason,
         actorType: refund.actor.type,
         actorId: refund.actor.userId,
+        ...(refund.disputeId === undefined ? {} : { disputeId: refund.disputeId }),
       })),
       select: { id: true, sellerOrderItemId: true, quantity: true, amountCents: true },
     });
