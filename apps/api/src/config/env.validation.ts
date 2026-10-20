@@ -10,6 +10,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsTimeZone,
   IsUrl,
   Matches,
   Max,
@@ -198,6 +199,10 @@ export class EnvironmentVariables {
   @Min(0)
   @Max(10_000)
   PLATFORM_COMMISSION_BPS = 1000;
+
+  // IANA time zone that decides which calendar day a sale belongs to in the analytics reports.
+  @IsTimeZone()
+  ANALYTICS_TIMEZONE = 'Europe/Kyiv';
 
   // Share of mock payments the gateway declines, from 0 (never) to 1 (always); it exists to
   // demonstrate the compensation path.

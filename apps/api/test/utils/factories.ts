@@ -94,6 +94,7 @@ export async function createAuction(
 }
 
 export interface CreatedSellerOrder {
+  product: Product;
   order: Order;
   sellerOrder: SellerOrder;
   item: SellerOrderItem;
@@ -103,15 +104,32 @@ export interface CreatedSellerOrder {
 /** A single-seller order with one item, in the state right after checkout. */
 export async function createSellerOrder(
   prisma: PrismaClient,
-  options: { quantity?: number; unitPriceCents?: number } = {},
+  options: {
+    quantity?: number;
+    unitPriceCents?: number;
+    /** The store that sells the item; a new store when omitted. */
+    sellerId?: string;
+    /** A product of the store to sell; a new product when omitted. */
+    productId?: string;
+    /** When the order was placed; now when omitted. */
+    createdAt?: Date;
+  } = {},
 ): Promise<CreatedSellerOrder> {
   const quantity = options.quantity ?? 2;
   const unitPriceCents = options.unitPriceCents ?? 10_000;
   const subtotalCents = quantity * unitPriceCents;
-  const product = await createProduct(prisma);
+  const product =
+    options.productId === undefined
+      ? await createProduct(prisma, {
+          priceCents: unitPriceCents,
+          ...(options.sellerId === undefined ? {} : { sellerId: options.sellerId }),
+        })
+      : await prisma.product.findUniqueOrThrow({ where: { id: options.productId } });
   const customer = await createUser(prisma);
+  const placedAt = options.createdAt === undefined ? {} : { createdAt: options.createdAt };
   const order = await prisma.order.create({
     data: {
+      ...placedAt,
       customerId: customer.id,
       subtotalCents,
       totalCents: subtotalCents,
@@ -120,6 +138,7 @@ export async function createSellerOrder(
   });
   const sellerOrder = await prisma.sellerOrder.create({
     data: {
+      ...placedAt,
       orderId: order.id,
       sellerId: product.sellerId,
       subtotalCents,
@@ -137,5 +156,5 @@ export async function createSellerOrder(
       quantity,
     },
   });
-  return { order, sellerOrder, item, customer };
+  return { product, order, sellerOrder, item, customer };
 }

@@ -5,6 +5,7 @@ import type { Queue } from 'bullmq';
 import request from 'supertest';
 
 import { getContextEventId, getCorrelationId } from '../../src/common/cls/correlation-context';
+import { AnalyticsProcessor } from '../../src/modules/analytics/analytics.processor';
 import { CartProcessor } from '../../src/modules/cart/cart.processor';
 import { NotificationsProcessor } from '../../src/modules/notifications/notifications.processor';
 import { RealtimeProcessor } from '../../src/modules/notifications/realtime.processor';
@@ -140,6 +141,8 @@ describe('queue processors (e2e)', () => {
         { token: EVENT_ROUTING, useValue: ROUTES },
         // The queue stands in for one nobody consumes.
         { token: CartProcessor, useValue: {} },
+        // The spec runs its own consumer on the analytics queue.
+        { token: AnalyticsProcessor, useValue: {} },
         // The spec runs its own consumer on the realtime queue.
         { token: NotificationsProcessor, useValue: {} },
         { token: RealtimeProcessor, useValue: {} },
