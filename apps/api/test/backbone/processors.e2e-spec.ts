@@ -6,6 +6,7 @@ import request from 'supertest';
 
 import { getContextEventId, getCorrelationId } from '../../src/common/cls/correlation-context';
 import { CartProcessor } from '../../src/modules/cart/cart.processor';
+import { RealtimeProcessor } from '../../src/modules/notifications/realtime.processor';
 import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
 import { newEventId } from '../../src/outbox/events/event-id';
 import { EVENT_ROUTES, EVENT_ROUTING } from '../../src/outbox/events/event-routes';
@@ -127,6 +128,8 @@ describe('queue processors (e2e)', () => {
         { token: EVENT_ROUTING, useValue: ROUTES },
         // The queue stands in for one nobody consumes.
         { token: CartProcessor, useValue: {} },
+        // The spec runs its own consumer on the realtime queue.
+        { token: RealtimeProcessor, useValue: {} },
       ],
       {
         imports: [SpecProcessorsModule],

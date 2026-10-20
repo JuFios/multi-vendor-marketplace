@@ -4,6 +4,7 @@ import { TransactionHost } from '@nestjs-cls/transactional';
 import { AuctionsProcessor } from '../../src/modules/bidding/auctions.processor';
 import { CartProcessor } from '../../src/modules/cart/cart.processor';
 import { NotificationsProcessor } from '../../src/modules/notifications/notifications.processor';
+import { RealtimeProcessor } from '../../src/modules/notifications/realtime.processor';
 import { OrdersSagaProcessor } from '../../src/modules/orders/orders-saga.processor';
 import { PaymentsProcessor } from '../../src/modules/payments-ledger/payments.processor';
 import { PayoutsProcessor } from '../../src/modules/payments-ledger/payouts.processor';
@@ -37,6 +38,7 @@ describe('outbox relay with an unreachable Redis (e2e)', () => {
       { token: PayoutsProcessor, useValue: {} },
       { token: OrdersSagaProcessor, useValue: {} },
       { token: NotificationsProcessor, useValue: {} },
+      { token: RealtimeProcessor, useValue: {} },
       { token: AuctionsProcessor, useValue: {} },
       { token: CartProcessor, useValue: {} },
       {

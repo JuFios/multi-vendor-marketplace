@@ -66,8 +66,13 @@ export class NotificationsService {
     }
   }
 
-  async list(userId: string, page: number, limit: number): Promise<NotificationPageDto> {
-    const { items, total } = await this.notifications.list(userId, page, limit);
+  async list(
+    userId: string,
+    page: number,
+    limit: number,
+    after?: Date,
+  ): Promise<NotificationPageDto> {
+    const { items, total } = await this.notifications.list(userId, page, limit, after);
     return { items: items.map((item) => NotificationResponseDto.from(item)), total, page, limit };
   }
 

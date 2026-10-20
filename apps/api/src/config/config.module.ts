@@ -15,6 +15,7 @@ import { outboxConfig } from './outbox.config';
 import { paymentsConfig } from './payments.config';
 import { productsConfig } from './products.config';
 import { queueConfig } from './queue.config';
+import { realtimeConfig } from './realtime.config';
 import { redisConfig } from './redis.config';
 import { searchConfig } from './search.config';
 import { throttleConfig } from './throttle.config';
@@ -37,6 +38,7 @@ import { throttleConfig } from './throttle.config';
         paymentsConfig,
         productsConfig,
         queueConfig,
+        realtimeConfig,
         redisConfig,
         searchConfig,
         throttleConfig,

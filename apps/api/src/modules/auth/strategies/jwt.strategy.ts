@@ -5,7 +5,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import { authConfig } from '../../../config/auth.config';
 import { ACCESS_TOKEN_ALGORITHM, type AccessTokenClaims } from '../access-claims';
-import type { AuthUser } from '../auth-user';
+import { authUserFromClaims, type AuthUser } from '../auth-user';
 import { JWT_STRATEGY_NAME } from '../auth.constants';
 
 @Injectable()
@@ -21,13 +21,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_STRATEGY_NAME) {
 
   /** Roles come from the token: they may lag behind the database until the next refresh. */
   validate(claims: Partial<AccessTokenClaims>): AuthUser | false {
-    if (typeof claims.sub !== 'string' || !Array.isArray(claims.roles)) {
-      return false;
-    }
-    return {
-      userId: claims.sub,
-      roles: claims.roles,
-      ...(typeof claims.sellerId === 'string' ? { sellerId: claims.sellerId } : {}),
-    };
+    return authUserFromClaims(claims) ?? false;
   }
 }

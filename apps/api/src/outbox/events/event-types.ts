@@ -116,6 +116,9 @@ export interface EventPayloads {
     to: SellerOrderStatus;
     version: number;
     payoutCents: number;
+    /** The aggregate the change leaves the order in, so a live view needs no second read. */
+    orderStatus: OrderStatus;
+    hasCancelledParts: boolean;
   };
   [EVENT_TYPE.SELLER_ORDER_CANCELLED]: {
     sellerOrderId: string;
@@ -128,6 +131,7 @@ export interface EventPayloads {
   };
   [EVENT_TYPE.ORDER_STATUS_CHANGED]: {
     orderId: string;
+    customerId: string;
     status: OrderStatus;
     hasCancelledParts: boolean;
     version: number;

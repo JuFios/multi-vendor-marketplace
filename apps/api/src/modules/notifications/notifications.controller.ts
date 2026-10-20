@@ -1,13 +1,13 @@
 import { Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { ParseUuidPipe } from '../../common/pipes/parse-uuid.pipe';
 import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
 import { BEARER_AUTH } from '../../common/swagger/openapi';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
+import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
 import {
   NotificationPageDto,
   NotificationResponseDto,
@@ -23,14 +23,16 @@ export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'The caller’s notifications, newest first.' })
+  @ApiOperation({
+    summary: 'The caller’s notifications, newest first; `after` returns only the newer ones.',
+  })
   @ApiOkResponse({ type: NotificationPageDto })
   @ApiErrorResponses(400, 401)
   list(
     @CurrentUser() user: AuthUser,
-    @Query() query: PaginationQueryDto,
+    @Query() query: ListNotificationsQueryDto,
   ): Promise<NotificationPageDto> {
-    return this.notifications.list(user.userId, query.page, query.limit);
+    return this.notifications.list(user.userId, query.page, query.limit, query.after);
   }
 
   @Get('unread-count')

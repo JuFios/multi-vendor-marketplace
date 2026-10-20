@@ -51,4 +51,37 @@ describe('AccessTokenService', () => {
     expect(header.alg).toBe('HS256');
     expect(exp - iat).toBe(900);
   });
+
+  describe('verify', () => {
+    it('returns the caller a valid token stands for', async () => {
+      const { token } = await service.issue({ sub: USER_ID, roles: ['SELLER'], sellerId: 's-1' });
+
+      expect(await service.verify(token)).toEqual({
+        userId: USER_ID,
+        roles: ['SELLER'],
+        sellerId: 's-1',
+      });
+    });
+
+    it('returns null for garbage, a foreign signature and an expired token', async () => {
+      const foreign = await new JwtService({
+        ...jwtOptions,
+        secret: 'another-secret-of-at-least-32-characters!',
+      }).signAsync({ roles: ['CUSTOMER'] }, { subject: USER_ID });
+      const expired = await jwt.signAsync(
+        { roles: ['CUSTOMER'] },
+        { subject: USER_ID, expiresIn: -10 },
+      );
+
+      expect(await service.verify('not-a-token')).toBeNull();
+      expect(await service.verify(foreign)).toBeNull();
+      expect(await service.verify(expired)).toBeNull();
+    });
+
+    it('returns null for a token without roles', async () => {
+      const bare = await jwt.signAsync({}, { subject: USER_ID });
+
+      expect(await service.verify(bare)).toBeNull();
+    });
+  });
 });

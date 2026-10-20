@@ -226,6 +226,13 @@ export class EnvironmentVariables {
   @Max(10)
   BID_MAX_RETRIES = 3;
 
+  // How many product and auction channels one WebSocket connection may follow at once.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  WS_MAX_SUBSCRIPTIONS = 50;
+
   @IsUrl({ protocols: ['postgres', 'postgresql'], require_protocol: true, require_tld: false })
   DATABASE_URL!: string;
 

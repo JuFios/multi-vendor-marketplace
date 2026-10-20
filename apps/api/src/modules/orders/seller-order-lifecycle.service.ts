@@ -206,6 +206,8 @@ export class SellerOrderLifecycleService {
           to,
           version,
           payoutCents,
+          orderStatus: aggregate.status,
+          hasCancelledParts: aggregate.hasCancelledParts,
         },
         actorId,
       },
@@ -218,6 +220,7 @@ export class SellerOrderLifecycleService {
               aggregateId: before.orderId,
               payload: {
                 orderId: before.orderId,
+                customerId,
                 status: aggregate.status,
                 hasCancelledParts: aggregate.hasCancelledParts,
                 version: orderVersion,

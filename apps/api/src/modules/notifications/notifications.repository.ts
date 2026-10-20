@@ -47,15 +47,17 @@ export class NotificationsRepository {
     userId: string,
     page: number,
     limit: number,
+    after?: Date,
   ): Promise<{ items: Notification[]; total: number }> {
+    const where = { userId, ...(after === undefined ? {} : { createdAt: { gt: after } }) };
     const [rows, total] = await Promise.all([
       this.txHost.tx.notification.findMany({
-        where: { userId },
+        where,
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.txHost.tx.notification.count({ where: { userId } }),
+      this.txHost.tx.notification.count({ where }),
     ]);
     return { items: rows.map(toNotification), total };
   }
