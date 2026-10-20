@@ -2,9 +2,9 @@ import { type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 
-import { setContextUserId } from '../../../common/cls';
-import { IS_PUBLIC_KEY } from '../../../common/decorators';
-import { UnauthorizedError } from '../../../common/exceptions';
+import { setContextUserId } from '../../../common/cls/correlation-context';
+import { IS_PUBLIC_KEY } from '../../../common/decorators/public.decorator';
+import { UnauthorizedError } from '../../../common/exceptions/app-error';
 import type { AuthUser } from '../auth-user';
 import { JWT_STRATEGY_NAME } from '../auth.constants';
 

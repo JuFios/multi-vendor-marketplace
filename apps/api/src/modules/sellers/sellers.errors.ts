@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError } from '../../common/exceptions';
+import { ConflictError, NotFoundError } from '../../common/exceptions/app-error';
 
 export class SellerApplicationExistsError extends ConflictError {
   constructor() {

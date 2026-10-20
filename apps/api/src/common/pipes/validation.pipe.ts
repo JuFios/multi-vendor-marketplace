@@ -1,7 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { ValidationError } from 'class-validator';
 
-import { ValidationFailedError } from '../exceptions';
+import { ValidationFailedError } from '../exceptions/app-error';
 
 export interface ValidationIssue {
   field: string;

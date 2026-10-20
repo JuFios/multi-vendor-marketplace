@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { ApiErrorResponses, BEARER_AUTH } from '../../common/swagger';
+import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
+import { BEARER_AUTH } from '../../common/swagger/openapi';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 

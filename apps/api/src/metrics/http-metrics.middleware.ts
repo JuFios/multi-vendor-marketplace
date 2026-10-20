@@ -1,6 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
-import { resolveRouteTemplate } from '../common/utils';
+import { resolveRouteTemplate } from '../common/utils/route-template';
 
 import type { HttpMetricsService } from './http-metrics.service';
 

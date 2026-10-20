@@ -18,8 +18,8 @@ import { ClsService } from 'nestjs-cls';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
-import { Public } from '../../src/common/decorators';
-import { ConflictError } from '../../src/common/exceptions';
+import { Public } from '../../src/common/decorators/public.decorator';
+import { ConflictError } from '../../src/common/exceptions/app-error';
 import { IDEMPOTENCY_SCOPE, IdempotencyService, Idempotent } from '../../src/idempotency';
 import { OutboxService } from '../../src/outbox';
 import { EVENT_TYPE } from '../../src/outbox/events';

@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-import { ForbiddenError } from '../../../common/exceptions';
+import { ForbiddenError } from '../../../common/exceptions/app-error';
 import type { AuthUser } from '../auth-user';
 import { Roles } from '../decorators/roles.decorator';
 

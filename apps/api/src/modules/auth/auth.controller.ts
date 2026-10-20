@@ -26,10 +26,12 @@ import {
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 
-import { Public } from '../../common/decorators';
-import { AppError, ForbiddenError } from '../../common/exceptions';
-import { ApiErrorResponses, REFRESH_COOKIE_AUTH, REFRESH_COOKIE_NAME } from '../../common/swagger';
-import { RateLimit, THROTTLER } from '../../common/throttling';
+import { Public } from '../../common/decorators/public.decorator';
+import { AppError, ForbiddenError } from '../../common/exceptions/app-error';
+import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
+import { REFRESH_COOKIE_AUTH, REFRESH_COOKIE_NAME } from '../../common/swagger/openapi';
+import { RateLimit } from '../../common/throttling/rate-limit.decorator';
+import { THROTTLER } from '../../common/throttling/throttler-names';
 import { authConfig, httpConfig } from '../../config';
 
 import { InvalidRefreshTokenError } from './auth.errors';

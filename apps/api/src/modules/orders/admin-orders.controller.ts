@@ -1,8 +1,9 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { ParseUuidPipe } from '../../common/pipes';
-import { ApiErrorResponses, BEARER_AUTH } from '../../common/swagger';
+import { ParseUuidPipe } from '../../common/pipes/parse-uuid.pipe';
+import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
+import { BEARER_AUTH } from '../../common/swagger/openapi';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 import { ListAdminOrdersQueryDto } from './dto/list-orders-query.dto';

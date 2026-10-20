@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
-import { CORRELATION_ID_REQUEST_HEADER } from '../../src/common/cls';
+import { CORRELATION_ID_REQUEST_HEADER } from '../../src/common/cls/correlation-id';
 import type { OutboxEvent } from '../../src/generated/prisma/client';
 import type { UserRole } from '../../src/modules/users/user-role';
 import type { AnyDomainEvent } from '../../src/outbox/events';

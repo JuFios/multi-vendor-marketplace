@@ -1,7 +1,7 @@
 import { Injectable, type ArgumentMetadata, type PipeTransform } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 
-import { ValidationFailedError } from '../exceptions';
+import { ValidationFailedError } from '../exceptions/app-error';
 
 /** Route-param guard that fails with the same VALIDATION_FAILED shape as body validation. */
 @Injectable()

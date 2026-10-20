@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
-import { SanitizeText } from '../../../common/decorators';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import {
   STORE_DESCRIPTION_MAX_LENGTH,
   STORE_NAME_MAX_LENGTH,

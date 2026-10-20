@@ -7,9 +7,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { PaginationQueryDto } from '../../common/dto';
-import { ParseUuidPipe } from '../../common/pipes';
-import { ApiErrorResponses, BEARER_AUTH } from '../../common/swagger';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { ParseUuidPipe } from '../../common/pipes/parse-uuid.pipe';
+import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
+import { BEARER_AUTH } from '../../common/swagger/openapi';
 import { IDEMPOTENCY_SCOPE, Idempotent } from '../../idempotency';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';

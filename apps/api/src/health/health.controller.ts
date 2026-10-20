@@ -2,8 +2,8 @@ import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { HealthCheckService, type HealthCheckResult } from '@nestjs/terminus';
 
-import { Public } from '../common/decorators';
-import { ApiErrorResponses } from '../common/swagger';
+import { Public } from '../common/decorators/public.decorator';
+import { ApiErrorResponses } from '../common/swagger/api-error-responses.decorator';
 
 import { DependencyHealthIndicators } from './dependency-health.indicators';
 

@@ -7,9 +7,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Public } from '../../common/decorators';
-import { ParseUuidPipe } from '../../common/pipes';
-import { ApiErrorResponses, BEARER_AUTH } from '../../common/swagger';
+import { Public } from '../../common/decorators/public.decorator';
+import { ParseUuidPipe } from '../../common/pipes/parse-uuid.pipe';
+import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
+import { BEARER_AUTH } from '../../common/swagger/openapi';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 

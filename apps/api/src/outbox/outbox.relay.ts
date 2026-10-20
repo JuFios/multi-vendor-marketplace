@@ -10,7 +10,7 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import type { Counter, Histogram } from '@prometheus-io/client';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 
-import { withTimeout } from '../common/utils';
+import { withTimeout } from '../common/utils/with-timeout';
 import { outboxConfig } from '../config';
 import {
   OUTBOX_PUBLISH_FAILURES_TOTAL,

@@ -4,7 +4,7 @@ import type { Counter } from '@prometheus-io/client';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import type { Cache } from 'cache-manager';
 
-import { withTimeout } from '../common/utils';
+import { withTimeout } from '../common/utils/with-timeout';
 import { CACHE_HITS_TOTAL, CACHE_MISSES_TOTAL } from '../metrics/metrics.constants';
 
 import { CACHE_OPERATION_TIMEOUT_MS } from './cache.constants';

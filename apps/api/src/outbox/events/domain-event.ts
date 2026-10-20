@@ -1,4 +1,4 @@
-import { getContextUserId, getCorrelationId } from '../../common/cls';
+import { getContextUserId, getCorrelationId } from '../../common/cls/correlation-context';
 
 import { newEventId } from './event-id';
 import type { EventPayloads, EventType } from './event-types';

@@ -4,7 +4,7 @@ import { TransactionHost } from '@nestjs-cls/transactional';
 import type { Counter } from '@prometheus-io/client';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 
-import { AppError } from '../../common/exceptions';
+import { AppError } from '../../common/exceptions/app-error';
 import { ordersConfig } from '../../config';
 import { IdempotencyService } from '../../idempotency';
 import { CHECKOUT_FAILURES_TOTAL, ORDERS_CREATED_TOTAL } from '../../metrics';

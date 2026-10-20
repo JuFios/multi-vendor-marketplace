@@ -5,7 +5,7 @@ import { type ConfigType } from '@nestjs/config';
 import { TransactionHost } from '@nestjs-cls/transactional';
 import { ClsService } from 'nestjs-cls';
 
-import { ConflictError } from '../common/exceptions';
+import { ConflictError } from '../common/exceptions/app-error';
 import { idempotencyConfig } from '../config';
 import { IdempotencyStatus, Prisma } from '../generated/prisma/client';
 import { type AppTransactionHost, PrismaService } from '../prisma';

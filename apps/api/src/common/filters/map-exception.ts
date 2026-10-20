@@ -1,7 +1,8 @@
 import { HttpException } from '@nestjs/common';
 
 import { Prisma } from '../../generated/prisma/client';
-import { AppError, DependencyUnavailableError, ERROR_CODE } from '../exceptions';
+import { AppError, DependencyUnavailableError } from '../exceptions/app-error';
+import { ERROR_CODE } from '../exceptions/error-codes';
 
 export interface MappedError {
   status: number;

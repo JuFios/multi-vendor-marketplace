@@ -1,4 +1,4 @@
-import { AppError } from '../common/exceptions';
+import { AppError } from '../common/exceptions/app-error';
 
 export const IDEMPOTENCY_ERROR_CODE = {
   KEY_REQUIRED: 'IDEMPOTENCY_KEY_REQUIRED',

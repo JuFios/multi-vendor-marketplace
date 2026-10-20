@@ -5,9 +5,10 @@ import helmet from 'helmet';
 import { ClsMiddleware } from 'nestjs-cls';
 import { Logger } from 'nestjs-pino';
 
-import { bindRequestCorrelationId, CORRELATION_ID_RESPONSE_HEADER } from './common/cls';
-import { createValidationPipe } from './common/pipes';
-import { mountOpenApi } from './common/swagger';
+import { bindRequestCorrelationId } from './common/cls/correlation-context';
+import { CORRELATION_ID_RESPONSE_HEADER } from './common/cls/correlation-id';
+import { createValidationPipe } from './common/pipes/validation.pipe';
+import { mountOpenApi } from './common/swagger/openapi';
 import { httpConfig } from './config';
 import { createHttpMetricsMiddleware, HttpMetricsService, METRICS_PATH } from './metrics';
 

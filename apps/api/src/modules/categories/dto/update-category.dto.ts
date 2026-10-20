@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 
-import { SanitizeText } from '../../../common/decorators';
+import { SanitizeText } from '../../../common/decorators/sanitize-text.decorator';
 import {
   CATEGORY_NAME_MAX_LENGTH,
   CATEGORY_SLUG_MAX_LENGTH,

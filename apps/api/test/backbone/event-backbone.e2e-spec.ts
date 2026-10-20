@@ -8,8 +8,8 @@ import type { Queue } from 'bullmq';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
-import { getCorrelationId } from '../../src/common/cls';
-import { Public } from '../../src/common/decorators';
+import { getCorrelationId } from '../../src/common/cls/correlation-context';
+import { Public } from '../../src/common/decorators/public.decorator';
 import { IdempotentProcessor, OutboxService } from '../../src/outbox';
 import {
   type AnyDomainEvent,

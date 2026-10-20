@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional } from 'class-validator';
 
-import { PaginationQueryDto } from '../../../common/dto';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 
 export const LISTABLE_ORDER_STATUSES = [
   'NEW',

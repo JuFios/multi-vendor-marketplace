@@ -3,7 +3,7 @@ import { HealthIndicatorService, type HealthIndicatorResult } from '@nestjs/term
 import type { Redis } from 'ioredis';
 import type { Meilisearch } from 'meilisearch';
 
-import { withTimeout } from '../common/utils';
+import { withTimeout } from '../common/utils/with-timeout';
 import { PrismaService } from '../prisma';
 import { REDIS_CLIENT } from '../redis';
 import { MEILI_CLIENT } from '../search';

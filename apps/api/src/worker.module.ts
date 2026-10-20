@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { CacheModule } from './cache';
-import { AppClsModule } from './common/cls';
+import { AppClsModule } from './common/cls/app-cls.module';
 import { AppConfigModule } from './config';
 import { LoggerModule } from './logger';
 import { MetricsModule, WorkerMetricsServer } from './metrics';

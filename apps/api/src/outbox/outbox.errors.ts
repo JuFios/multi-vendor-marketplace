@@ -1,4 +1,4 @@
-import { AppError } from '../common/exceptions';
+import { AppError } from '../common/exceptions/app-error';
 
 /** A programming error: events written outside the business transaction could be lost or phantom. */
 export class OutboxOutsideTransactionError extends AppError {

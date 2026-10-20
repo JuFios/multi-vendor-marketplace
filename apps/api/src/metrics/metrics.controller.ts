@@ -4,7 +4,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { PrometheusController } from '@willsoto/nestjs-prometheus';
 import type { Response } from 'express';
 
-import { Public } from '../common/decorators';
+import { Public } from '../common/decorators/public.decorator';
 
 /** Served at `/metrics`, outside the `/api` prefix (see `configureApp`). */
 // Operational scrape target, not part of the public API contract.

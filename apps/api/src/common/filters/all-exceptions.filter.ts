@@ -5,7 +5,7 @@ import type { Response } from 'express';
 import { PinoLogger } from 'nestjs-pino';
 
 import { APP_ERRORS_TOTAL } from '../../metrics/metrics.constants';
-import { getCorrelationId } from '../cls';
+import { getCorrelationId } from '../cls/correlation-context';
 
 import { mapException } from './map-exception';
 

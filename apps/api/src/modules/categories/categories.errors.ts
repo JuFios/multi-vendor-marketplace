@@ -1,4 +1,4 @@
-import { AppError, ConflictError, NotFoundError } from '../../common/exceptions';
+import { AppError, ConflictError, NotFoundError } from '../../common/exceptions/app-error';
 
 export class CategoryNotFoundError extends NotFoundError {
   constructor() {

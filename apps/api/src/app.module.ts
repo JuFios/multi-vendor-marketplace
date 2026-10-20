@@ -2,9 +2,9 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER } from '@nestjs/core';
 
 import { CacheModule } from './cache';
-import { AppClsModule } from './common/cls';
-import { AllExceptionsFilter } from './common/filters';
-import { ThrottlingModule } from './common/throttling';
+import { AppClsModule } from './common/cls/app-cls.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { ThrottlingModule } from './common/throttling/throttling.module';
 import { AppConfigModule } from './config';
 import { HealthModule } from './health/health.module';
 import { IdempotencyModule } from './idempotency';

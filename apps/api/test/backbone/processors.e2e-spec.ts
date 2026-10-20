@@ -4,7 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Queue } from 'bullmq';
 import request from 'supertest';
 
-import { getContextEventId, getCorrelationId } from '../../src/common/cls';
+import { getContextEventId, getCorrelationId } from '../../src/common/cls/correlation-context';
 import { IdempotentProcessor, ProcessorConfigurationError } from '../../src/outbox';
 import {
   type AnyDomainEvent,

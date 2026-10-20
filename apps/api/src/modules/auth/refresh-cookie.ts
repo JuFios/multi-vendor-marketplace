@@ -1,6 +1,6 @@
 import type { CookieOptions, Response } from 'express';
 
-import { REFRESH_COOKIE_NAME } from '../../common/swagger';
+import { REFRESH_COOKIE_NAME } from '../../common/swagger/openapi';
 
 /** Scoped to the auth routes, so the browser never sends the refresh token to other endpoints. */
 export const REFRESH_COOKIE_PATH = '/api/auth';

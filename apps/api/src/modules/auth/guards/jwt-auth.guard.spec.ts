@@ -1,8 +1,8 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-import { Public } from '../../../common/decorators';
-import { UnauthorizedError } from '../../../common/exceptions';
+import { Public } from '../../../common/decorators/public.decorator';
+import { UnauthorizedError } from '../../../common/exceptions/app-error';
 import type { AuthUser } from '../auth-user';
 
 import { JwtAuthGuard } from './jwt-auth.guard';

@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
 
 import { CacheModule } from '../cache';
-import { AppClsModule } from '../common/cls';
+import { AppClsModule } from '../common/cls/app-cls.module';
 import { AppConfigModule } from '../config';
 import { LoggerModule } from '../logger';
 import { MetricsModule } from '../metrics';

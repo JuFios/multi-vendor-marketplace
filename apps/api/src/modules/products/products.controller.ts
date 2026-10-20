@@ -1,9 +1,9 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Public } from '../../common/decorators';
-import { ParseUuidPipe } from '../../common/pipes';
-import { ApiErrorResponses } from '../../common/swagger';
+import { Public } from '../../common/decorators/public.decorator';
+import { ParseUuidPipe } from '../../common/pipes/parse-uuid.pipe';
+import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
 
 import {
   ProductDetailsResponseDto,

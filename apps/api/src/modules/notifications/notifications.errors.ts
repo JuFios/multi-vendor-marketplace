@@ -1,4 +1,4 @@
-import { NotFoundError } from '../../common/exceptions';
+import { NotFoundError } from '../../common/exceptions/app-error';
 
 export class NotificationNotFoundError extends NotFoundError {
   constructor() {

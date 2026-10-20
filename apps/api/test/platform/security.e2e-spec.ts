@@ -6,8 +6,8 @@ import type { Redis } from 'ioredis';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
-import { Public } from '../../src/common/decorators';
-import { RateLimit } from '../../src/common/throttling';
+import { Public } from '../../src/common/decorators/public.decorator';
+import { RateLimit } from '../../src/common/throttling/rate-limit.decorator';
 import { REDIS_CLIENT } from '../../src/redis';
 import { createTestApp } from '../utils/test-app';
 

@@ -6,7 +6,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 
 import { AppModule } from '../app.module';
 import { GLOBAL_PREFIX } from '../app.setup';
-import { createOpenApiDocument } from '../common/swagger';
+import { createOpenApiDocument } from '../common/swagger/openapi';
 import { METRICS_PATH } from '../metrics';
 
 const OUTPUT_FILE = 'openapi.json';
