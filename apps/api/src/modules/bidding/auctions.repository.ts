@@ -106,6 +106,16 @@ export class AuctionsRepository {
     return { items: rows.map(toAuction), total };
   }
 
+  /** Auctions of the store that are still taking bids, the ones ending first up front. */
+  async listActiveOfSeller(sellerId: string, limit: number): Promise<AuctionRecord[]> {
+    const rows = await this.txHost.tx.$queryRaw<AuctionRow[]>`
+      SELECT *, now() AS db_now FROM auctions
+      WHERE seller_id = ${sellerId}::uuid AND status = 'ACTIVE' AND ends_at > now()
+      ORDER BY ends_at ASC, id ASC
+      LIMIT ${limit}`;
+    return rows.map(toAuction);
+  }
+
   /**
    * Makes the bid the leading one, but only while the auction is still in the state the bidder
    * saw (`version`), is ACTIVE and has not reached its deadline on the database clock. Null

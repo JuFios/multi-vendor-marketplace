@@ -210,6 +210,24 @@ export class OrdersRepository {
     return { items: rows.map(toSellerOrder), total };
   }
 
+  /** Seller orders of the store placed on a day of the period (in `timeZone`), by status. */
+  async countSellerOrdersByStatus(
+    sellerId: string,
+    period: { from: string; to: string },
+    timeZone: string,
+  ): Promise<Map<SellerOrderStatusValue, number>> {
+    const rows = await this.txHost.tx.$queryRaw<
+      { status: SellerOrderStatusValue; count: number }[]
+    >`
+      SELECT status::text AS status, count(*)::int AS count
+      FROM seller_orders
+      WHERE seller_id = ${sellerId}::uuid
+        AND ((created_at AT TIME ZONE 'UTC') AT TIME ZONE ${timeZone})::date
+            BETWEEN ${period.from}::date AND ${period.to}::date
+      GROUP BY status`;
+    return new Map(rows.map((row) => [row.status, row.count]));
+  }
+
   private async listOrders(
     where: Prisma.OrderWhereInput,
     page: number,
