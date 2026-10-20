@@ -17,6 +17,14 @@ export interface CancellationRecord {
   readonly commissionCents: number;
 }
 
+export interface RefundRecord {
+  readonly sellerOrderId: string;
+  readonly sellerId: string;
+  readonly refunds: readonly { readonly refundId: string; readonly amountCents: number }[];
+  /** The part of the commission the refunded amount no longer owes. */
+  readonly commissionReversalCents: number;
+}
+
 @Injectable()
 export class LedgerService {
   constructor(private readonly ledger: LedgerRepository) {}
@@ -40,6 +48,28 @@ export class LedgerService {
         amountCents: -sale.commissionCents,
       },
     ]);
+  }
+
+  /** Books refunded items against the seller, and the commission given back on them. */
+  recordRefund(refund: RefundRecord): Promise<void> {
+    const entries: NewLedgerEntry[] = refund.refunds.map((line) => ({
+      sellerOrderId: refund.sellerOrderId,
+      sellerId: refund.sellerId,
+      type: 'REFUND',
+      amountCents: -line.amountCents,
+      refId: line.refundId,
+    }));
+    const first = refund.refunds[0];
+    if (refund.commissionReversalCents > 0 && first !== undefined) {
+      entries.push({
+        sellerOrderId: refund.sellerOrderId,
+        sellerId: refund.sellerId,
+        type: 'COMMISSION_REVERSAL',
+        amountCents: refund.commissionReversalCents,
+        refId: first.refundId,
+      });
+    }
+    return this.ledger.append(entries);
   }
 
   /**

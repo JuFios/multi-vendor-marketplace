@@ -6,6 +6,7 @@ export type RuleEvent =
       type: 'seller_order.cancelled';
       payload: { customerId: string; sellerId: string; actorType: string };
     }
+  | { type: 'refund.created'; payload: { customerId: string } }
   | { type: 'seller.approved' | 'seller.rejected'; payload: { userId: string } };
 
 export type Recipient =
@@ -31,6 +32,8 @@ export function recipientsOf(event: RuleEvent): Recipient[] {
           ? []
           : [{ kind: 'seller', sellerId: event.payload.sellerId } as const]),
       ];
+    case 'refund.created':
+      return [{ kind: 'user', userId: event.payload.customerId }];
     case 'seller.approved':
     case 'seller.rejected':
       return [{ kind: 'user', userId: event.payload.userId }];

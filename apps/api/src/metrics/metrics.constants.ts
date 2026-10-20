@@ -5,6 +5,7 @@ export const APP_ERRORS_TOTAL = 'app_errors_total';
 export const ORDERS_CREATED_TOTAL = 'orders_created_total';
 export const SELLER_ORDERS_CANCELLED_TOTAL = 'seller_orders_cancelled_total';
 export const CHECKOUT_FAILURES_TOTAL = 'checkout_failures_total';
+export const REFUNDS_TOTAL = 'refunds_total';
 
 export const OUTBOX_PENDING_EVENTS = 'outbox_pending_events';
 export const OUTBOX_PUBLISH_LAG_SECONDS = 'outbox_publish_lag_seconds';

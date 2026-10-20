@@ -121,7 +121,7 @@ export class SellerOrderLifecycleService {
         actor,
         reason,
       );
-      await this.orders.applyCancellationToOrder(sellerOrder.orderId, plan.releasedCents);
+      await this.orders.bookRefundedOnOrder(sellerOrder.orderId, plan.releasedCents);
       await this.outbox.add([
         {
           type: EVENT_TYPE.SELLER_ORDER_CANCELLED,

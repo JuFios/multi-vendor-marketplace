@@ -12,6 +12,8 @@ export interface NewLedgerEntry {
   readonly type: LedgerEntryKind;
   /** Signed from the seller's point of view: money owed to them is positive. */
   readonly amountCents: number;
+  /** The refund or payout the entry belongs to. */
+  readonly refId?: string;
 }
 
 /** Owns `ledger_entries`; rows are only ever appended. */

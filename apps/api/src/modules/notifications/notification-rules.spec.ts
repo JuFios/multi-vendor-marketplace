@@ -49,6 +49,12 @@ describe('recipientsOf', () => {
     ).toEqual([{ kind: 'user', userId: 'c1' }]);
   });
 
+  it('tells the customer about a refund', () => {
+    expect(recipientsOf({ type: 'refund.created', payload: { customerId: 'c1' } })).toEqual([
+      { kind: 'user', userId: 'c1' },
+    ]);
+  });
+
   it.each(['seller.approved', 'seller.rejected'] as const)(
     'tells the applicant about %s',
     (type) => {

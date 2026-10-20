@@ -11,8 +11,16 @@ import type {
   OrderStatusValue,
   SellerOrderStatusValue,
 } from './order-status';
+import type { RefundPlan } from './refund';
 import type { Actor, PaymentStatusValue } from './seller-order-state-machine';
 import type { SellerGroup } from './split-cart';
+
+export interface RefundRecord {
+  readonly id: string;
+  readonly sellerOrderItemId: string;
+  readonly quantity: number;
+  readonly amountCents: number;
+}
 
 export interface CheckoutItem {
   readonly sellerId: string;
@@ -341,8 +349,8 @@ export class OrdersRepository {
     return row.version;
   }
 
-  /** Books the cancelled amount on the order and re-sums its commission from the seller orders. */
-  async applyCancellationToOrder(orderId: string, releasedCents: number): Promise<void> {
+  /** Books the refunded or cancelled amount on the order and re-sums its commission. */
+  async bookRefundedOnOrder(orderId: string, amountCents: number): Promise<void> {
     const commission = await this.txHost.tx.sellerOrder.aggregate({
       where: { orderId },
       _sum: { commissionCents: true },
@@ -350,11 +358,57 @@ export class OrdersRepository {
     await this.txHost.tx.order.update({
       where: { id: orderId },
       data: {
-        refundedCents: { increment: releasedCents },
-        totalCents: { decrement: releasedCents },
+        refundedCents: { increment: amountCents },
+        totalCents: { decrement: amountCents },
         commissionCents: commission._sum.commissionCents ?? 0,
       },
     });
+  }
+
+  /**
+   * Books a refund on the seller order and its items, and writes one `refunds` row per line.
+   * The caller holds the order lock, so the absolute totals of the plan cannot be stale.
+   */
+  async applyRefund(
+    sellerOrderId: string,
+    plan: RefundPlan,
+    refund: { reason: string; actor: { type: Actor; userId: string } },
+  ): Promise<RefundRecord[]> {
+    const tx = this.txHost.tx;
+    for (const line of plan.lines) {
+      await tx.sellerOrderItem.update({
+        where: { id: line.sellerOrderItemId },
+        data: {
+          refundedQuantity: { increment: line.quantity },
+          refundedCents: { increment: line.amountCents },
+        },
+      });
+    }
+    const rows = await tx.refund.createManyAndReturn({
+      data: plan.lines.map((line) => ({
+        sellerOrderId,
+        sellerOrderItemId: line.sellerOrderItemId,
+        quantity: line.quantity,
+        amountCents: line.amountCents,
+        reason: refund.reason,
+        actorType: refund.actor.type,
+        actorId: refund.actor.userId,
+      })),
+      select: { id: true, sellerOrderItemId: true, quantity: true, amountCents: true },
+    });
+    await tx.sellerOrder.update({
+      where: { id: sellerOrderId },
+      data: {
+        refundedCents: plan.refundedCents,
+        commissionCents: plan.commissionCents,
+        payoutCents: plan.payoutCents,
+        version: { increment: 1 },
+      },
+    });
+    const order = new Map(plan.lines.map((line, index) => [line.sellerOrderItemId, index]));
+    return rows.sort(
+      (a, b) => (order.get(a.sellerOrderItemId) ?? 0) - (order.get(b.sellerOrderItemId) ?? 0),
+    );
   }
 
   /** Moves the payment status from `from` to `to`; false when it was not in `from`. */
