@@ -10,9 +10,9 @@ import { PrismaService } from '../../src/prisma/prisma.service';
 import { QUEUE } from '../../src/queue/queue-names';
 import { QUEUE_PUBLISHER, type QueuePublisherPort } from '../../src/queue/queue-publisher.port';
 import { bearerFor } from '../utils/auth';
-import { resetDb } from '../utils/db';
 import { createAuction, createProduct, createSeller, createUser } from '../utils/factories';
 import { flushEvents, queueOf } from '../utils/flush-events';
+import { resetState } from '../utils/reset-state';
 import { createTestApp } from '../utils/test-app';
 import { waitUntil } from '../utils/wait-until';
 
@@ -72,13 +72,13 @@ describe('Auction lots in the cart and at checkout (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await resetDb(prisma);
+    await resetState(prisma);
     await queueOf(app, QUEUE.AUCTIONS).obliterate({ force: true });
   });
 
   afterAll(async () => {
     await flushEvents();
-    await resetDb(prisma);
+    await resetState(prisma);
     await app.close();
   });
 

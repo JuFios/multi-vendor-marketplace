@@ -6,9 +6,9 @@ import { EVENT_TYPE } from '../../src/outbox/events/event-types';
 import { OutboxService } from '../../src/outbox/outbox.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import type { AppTransactionHost } from '../../src/prisma/transaction';
-import { resetDb } from '../utils/db';
 import { createProduct } from '../utils/factories';
 import { flushEvents } from '../utils/flush-events';
+import { resetState } from '../utils/reset-state';
 import { createTestApp } from '../utils/test-app';
 
 interface PriceBody {
@@ -29,10 +29,10 @@ describe('Product page cache invalidation by events (e2e)', () => {
     txHost = app.get<AppTransactionHost>(TransactionHost);
   });
 
-  beforeEach(() => resetDb(prisma));
+  beforeEach(() => resetState(prisma));
 
   afterAll(async () => {
-    await resetDb(prisma);
+    await resetState(prisma);
     await app.close();
   });
 

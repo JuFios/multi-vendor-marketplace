@@ -34,6 +34,31 @@ async function queuesAreIdle(app: NestExpressApplication): Promise<boolean> {
   return counts.every((count) => count === 0);
 }
 
+/** What is still pending, so a timeout says which queue or event is stuck and why. */
+async function describePending(app: NestExpressApplication): Promise<string> {
+  const prisma = app.get(PrismaService);
+  const lines: string[] = [];
+  const unpublished = await prisma.outboxEvent.findMany({
+    where: { publishedAt: null },
+    select: { eventType: true, attempts: true },
+    take: 10,
+  });
+  if (unpublished.length > 0) {
+    lines.push(`outbox unpublished: ${JSON.stringify(unpublished)}`);
+  }
+  for (const name of QUEUE_NAMES) {
+    const queue = queueOf(app, name);
+    const jobs = await queue.getJobs(['waiting', 'active', 'prioritized', 'delayed'], 0, 5);
+    for (const job of jobs) {
+      lines.push(
+        `${name}: ${job.name} attempts=${job.attemptsMade} ` +
+          `failedReason=${job.failedReason ?? '-'} state=${await job.getState()}`,
+      );
+    }
+  }
+  return lines.length > 0 ? lines.join('\n') : 'nothing pending any more';
+}
+
 /**
  * Waits until every recorded event has been relayed and processed, including events the
  * processors record in turn. Polls with a timeout instead of sleeping a fixed time.
@@ -43,13 +68,17 @@ export async function flushEvents({
   app = currentTestApp(),
 }: FlushEventsOptions = {}): Promise<void> {
   const prisma = app.get(PrismaService);
-  await waitUntil(
-    async () =>
-      // Queues, then outbox, then queues again: a job that finishes in between could have
-      // recorded a new event, which the second look at the queues then catches.
-      (await queuesAreIdle(app)) &&
-      (await prisma.outboxEvent.count({ where: { publishedAt: null } })) === 0 &&
-      (await queuesAreIdle(app)),
-    { timeoutMs, label: 'the outbox and the queues to drain' },
-  );
+  try {
+    await waitUntil(
+      async () =>
+        // Queues, then outbox, then queues again: a job that finishes in between could have
+        // recorded a new event, which the second look at the queues then catches.
+        (await queuesAreIdle(app)) &&
+        (await prisma.outboxEvent.count({ where: { publishedAt: null } })) === 0 &&
+        (await queuesAreIdle(app)),
+      { timeoutMs, label: 'the outbox and the queues to drain' },
+    );
+  } catch (error) {
+    throw new Error(`${(error as Error).message}\n${await describePending(app)}`, { cause: error });
+  }
 }
