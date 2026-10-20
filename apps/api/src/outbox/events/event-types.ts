@@ -82,6 +82,9 @@ export interface EventPayloads {
   };
   [EVENT_TYPE.AUCTION_CLOSED]: {
     auctionId: string;
+    productId: string;
+    sellerId: string;
+    round: number;
     outcome: Extract<AuctionStatus, 'SOLD_TO_WINNER' | 'NOT_SOLD'>;
     winnerId?: string;
     priceCents?: number;
@@ -89,10 +92,12 @@ export interface EventPayloads {
   };
   [EVENT_TYPE.AUCTION_WINNER_EXPIRED]: {
     auctionId: string;
+    productId: string;
+    sellerId: string;
     previousWinnerId: string;
     newRound: number;
   };
-  [EVENT_TYPE.AUCTION_ORDERED]: { auctionId: string; orderId: string };
+  [EVENT_TYPE.AUCTION_ORDERED]: { auctionId: string; productId: string; orderId: string };
   [EVENT_TYPE.SELLER_ORDER_CREATED]: {
     sellerOrderId: string;
     orderId: string;

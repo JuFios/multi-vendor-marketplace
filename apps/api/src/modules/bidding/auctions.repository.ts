@@ -161,6 +161,59 @@ export class AuctionsRepository {
     };
   }
 
+  /**
+   * Ends the round once its deadline has passed on the database clock: SOLD_TO_WINNER with a
+   * checkout deadline when somebody bid, NOT_SOLD otherwise. Null when the auction is not
+   * ACTIVE or is not due, so repeating it is harmless.
+   */
+  async closeIfDue(id: string, winnerWindowMin: number): Promise<AuctionRecord | null> {
+    const rows = await this.txHost.tx.$queryRaw<AuctionRow[]>`
+      UPDATE auctions
+      SET status = CASE WHEN highest_bid_id IS NULL
+                        THEN 'NOT_SOLD'::auction_status ELSE 'SOLD_TO_WINNER'::auction_status END,
+          winner_id = highest_bidder_id,
+          winner_deadline_at = CASE WHEN highest_bid_id IS NULL
+                                    THEN NULL
+                                    ELSE now() + make_interval(mins => ${winnerWindowMin}) END,
+          version = version + 1, updated_at = now()
+      WHERE id = ${id}::uuid AND status = 'ACTIVE' AND ends_at <= now()
+      RETURNING *, now() AS db_now`;
+    return rows[0] ? toAuction(rows[0]) : null;
+  }
+
+  /**
+   * Offers the lot again once the winner's checkout window has run out: a new round with the
+   * same terms. Returns the auction as it is now and the winner it lost; null when the
+   * auction is not SOLD_TO_WINNER or the window is still open. Checkout is the competing
+   * conditional UPDATE of the same row, so exactly one of them wins.
+   */
+  async expireIfDue(
+    id: string,
+  ): Promise<{ auction: AuctionRecord; previousWinnerId: string } | null> {
+    const rows = await this.txHost.tx.$queryRaw<(AuctionRow & { previous_winner_id: string })[]>`
+      UPDATE auctions AS a
+      SET status = 'ACTIVE', round = a.round + 1, current_price_cents = NULL,
+          highest_bid_id = NULL, highest_bidder_id = NULL, bid_count = 0,
+          winner_id = NULL, winner_deadline_at = NULL,
+          ends_at = now() + make_interval(secs => a.duration_sec),
+          version = a.version + 1, updated_at = now()
+      FROM (SELECT id, winner_id FROM auctions WHERE id = ${id}::uuid FOR UPDATE) AS before
+      WHERE a.id = before.id AND a.status = 'SOLD_TO_WINNER' AND a.winner_deadline_at <= now()
+      RETURNING a.*, now() AS db_now, before.winner_id AS previous_winner_id`;
+    const row = rows[0];
+    return row ? { auction: toAuction(row), previousWinnerId: row.previous_winner_id } : null;
+  }
+
+  /** Auctions whose deadline or checkout window passed, oldest first. */
+  async findDue(limit: number): Promise<{ id: string; status: AuctionStatus }[]> {
+    return this.txHost.tx.$queryRaw<{ id: string; status: AuctionStatus }[]>`
+      SELECT id, status FROM auctions
+      WHERE (status = 'ACTIVE' AND ends_at <= now())
+         OR (status = 'SOLD_TO_WINNER' AND winner_deadline_at <= now())
+      ORDER BY LEAST(ends_at, COALESCE(winner_deadline_at, ends_at)), id
+      LIMIT ${limit}`;
+  }
+
   /** The bids of one round, highest first (which is also newest first). */
   async listBids(
     auctionId: string,

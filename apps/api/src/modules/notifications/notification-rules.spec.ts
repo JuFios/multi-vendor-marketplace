@@ -55,6 +55,36 @@ describe('recipientsOf', () => {
     ]);
   });
 
+  it('tells the winner and the seller that an auction was won', () => {
+    expect(
+      recipientsOf({
+        type: 'auction.closed',
+        payload: { sellerId: 's1', outcome: 'SOLD_TO_WINNER', winnerId: 'w1' },
+      }),
+    ).toEqual([
+      { kind: 'user', userId: 'w1' },
+      { kind: 'seller', sellerId: 's1' },
+    ]);
+  });
+
+  it('tells only the seller that an auction ended without bids', () => {
+    expect(
+      recipientsOf({ type: 'auction.closed', payload: { sellerId: 's1', outcome: 'NOT_SOLD' } }),
+    ).toEqual([{ kind: 'seller', sellerId: 's1' }]);
+  });
+
+  it('tells the previous winner and the seller that the checkout window ran out', () => {
+    expect(
+      recipientsOf({
+        type: 'auction.winner_expired',
+        payload: { sellerId: 's1', previousWinnerId: 'w1' },
+      }),
+    ).toEqual([
+      { kind: 'user', userId: 'w1' },
+      { kind: 'seller', sellerId: 's1' },
+    ]);
+  });
+
   it.each(['seller.approved', 'seller.rejected'] as const)(
     'tells the applicant about %s',
     (type) => {

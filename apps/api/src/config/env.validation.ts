@@ -207,6 +207,18 @@ export class EnvironmentVariables {
   @Max(1)
   MOCK_PAYMENT_FAILURE_RATE = 0;
 
+  // How often the worker looks for auctions whose deadline passed without their timer firing.
+  @Type(() => Number)
+  @IsInt()
+  @Min(50)
+  AUCTION_SWEEP_INTERVAL_MS = 15_000;
+
+  // How long the winner of an auction can still check out before the lot is offered again.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  AUCTION_WINNER_CHECKOUT_WINDOW_MIN = 30;
+
   // How often a bid is retried when another bid wins the race for the same auction state.
   @Type(() => Number)
   @IsInt()

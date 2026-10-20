@@ -7,6 +7,11 @@ export type RuleEvent =
       payload: { customerId: string; sellerId: string; actorType: string };
     }
   | { type: 'refund.created'; payload: { customerId: string } }
+  | {
+      type: 'auction.closed';
+      payload: { sellerId: string; outcome: string; winnerId?: string };
+    }
+  | { type: 'auction.winner_expired'; payload: { sellerId: string; previousWinnerId: string } }
   | { type: 'seller.approved' | 'seller.rejected'; payload: { userId: string } };
 
 export type Recipient =
@@ -31,6 +36,18 @@ export function recipientsOf(event: RuleEvent): Recipient[] {
         ...(event.payload.actorType === 'SELLER'
           ? []
           : [{ kind: 'seller', sellerId: event.payload.sellerId } as const]),
+      ];
+    case 'auction.closed':
+      return [
+        ...(event.payload.outcome === 'SOLD_TO_WINNER' && event.payload.winnerId !== undefined
+          ? [{ kind: 'user', userId: event.payload.winnerId } as const]
+          : []),
+        { kind: 'seller', sellerId: event.payload.sellerId },
+      ];
+    case 'auction.winner_expired':
+      return [
+        { kind: 'user', userId: event.payload.previousWinnerId },
+        { kind: 'seller', sellerId: event.payload.sellerId },
       ];
     case 'refund.created':
       return [{ kind: 'user', userId: event.payload.customerId }];

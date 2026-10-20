@@ -6,6 +6,7 @@ import { AppConfigModule } from './config/config.module';
 import { LoggerModule } from './logger/logger.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { WorkerMetricsServer } from './metrics/worker-metrics.server';
+import { BiddingWorkerModule } from './modules/bidding/bidding-worker.module';
 import { NotificationsWorkerModule } from './modules/notifications/notifications-worker.module';
 import { OrdersWorkerModule } from './modules/orders/orders-worker.module';
 import { PaymentsLedgerWorkerModule } from './modules/payments-ledger/payments-ledger-worker.module';
@@ -37,6 +38,7 @@ import { WorkerLifecycle } from './worker.lifecycle';
     PaymentsLedgerWorkerModule,
     OrdersWorkerModule,
     NotificationsWorkerModule,
+    BiddingWorkerModule,
   ],
   providers: [WorkerLifecycle, WorkerMetricsServer],
 })
