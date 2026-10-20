@@ -8,11 +8,13 @@ import { ProductsService } from '../products/products.service';
 import { SellersService } from '../sellers/sellers.service';
 
 import type {
+  AnalyticsReportDto,
   AnalyticsSummaryDto,
   ProductSalesDto,
   SalesChartDto,
   StoreSalesDto,
 } from './dto/analytics-response.dto';
+import { REPORT_SCHEMA_VERSION } from './report-csv';
 import {
   comparisonPeriods,
   isRealDay,
@@ -71,6 +73,29 @@ export class AnalyticsService {
 
   async summary(from: string | undefined, to: string | undefined): Promise<AnalyticsSummaryDto> {
     const period = await this.periodOf(from, to);
+    return (await this.compile(period, false)).summary;
+  }
+
+  /** The summary with the sales of every product and of every day of the period (I-22). */
+  async report(from: string | undefined, to: string | undefined): Promise<AnalyticsReportDto> {
+    const period = await this.periodOf(from, to);
+    const [{ summary, products }, days] = await Promise.all([
+      this.compile(period, true),
+      this.daily.totalsByDay(period),
+    ]);
+    return {
+      schemaVersion: REPORT_SCHEMA_VERSION,
+      timeZone: this.settings.timeZone,
+      summary,
+      daily: fillSeries(period, days),
+      products,
+    };
+  }
+
+  private async compile(
+    period: Period,
+    allProducts: boolean,
+  ): Promise<{ summary: AnalyticsSummaryDto; products: ProductSalesDto[] }> {
     const [sellerTotals, productTotals, carts] = await Promise.all([
       this.daily.totalsBySeller(period),
       this.daily.totalsByProduct(period),
@@ -80,10 +105,20 @@ export class AnalyticsService {
       (row) => row.ordersCount !== 0 || row.grossCents !== 0 || row.refundedCents !== 0,
     );
     const topProducts = rankProducts(productTotals);
+    const listed = allProducts ? rankProducts(productTotals, Infinity) : topProducts;
     const [names, titles] = await Promise.all([
       this.sellers.findStoreNames(standing.map((row) => row.sellerId)),
-      this.titlesOf(topProducts),
+      this.titlesOf(listed),
     ]);
+    const toProduct = (row: ProductTotals): ProductSalesDto => ({
+      productId: row.productId,
+      title: titles.get(row.productId) ?? '',
+      sellerId: row.sellerId,
+      quantity: row.quantity,
+      grossCents: row.grossCents,
+      refundedCents: row.refundedCents,
+      revenueCents: revenueOf(row),
+    });
     const toStore = (row: SellerTotals): StoreSalesDto => ({
       sellerId: row.sellerId,
       storeName: names.get(row.sellerId) ?? UNKNOWN_STORE,
@@ -95,7 +130,7 @@ export class AnalyticsService {
       commissionCents: row.commissionCents,
       netCents: revenueOf(row) - row.commissionCents,
     });
-    return {
+    const summary: AnalyticsSummaryDto = {
       from: period.from,
       to: period.to,
       platformRevenueCents: sum(sellerTotals, (row) => row.commissionCents),
@@ -105,21 +140,14 @@ export class AnalyticsService {
       revenueBySeller: [...standing]
         .sort((a, b) => revenueOf(b) - revenueOf(a) || a.sellerId.localeCompare(b.sellerId))
         .map(toStore),
-      topProducts: topProducts.map((row): ProductSalesDto => ({
-        productId: row.productId,
-        title: titles.get(row.productId) ?? '',
-        sellerId: row.sellerId,
-        quantity: row.quantity,
-        grossCents: row.grossCents,
-        refundedCents: row.refundedCents,
-        revenueCents: revenueOf(row),
-      })),
+      topProducts: topProducts.map(toProduct),
       topSellers: rankSellers(sellerTotals).map(toStore),
       conversion: {
         ...carts,
         rate: conversionRate(carts.cartsWithItems, carts.convertedCarts),
       },
     };
+    return { summary, products: allProducts ? listed.map(toProduct) : [] };
   }
 
   async salesChart(days: number): Promise<SalesChartDto> {

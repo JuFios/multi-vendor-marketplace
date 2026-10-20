@@ -155,3 +155,26 @@ export class SalesChartDto {
   @ApiProperty({ type: ChartTotalsPairDto })
   totals: ChartTotalsPairDto;
 }
+
+export class AnalyticsReportDto {
+  @ApiProperty({ example: 1, description: 'Changes when the shape of the report does.' })
+  schemaVersion: number;
+
+  @ApiProperty({
+    example: 'Europe/Kyiv',
+    description: 'The zone that decides which day a sale is on.',
+  })
+  timeZone: string;
+
+  @ApiProperty({ type: AnalyticsSummaryDto })
+  summary: AnalyticsSummaryDto;
+
+  @ApiProperty({ type: [ChartDayDto], description: 'Every day of the period, oldest first.' })
+  daily: ChartDayDto[];
+
+  @ApiProperty({
+    type: [ProductSalesDto],
+    description: 'Every product sold in the period, by revenue.',
+  })
+  products: ProductSalesDto[];
+}

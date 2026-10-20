@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
 import { DEFAULT_PERIOD_DAYS, MAX_PERIOD_DAYS } from '../report-period';
 
@@ -35,4 +35,14 @@ export class SalesChartQueryDto {
   @Min(1)
   @Max(MAX_PERIOD_DAYS)
   days: number = DEFAULT_PERIOD_DAYS;
+}
+
+export const REPORT_FORMATS = ['csv', 'json'] as const;
+export type ReportFormat = (typeof REPORT_FORMATS)[number];
+
+export class ReportQueryDto extends PeriodQueryDto {
+  @ApiPropertyOptional({ enum: REPORT_FORMATS, default: 'json' })
+  @IsOptional()
+  @IsIn(REPORT_FORMATS)
+  format: ReportFormat = 'json';
 }
