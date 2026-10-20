@@ -220,6 +220,26 @@ export class ProductsRepository {
     return row ? { productId: row.id, stock: row.stock, version: row.version } : null;
   }
 
+  /**
+   * Adds one rating in a single UPDATE: sum, count and the two-decimal average move together,
+   * so concurrent reviews cannot lose each other's contribution.
+   */
+  async addRating(
+    id: string,
+    rating: number,
+  ): Promise<{ ratingAvg: number; ratingCount: number } | null> {
+    const rows = await this.txHost.tx.$queryRaw<{ rating_avg: string; rating_count: number }[]>`
+      UPDATE products
+      SET rating_sum = rating_sum + ${rating},
+          rating_count = rating_count + 1,
+          rating_avg = ROUND((rating_sum + ${rating})::numeric / (rating_count + 1), 2),
+          updated_at = now()
+      WHERE id = ${id}::uuid
+      RETURNING rating_avg::text, rating_count`;
+    const row = rows[0];
+    return row ? { ratingAvg: Number(row.rating_avg), ratingCount: row.rating_count } : null;
+  }
+
   /** The products among `ids`, whatever their state: callers decide what unpublished means. */
   async findByIds(ids: readonly string[]): Promise<Product[]> {
     const rows = await this.txHost.tx.product.findMany({ where: { id: { in: [...ids] } } });

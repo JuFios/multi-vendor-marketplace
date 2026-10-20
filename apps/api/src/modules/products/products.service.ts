@@ -231,6 +231,20 @@ export class ProductsService {
     });
   }
 
+  /** Throws `PRODUCT_NOT_FOUND` unless the public catalog shows the product. */
+  async assertPublished(id: string): Promise<void> {
+    await this.requirePublished(id);
+  }
+
+  /** Counts one more rating in the caller's transaction; the caller records the event. */
+  async addRating(id: string, rating: number): Promise<{ ratingAvg: number; ratingCount: number }> {
+    const totals = await this.products.addRating(id, rating);
+    if (totals === null) {
+      throw new ProductNotFoundError();
+    }
+    return totals;
+  }
+
   /** Always read from the database: clients use it to resync after a reconnect. */
   getPublicStock(id: string): Promise<Product> {
     return this.requirePublished(id);

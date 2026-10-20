@@ -244,6 +244,16 @@ export class OrdersRepository {
     return row ? { orderId: row.id, customerId: row.customer_id } : null;
   }
 
+  /** An item of the product in one of the customer's completed seller orders, if any. */
+  async findCompletedItemId(customerId: string, productId: string): Promise<string | null> {
+    const row = await this.txHost.tx.sellerOrderItem.findFirst({
+      where: { productId, sellerOrder: { status: 'COMPLETED', order: { customerId } } },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+    return row?.id ?? null;
+  }
+
   async findSellerOrder(id: string): Promise<SellerOrderRecord | null> {
     const row = await this.txHost.tx.sellerOrder.findUnique({
       where: { id },
@@ -375,7 +385,7 @@ export class OrdersRepository {
   async applyRefund(
     sellerOrderId: string,
     plan: RefundPlan,
-    refund: { reason: string; actor: { type: Actor; userId: string } },
+    refund: { reason: string; actor: { type: Actor; userId: string }; disputeId?: string },
   ): Promise<RefundRecord[]> {
     const tx = this.txHost.tx;
     for (const line of plan.lines) {
@@ -396,6 +406,7 @@ export class OrdersRepository {
         reason: refund.reason,
         actorType: refund.actor.type,
         actorId: refund.actor.userId,
+        ...(refund.disputeId === undefined ? {} : { disputeId: refund.disputeId }),
       })),
       select: { id: true, sellerOrderItemId: true, quantity: true, amountCents: true },
     });

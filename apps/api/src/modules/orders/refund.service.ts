@@ -26,6 +26,8 @@ export interface RefundActor {
 export interface RefundInput {
   readonly items: readonly RefundRequestLine[];
   readonly reason: string;
+  /** Set when an admin's dispute decision orders the refund. */
+  readonly disputeId?: string;
 }
 
 /** Partial refunds on the level of single items; stock is never touched. */
@@ -48,22 +50,36 @@ export class RefundService {
    * The refund route: the refund, its books, the events and the recorded idempotent response
    * commit together, so a retry with the same key can never refund twice.
    */
-  refund(
+  async refund(
     sellerOrderId: string,
     input: RefundInput,
     actor: RefundActor,
     ownership: Ownership,
   ): Promise<RefundResultDto> {
-    return this.txHost.withTransaction(async () => {
-      const result = await this.applyRefund(sellerOrderId, input, actor, ownership);
-      await this.idempotency.complete(result);
-      return result;
+    const result = await this.txHost.withTransaction(async () => {
+      const applied = await this.applyRefund(sellerOrderId, input, actor, ownership);
+      await this.idempotency.complete(applied);
+      return applied;
+    });
+    this.report(sellerOrderId, result, actor);
+    return result;
+  }
+
+  /** Counts and logs a refund; only call it after the transaction that made it has committed. */
+  report(sellerOrderId: string, result: RefundResultDto, actor: RefundActor): void {
+    this.refunds.inc();
+    this.logger.log({
+      msg: 'refund.created',
+      sellerOrderId,
+      refundIds: result.refunds.map((refund) => refund.id),
+      amountCents: result.amountCents,
+      actor: actor.type,
     });
   }
 
   /**
    * Refunds inside the caller's transaction, for flows with a response of their own (an
-   * admin resolving a dispute). Takes the order lock first, so two refunds of the last unit
+   * admin resolving a dispute), which then call `report` after the commit. Takes the order lock first, so two refunds of the last unit
    * run one after another and the second one sees what is left.
    */
   async applyRefund(
@@ -79,6 +95,7 @@ export class RefundService {
     const refunds = await this.orders.applyRefund(sellerOrder.id, plan, {
       reason: input.reason,
       actor,
+      ...(input.disputeId === undefined ? {} : { disputeId: input.disputeId }),
     });
     await this.ledger.recordRefund({
       sellerOrderId: sellerOrder.id,
@@ -108,14 +125,6 @@ export class RefundService {
     if (updated === null) {
       throw new SellerOrderNotFoundError();
     }
-    this.refunds.inc();
-    this.logger.log({
-      msg: 'refund.created',
-      sellerOrderId: sellerOrder.id,
-      refundIds: refunds.map((refund) => refund.id),
-      amountCents: plan.amountCents,
-      actor: actor.type,
-    });
     return {
       amountCents: plan.amountCents,
       refunds: refunds.map((refund) => ({ ...refund })),

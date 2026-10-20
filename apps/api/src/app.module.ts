@@ -14,10 +14,12 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BiddingModule } from './modules/bidding/bidding.module';
 import { CartModule } from './modules/cart/cart.module';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { DisputesModule } from './modules/disputes/disputes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsLedgerModule } from './modules/payments-ledger/payments-ledger.module';
 import { ProductsModule } from './modules/products/products.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 import { SearchSyncModule } from './modules/search-sync/search-sync.module';
 import { SellersModule } from './modules/sellers/sellers.module';
 import { UsersModule } from './modules/users/users.module';
@@ -52,6 +54,8 @@ import { MeiliModule } from './search/meili.module';
     PaymentsLedgerModule,
     OrdersModule,
     NotificationsModule,
+    ReviewsModule,
+    DisputesModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

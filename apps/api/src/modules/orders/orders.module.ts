@@ -41,6 +41,6 @@ import { SellerOrdersController } from './seller-orders.controller';
     PaymentSagaService,
     RefundService,
   ],
-  exports: [PaymentSagaService, RefundService],
+  exports: [OrdersService, PaymentSagaService, RefundService, SellerOrderLifecycleService],
 })
 export class OrdersModule {}

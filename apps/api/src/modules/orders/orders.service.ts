@@ -68,6 +68,23 @@ export class OrdersService {
     return SellerOrderDto.from(sellerOrder, await this.sellers.findStoreNames([sellerId]));
   }
 
+  /** Any seller order, for admin flows. */
+  async getAnySellerOrder(id: string): Promise<SellerOrderDto> {
+    const sellerOrder = await this.orders.findSellerOrder(id);
+    if (sellerOrder === null) {
+      throw new SellerOrderNotFoundError();
+    }
+    return SellerOrderDto.from(
+      sellerOrder,
+      await this.sellers.findStoreNames([sellerOrder.sellerId]),
+    );
+  }
+
+  /** The item that entitles the customer to review the product: bought and completed (I-11). */
+  findCompletedItemId(customerId: string, productId: string): Promise<string | null> {
+    return this.orders.findCompletedItemId(customerId, productId);
+  }
+
   private async page(
     { items, total }: { items: OrderRecord[]; total: number },
     page: number,

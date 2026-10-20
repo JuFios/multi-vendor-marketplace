@@ -140,7 +140,11 @@ describe('Order reads (e2e)', () => {
         'Second Shop',
       ]);
       expect(body.sellerOrders.find((so) => so.seller.id === first.sellerId)?.items).toEqual([
-        expect.objectContaining({ productId: a.id, quantity: 1 }),
+        expect.objectContaining({
+          id: expect.stringMatching(/^[0-9a-f-]{36}$/) as string,
+          productId: a.id,
+          quantity: 1,
+        }),
       ]);
       expect(body.sellerOrders.every((so) => so.statusHistory.at(0)?.to === 'NEW')).toBe(true);
     });

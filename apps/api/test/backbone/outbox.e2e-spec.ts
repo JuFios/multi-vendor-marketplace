@@ -5,6 +5,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 
 import '../../src/common/cls/cls-store';
+import { NotificationsProcessor } from '../../src/modules/notifications/notifications.processor';
 import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
 import { newEventId } from '../../src/outbox/events/event-id';
 import { EVENT_ROUTES, EVENT_ROUTING } from '../../src/outbox/events/event-routes';
@@ -35,6 +36,7 @@ class RecordingPublisher implements QueuePublisherPort {
 const ROUTES = {
   ...EVENT_ROUTES,
   [EVENT_TYPE.DISPUTE_OPENED]: [QUEUE.REALTIME, QUEUE.SEARCH_SYNC],
+  [EVENT_TYPE.DISPUTE_MESSAGE_ADDED]: [],
 };
 
 const productCreated = () => {
@@ -43,7 +45,12 @@ const productCreated = () => {
     type: EVENT_TYPE.DISPUTE_OPENED,
     aggregateType: 'Dispute',
     aggregateId: productId,
-    payload: { disputeId: productId, sellerOrderId: productId },
+    payload: {
+      disputeId: productId,
+      sellerOrderId: productId,
+      customerId: productId,
+      sellerId: productId,
+    },
   } as const;
 };
 
@@ -62,6 +69,7 @@ describe('outbox (e2e)', () => {
     app = await createTestApp([
       { token: QUEUE_PUBLISHER, useValue: publisher },
       { token: EVENT_ROUTING, useValue: ROUTES },
+      { token: NotificationsProcessor, useValue: {} },
     ]);
     prisma = app.get(PrismaService);
     outbox = app.get(OutboxService);
@@ -132,7 +140,13 @@ describe('outbox (e2e)', () => {
       type: EVENT_TYPE.DISPUTE_MESSAGE_ADDED,
       aggregateType: 'Dispute',
       aggregateId: newEventId(),
-      payload: { disputeId: newEventId(), sellerOrderId: newEventId() },
+      payload: {
+        disputeId: newEventId(),
+        sellerOrderId: newEventId(),
+        customerId: newEventId(),
+        sellerId: newEventId(),
+        authorRole: 'CUSTOMER',
+      },
     });
 
     await waitUntil(async () => (await row(id ?? ''))?.publishedAt != null, {
