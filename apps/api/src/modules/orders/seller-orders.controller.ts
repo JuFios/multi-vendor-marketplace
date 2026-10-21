@@ -17,13 +17,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { ForbiddenError } from '../../common/exceptions/app-error';
 import { ParseUuidPipe } from '../../common/pipes/parse-uuid.pipe';
 import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
 import { BEARER_AUTH } from '../../common/swagger/openapi';
 import { IDEMPOTENCY_SCOPE } from '../../idempotency/idempotency.constants';
 import { Idempotent } from '../../idempotency/idempotent.decorator';
 import type { AuthUser } from '../auth/auth-user';
+import { CurrentSellerId } from '../auth/decorators/current-seller-id.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { SellerGuard } from '../sellers/seller.guard';
@@ -36,14 +36,6 @@ import { CreateRefundDto, RefundResultDto } from './dto/refund.dto';
 import { OrdersService } from './orders.service';
 import { RefundService } from './refund.service';
 import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
-
-/** The store id of an approved seller; `SellerGuard` has already checked the store. */
-function sellerIdOf(user: AuthUser): string {
-  if (user.sellerId === undefined) {
-    throw new ForbiddenError('Only approved sellers can do this', 'SELLER_NOT_APPROVED');
-  }
-  return user.sellerId;
-}
 
 @ApiTags('seller-orders')
 @ApiBearerAuth(BEARER_AUTH)
@@ -62,10 +54,10 @@ export class SellerOrdersController {
   @ApiOkResponse({ type: SellerOrderPageDto })
   @ApiErrorResponses(400, 401, 403)
   list(
-    @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Query() query: ListSellerOrdersQueryDto,
   ): Promise<SellerOrderPageDto> {
-    return this.orders.listOfSeller(sellerIdOf(user), query.status, query.page, query.limit);
+    return this.orders.listOfSeller(sellerId, query.status, query.page, query.limit);
   }
 
   @Get(':id')
@@ -73,10 +65,10 @@ export class SellerOrdersController {
   @ApiOkResponse({ type: SellerOrderDto })
   @ApiErrorResponses(400, 401, 403, 404)
   get(
-    @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Param('id', ParseUuidPipe) id: string,
   ): Promise<SellerOrderDto> {
-    return this.orders.getOfSeller(sellerIdOf(user), id);
+    return this.orders.getOfSeller(sellerId, id);
   }
 
   @Post(':id/status')
@@ -86,10 +78,10 @@ export class SellerOrdersController {
   @ApiErrorResponses(400, 401, 403, 404, 409)
   changeStatus(
     @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Param('id', ParseUuidPipe) id: string,
     @Body() dto: SellerChangeStatusDto,
   ): Promise<SellerOrderDto> {
-    const sellerId = sellerIdOf(user);
     return this.lifecycle.changeStatus(
       id,
       dto.status,
@@ -105,10 +97,10 @@ export class SellerOrdersController {
   @ApiErrorResponses(400, 401, 403, 404, 409)
   cancel(
     @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Param('id', ParseUuidPipe) id: string,
     @Body() dto: CancelSellerOrderDto,
   ): Promise<SellerOrderDto> {
-    const sellerId = sellerIdOf(user);
     return this.lifecycle.cancel(
       id,
       dto.reason,
@@ -127,14 +119,10 @@ export class SellerOrdersController {
   @ApiErrorResponses(400, 401, 403, 404, 409, 422)
   refund(
     @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Param('id', ParseUuidPipe) id: string,
     @Body() dto: CreateRefundDto,
   ): Promise<RefundResultDto> {
-    return this.refunds.refund(
-      id,
-      dto,
-      { type: 'SELLER', userId: user.userId },
-      { sellerId: sellerIdOf(user) },
-    );
+    return this.refunds.refund(id, dto, { type: 'SELLER', userId: user.userId }, { sellerId });
   }
 }

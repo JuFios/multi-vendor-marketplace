@@ -18,6 +18,12 @@ export const CATALOG_AUCTION_STATUSES = [
 ] as const;
 export type CatalogAuctionStatus = (typeof CATALOG_AUCTION_STATUSES)[number];
 
+/**
+ * The layout of a stored document. Raise it whenever a field is added or changes meaning: the
+ * worker rebuilds an index that still holds documents of an older layout.
+ */
+export const CATALOG_SCHEMA_VERSION = 2;
+
 export const CATALOG_MAX_LIMIT = 50;
 export const CATALOG_DEFAULT_LIMIT = 20;
 
@@ -54,6 +60,7 @@ export interface CatalogDocument {
   readonly createdAt: number;
   readonly imageUrl: string | null;
   readonly version: number;
+  readonly schemaVersion: number;
   readonly auctionId: string | null;
   readonly auctionStatus: CatalogAuctionStatus | null;
   readonly auctionEndsAt: number | null;
@@ -107,6 +114,7 @@ export function toCatalogDocument(product: IndexableProduct): CatalogDocument {
     createdAt: product.createdAt.getTime(),
     imageUrl: product.images[0] ?? null,
     version: product.version,
+    schemaVersion: CATALOG_SCHEMA_VERSION,
     auctionId: product.auction?.id ?? null,
     auctionStatus: product.auction?.status ?? null,
     auctionEndsAt: product.auction?.endsAt.getTime() ?? null,

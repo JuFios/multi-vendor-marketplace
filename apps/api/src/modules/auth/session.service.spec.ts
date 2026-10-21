@@ -26,6 +26,7 @@ const stored = (overrides: Partial<StoredRefreshToken> = {}): StoredRefreshToken
   userId: user.id,
   familyId: 'family-1',
   revokedAt: null,
+  replacedById: null,
   expired: false,
   ...overrides,
 });
@@ -142,7 +143,9 @@ describe('SessionService', () => {
     });
 
     it('revokes the whole family and logs when a rotated token is presented again', async () => {
-      repository.lockRefreshToken.mockResolvedValue(stored({ revokedAt: new Date() }));
+      repository.lockRefreshToken.mockResolvedValue(
+        stored({ revokedAt: new Date(), replacedById: 'token-2' }),
+      );
 
       await expect(service.refresh('old-token', client)).rejects.toBeInstanceOf(
         RefreshTokenReusedError,
@@ -158,8 +161,22 @@ describe('SessionService', () => {
       });
     });
 
-    it('commits the revocation instead of rolling it back with the error', async () => {
+    it('rejects a token revoked by logout without touching the family or alarming', async () => {
       repository.lockRefreshToken.mockResolvedValue(stored({ revokedAt: new Date() }));
+
+      await expect(service.refresh('logged-out', client)).rejects.toBeInstanceOf(
+        InvalidRefreshTokenError,
+      );
+
+      expect(repository.revokeFamily).not.toHaveBeenCalled();
+      expect(repository.createRefreshToken).not.toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('commits the revocation instead of rolling it back with the error', async () => {
+      repository.lockRefreshToken.mockResolvedValue(
+        stored({ revokedAt: new Date(), replacedById: 'token-2' }),
+      );
       let committed = false;
       txHost.withTransaction.mockImplementation(async (work: () => Promise<unknown>) => {
         const result = await work();

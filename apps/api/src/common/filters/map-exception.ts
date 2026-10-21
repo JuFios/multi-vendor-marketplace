@@ -12,6 +12,7 @@ export interface MappedError {
 }
 
 const INTERNAL_MESSAGE = 'Internal server error';
+const RATE_LIMITED_MESSAGE = 'Too many requests';
 
 const CODE_BY_STATUS: Readonly<Record<number, string>> = {
   400: ERROR_CODE.BAD_REQUEST,
@@ -79,6 +80,10 @@ function mapPrismaKnownError(error: Prisma.PrismaClientKnownRequestError): Mappe
 
 function mapHttpException(exception: HttpException): MappedError {
   const status = exception.getStatus();
+  // ThrottlerException's default body is its class name; 429 gets one neutral message instead.
+  if (status === 429) {
+    return { status, code: ERROR_CODE.RATE_LIMITED, message: RATE_LIMITED_MESSAGE };
+  }
   const body = exception.getResponse();
   const code =
     CODE_BY_STATUS[status] ?? (status >= 500 ? ERROR_CODE.INTERNAL_ERROR : ERROR_CODE.BAD_REQUEST);

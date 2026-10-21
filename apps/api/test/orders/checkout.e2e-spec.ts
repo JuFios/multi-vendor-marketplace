@@ -152,6 +152,44 @@ describe('POST /api/orders/checkout (e2e)', () => {
     expect(metrics).toMatch(/^orders_created_total 1$/m);
   });
 
+  it('stamps convertedAt with the database clock, not the application clock', async () => {
+    const buyer = await createUser(prisma);
+    const product = await createProduct(prisma, { priceCents: 1_000, stock: 10 });
+    await fillCart(buyer.id, [{ productId: product.id, quantity: 1 }]);
+
+    jest.useFakeTimers({
+      doNotFake: [
+        'nextTick',
+        'setImmediate',
+        'clearImmediate',
+        'setInterval',
+        'clearInterval',
+        'setTimeout',
+        'clearTimeout',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+        'requestIdleCallback',
+        'cancelIdleCallback',
+        'performance',
+        'hrtime',
+        'queueMicrotask',
+      ],
+    });
+    jest.setSystemTime(new Date(Date.now() + 24 * 60 * 60 * 1_000));
+    let status: number;
+    try {
+      status = (await checkout(buyer)).status;
+    } finally {
+      jest.useRealTimers();
+    }
+
+    expect(status).toBe(201);
+    const [clock] = await prisma.$queryRaw<{ now: Date }[]>`SELECT now() AS now`;
+    const cart = await prisma.cart.findFirstOrThrow({ where: { userId: buyer.id } });
+    expect(cart.convertedAt).not.toBeNull();
+    expect(Math.abs(cart.convertedAt!.getTime() - clock!.now.getTime())).toBeLessThan(60_000);
+  });
+
   it('prices the order with the current price, not the price when the item was added', async () => {
     const buyer = await createUser(prisma);
     const product = await createProduct(prisma, { priceCents: 1_000 });

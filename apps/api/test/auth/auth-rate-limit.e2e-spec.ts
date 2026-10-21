@@ -48,7 +48,9 @@ describe('Auth rate limiting (e2e)', () => {
     const response = await loginAs('user6@example.com', '198.51.100.1');
 
     expect(response.status).toBe(429);
-    expect(response.body).toMatchObject({ error: { code: 'RATE_LIMITED' } });
+    expect(response.body).toMatchObject({
+      error: { code: 'RATE_LIMITED', message: 'Too many requests' },
+    });
     expect(Number(response.headers['retry-after'])).toBeGreaterThan(0);
     expect(Number(response.headers['retry-after'])).toBeLessThanOrEqual(60);
   });

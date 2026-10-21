@@ -41,6 +41,7 @@ interface LockedRow {
   user_id: string;
   family_id: string;
   revoked_at: Date | null;
+  replaced_by_id: string | null;
   expired: boolean;
 }
 
@@ -91,7 +92,7 @@ export class AuthRepository {
    */
   async lockRefreshToken(tokenHash: string): Promise<StoredRefreshToken | null> {
     const rows = await this.txHost.tx.$queryRaw<LockedRow[]>`
-      SELECT id, user_id, family_id, revoked_at, expires_at <= now() AS expired
+      SELECT id, user_id, family_id, revoked_at, replaced_by_id, expires_at <= now() AS expired
       FROM refresh_tokens
       WHERE token_hash = ${tokenHash}
       FOR UPDATE`;
@@ -102,6 +103,7 @@ export class AuthRepository {
           userId: row.user_id,
           familyId: row.family_id,
           revokedAt: row.revoked_at,
+          replacedById: row.replaced_by_id,
           expired: row.expired,
         }
       : null;

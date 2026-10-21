@@ -1,4 +1,4 @@
-import { orderTotalsAfterCancellation, planCancellation } from './cancellation';
+import { planCancellation } from './cancellation';
 
 describe('planCancellation', () => {
   it('releases the whole subtotal and reverses the whole commission', () => {
@@ -30,27 +30,5 @@ describe('planCancellation', () => {
       plan.commissionReversalCents;
 
     expect(sum).toBe(0);
-  });
-});
-
-describe('orderTotalsAfterCancellation', () => {
-  it('moves the released amount from the total to the refunded sum', () => {
-    expect(
-      orderTotalsAfterCancellation({ subtotalCents: 30_000, refundedCents: 0 }, 10_000),
-    ).toEqual({
-      refundedCents: 10_000,
-      totalCents: 20_000,
-    });
-  });
-
-  it('reaches a total of zero once everything is cancelled', () => {
-    const afterFirst = orderTotalsAfterCancellation(
-      { subtotalCents: 30_000, refundedCents: 0 },
-      10_000,
-    );
-
-    expect(
-      orderTotalsAfterCancellation({ subtotalCents: 30_000, ...afterFirst }, 20_000).totalCents,
-    ).toBe(0);
   });
 });

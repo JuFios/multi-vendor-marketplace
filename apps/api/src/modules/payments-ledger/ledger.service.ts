@@ -82,14 +82,16 @@ export class LedgerService {
    * whole commission, so the seller order nets to zero.
    */
   recordCancellation(cancellation: CancellationRecord): Promise<void> {
-    const entries: NewLedgerEntry[] = [
-      {
+    const entries: NewLedgerEntry[] = [];
+    // A fully refunded order has nothing left to release: no zero-amount row.
+    if (cancellation.releasedCents > 0) {
+      entries.push({
         sellerOrderId: cancellation.sellerOrderId,
         sellerId: cancellation.sellerId,
         type: 'CANCELLATION',
         amountCents: -cancellation.releasedCents,
-      },
-    ];
+      });
+    }
     if (cancellation.commissionCents > 0) {
       entries.push({
         sellerOrderId: cancellation.sellerOrderId,
@@ -98,7 +100,7 @@ export class LedgerService {
         amountCents: cancellation.commissionCents,
       });
     }
-    return this.ledger.append(entries);
+    return entries.length === 0 ? Promise.resolve() : this.ledger.append(entries);
   }
 
   /** Figures for one store over the period; the balance always covers all time. */

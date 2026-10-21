@@ -87,9 +87,10 @@ describe('Refresh rotation, reuse detection and logout (e2e)', () => {
     expect(replay.status).toBe(401);
     expect(replay.body).toMatchObject({ error: { code: 'REFRESH_TOKEN_REUSED' } });
 
+    // The newer token was never rotated, so it is rejected as plain invalid rather than reuse.
     const afterReplay = await refresh(second.token);
     expect(afterReplay.status).toBe(401);
-    expect(afterReplay.body).toMatchObject({ error: { code: 'REFRESH_TOKEN_REUSED' } });
+    expect(afterReplay.body).toMatchObject({ error: { code: 'INVALID_REFRESH_TOKEN' } });
 
     await logout(second.token).expect(204);
   });
@@ -211,7 +212,9 @@ describe('Refresh rotation, reuse detection and logout (e2e)', () => {
 
       expect(response.status).toBe(204);
       expect(refreshCookieOf(response)).toMatch(/^rt=;.*Path=\/api\/auth/);
-      await refresh(current).expect(401);
+      const afterLogout = await refresh(current);
+      expect(afterLogout.status).toBe(401);
+      expect(afterLogout.body).toMatchObject({ error: { code: 'INVALID_REFRESH_TOKEN' } });
       expect(
         await prisma.refreshToken.count({ where: { revokedAt: null, user: { email: EMAIL } } }),
       ).toBe(1); // the token issued at registration belongs to another family
@@ -223,7 +226,9 @@ describe('Refresh rotation, reuse detection and logout (e2e)', () => {
 
       await logout(token).expect(204);
 
-      await refresh(cookieValue(refreshCookieOf(rotated))).expect(401);
+      const response = await refresh(cookieValue(refreshCookieOf(rotated)));
+      expect(response.status).toBe(401);
+      expect(response.body).toMatchObject({ error: { code: 'INVALID_REFRESH_TOKEN' } });
     });
 
     it('succeeds without a cookie or with a bogus one', async () => {

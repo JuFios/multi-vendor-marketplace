@@ -66,6 +66,44 @@ describe('Cart mutations (e2e)', () => {
       expect(cart.firstItemAddedAt).not.toBeNull();
     });
 
+    it('stamps firstItemAddedAt with the database clock, not the application clock', async () => {
+      const buyer = await createUser(prisma);
+      const product = await createProduct(prisma, { stock: 10 });
+
+      jest.useFakeTimers({
+        doNotFake: [
+          'nextTick',
+          'setImmediate',
+          'clearImmediate',
+          'setInterval',
+          'clearInterval',
+          'setTimeout',
+          'clearTimeout',
+          'requestAnimationFrame',
+          'cancelAnimationFrame',
+          'requestIdleCallback',
+          'cancelIdleCallback',
+          'performance',
+          'hrtime',
+          'queueMicrotask',
+        ],
+      });
+      jest.setSystemTime(new Date(Date.now() + 24 * 60 * 60 * 1_000));
+      let status: number;
+      try {
+        status = (await call('post', '/items', buyer, { productId: product.id, quantity: 1 }))
+          .status;
+      } finally {
+        jest.useRealTimers();
+      }
+
+      expect(status).toBe(201);
+      const [clock] = await prisma.$queryRaw<{ now: Date }[]>`SELECT now() AS now`;
+      const { firstItemAddedAt } = await prisma.cart.findFirstOrThrow();
+      expect(firstItemAddedAt).not.toBeNull();
+      expect(Math.abs(firstItemAddedAt!.getTime() - clock!.now.getTime())).toBeLessThan(60_000);
+    });
+
     it('adds to the existing quantity and keeps firstItemAddedAt', async () => {
       const buyer = await createUser(prisma);
       const product = await createProduct(prisma, { stock: 10 });

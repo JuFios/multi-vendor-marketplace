@@ -12,6 +12,11 @@ export interface IssuedAccessToken {
   readonly expiresInSec: number;
 }
 
+export interface VerifiedAccessToken {
+  readonly user: AuthUser;
+  readonly expiresAt: Date;
+}
+
 @Injectable()
 export class AccessTokenService {
   constructor(
@@ -28,10 +33,17 @@ export class AccessTokenService {
     return { token, expiresInSec: this.config.accessTtlSec };
   }
 
-  /** The caller behind a token, or null when it is malformed, forged or expired. */
-  async verify(token: string): Promise<AuthUser | null> {
+  /** The caller behind a token and when it lapses, or null when malformed, forged or expired. */
+  async verify(token: string): Promise<VerifiedAccessToken | null> {
     try {
-      return authUserFromClaims(await this.jwt.verifyAsync<Partial<AccessTokenClaims>>(token));
+      const claims = await this.jwt.verifyAsync<Partial<AccessTokenClaims> & { exp?: number }>(
+        token,
+      );
+      const user = authUserFromClaims(claims);
+      if (user === null || typeof claims.exp !== 'number') {
+        return null;
+      }
+      return { user, expiresAt: new Date(claims.exp * 1000) };
     } catch {
       // Every failure (bad signature, expiry, wrong shape) means the same to the caller: no user.
       return null;
