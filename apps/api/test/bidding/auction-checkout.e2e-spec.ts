@@ -386,9 +386,12 @@ describe('Auction lots in the cart and at checkout (e2e)', () => {
           sellerId: seller.sellerId,
           round: stored.round,
           outcome: 'NOT_SOLD',
+          closedBy: 'ARCHIVE',
         },
       ]);
       await flushEvents();
+      // The seller closed it themselves: no "ended without a sale" notification.
+      expect(await prisma.notification.count({ where: { type: 'auction.closed' } })).toBe(0);
     });
 
     it('refuses to archive a lot that has bids', async () => {

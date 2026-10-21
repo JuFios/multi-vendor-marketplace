@@ -90,6 +90,8 @@ export interface EventPayloads {
     sellerId: string;
     round: number;
     outcome: Extract<AuctionStatus, 'SOLD_TO_WINNER' | 'NOT_SOLD'>;
+    /** Set when the seller archived the lot: the round ended by their hand, not its deadline. */
+    closedBy?: 'ARCHIVE';
     winnerId?: string;
     priceCents?: number;
     winnerDeadlineAt?: string;

@@ -180,6 +180,7 @@ export class AuctionsService {
             sellerId: auction.sellerId,
             round: auction.round,
             outcome: 'NOT_SOLD',
+            closedBy: 'ARCHIVE',
           },
         },
       ]);
