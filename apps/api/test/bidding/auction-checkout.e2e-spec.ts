@@ -179,6 +179,27 @@ describe('Auction lots in the cart and at checkout (e2e)', () => {
     expect(await prisma.cartItem.count({ where: { productId: auction.productId } })).toBe(1);
   });
 
+  it('consumes a closing event that arrives after the lot was ordered instead of retrying it', async () => {
+    const { auction, winner } = await wonLot();
+    expect((await checkout(winner)).status).toBe(201);
+    await flushEvents();
+    const closed = await prisma.outboxEvent.findFirstOrThrow({
+      where: { eventType: 'auction.closed', aggregateId: auction.id },
+    });
+    // As if the cart consumer saw the event only now, e.g. after a long Redis outage.
+    await prisma.processedEvent.deleteMany({ where: { consumer: 'cart', eventId: closed.id } });
+
+    await queueOf(app, QUEUE.CART).remove(closed.id);
+    await app.get<QueuePublisherPort>(QUEUE_PUBLISHER).publish(QUEUE.CART, toEvent(closed));
+    await flushEvents();
+
+    expect(
+      await prisma.processedEvent.count({ where: { consumer: 'cart', eventId: closed.id } }),
+    ).toBe(1);
+    expect(await queueOf(app, QUEUE.CART).getFailedCount()).toBe(0);
+    expect((await cartOf(winner)).groups).toEqual([]);
+  });
+
   it('lets only the winner add the lot, and only once the auction is sold', async () => {
     const { auction, winner, other } = await wonLot();
     const running = await createAuction(prisma);
@@ -344,18 +365,30 @@ describe('Auction lots in the cart and at checkout (e2e)', () => {
     const remove = (seller: Caller, productId: string) =>
       call('delete', `/seller/products/${productId}`, seller);
 
-    it('archives a lot without bids and marks the auction as not sold', async () => {
+    it('archives a lot without bids and closes the auction as not sold', async () => {
       const { auction, seller } = await lotOf();
 
       const response = await remove(seller, auction.productId);
 
       expect(response.status).toBe(204);
-      expect((await prisma.auction.findUniqueOrThrow({ where: { id: auction.id } })).status).toBe(
-        'NOT_SOLD',
-      );
+      const stored = await prisma.auction.findUniqueOrThrow({ where: { id: auction.id } });
+      expect(stored.status).toBe('NOT_SOLD');
       expect(
         (await prisma.product.findUniqueOrThrow({ where: { id: auction.productId } })).archivedAt,
       ).not.toBeNull();
+      const closed = await prisma.outboxEvent.findMany({
+        where: { eventType: 'auction.closed', aggregateId: auction.id },
+      });
+      expect(closed.map((event) => event.payload)).toEqual([
+        {
+          auctionId: auction.id,
+          productId: auction.productId,
+          sellerId: seller.sellerId,
+          round: stored.round,
+          outcome: 'NOT_SOLD',
+        },
+      ]);
+      await flushEvents();
     });
 
     it('refuses to archive a lot that has bids', async () => {

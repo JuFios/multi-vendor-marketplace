@@ -154,7 +154,7 @@ export class AuctionsService {
   /**
    * Called when a product with an auction is archived (I-16), in the caller's transaction. A
    * lot with bids, or a winner who has not checked out yet, cannot go; one without bids is
-   * simply not sold.
+   * simply not sold, and closes like any other round so its timer and live views follow.
    */
   async prepareForArchive(productId: string): Promise<void> {
     const auction = await this.auctions.lockByProductId(productId);
@@ -169,6 +169,20 @@ export class AuctionsService {
     }
     if (auction.status === 'ACTIVE') {
       await this.auctions.markNotSold(auction.id);
+      await this.outbox.add([
+        {
+          type: EVENT_TYPE.AUCTION_CLOSED,
+          aggregateType: 'Auction',
+          aggregateId: auction.id,
+          payload: {
+            auctionId: auction.id,
+            productId: auction.productId,
+            sellerId: auction.sellerId,
+            round: auction.round,
+            outcome: 'NOT_SOLD',
+          },
+        },
+      ]);
     }
   }
 }

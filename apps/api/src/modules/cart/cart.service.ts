@@ -84,15 +84,26 @@ export class CartService {
    * can, and only while the checkout window is open on the database clock.
    */
   async addWonLot(userId: string, productId: string): Promise<void> {
+    if (!(await this.addLotIfWon(userId, productId))) {
+      throw new AuctionNotWonError();
+    }
+  }
+
+  /**
+   * Like `addWonLot`, but a lot the user no longer holds (already ordered, or the checkout
+   * window has run out) is left alone. Returns whether the lot is in the cart.
+   */
+  async addLotIfWon(userId: string, productId: string): Promise<boolean> {
     const [auction] = await this.auctions.findByProductIds([productId]);
     if (auction === undefined || !isWonBy(auction, userId)) {
-      throw new AuctionNotWonError();
+      return false;
     }
     await this.txHost.withTransaction(async () => {
       const cartId = await this.cart.lockOrCreateActive(userId);
       await this.cart.setQuantity(cartId, productId, 1);
       await this.cart.markFirstItemAdded(cartId);
     });
+    return true;
   }
 
   /** Sets the line's quantity; lowering it always works, so a broken line can be fixed. */
