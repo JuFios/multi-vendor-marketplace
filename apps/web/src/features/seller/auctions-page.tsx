@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
+import { ButtonLink } from '../../components/button';
 import { EmptyState } from '../../components/empty-state';
 import { ErrorState } from '../../components/error-state';
 import { Money } from '../../components/money';
@@ -12,7 +13,7 @@ import { Table } from '../../components/table';
 import { formatDateTime } from '../../lib/format';
 import { queryKeys } from '../../lib/query-keys';
 
-import { fetchSellerAuctions } from './seller-api';
+import { fetchAuctionProducts, fetchSellerAuctions } from './seller-api';
 
 const PAGE_SIZE = 10;
 
@@ -22,6 +23,13 @@ export function SellerAuctionsPage() {
     queryKey: queryKeys.sellerAuctions({ page }),
     queryFn: () => fetchSellerAuctions(page),
   });
+
+  const products = useQuery({
+    queryKey: queryKeys.sellerProducts({ type: 'AUCTION', limit: 100 }),
+    queryFn: fetchAuctionProducts,
+  });
+  const titleOf = (productId: string) =>
+    products.data?.items.find((product) => product.id === productId)?.title ?? 'View lot';
 
   if (auctions.isPending) {
     return <Skeleton className="h-48" />;
@@ -33,18 +41,25 @@ export function SellerAuctionsPage() {
   }
   if (auctions.data.total === 0) {
     return (
-      <EmptyState title="No auction lots" detail="Create a product of type Auction to start one." />
+      <div className="space-y-4">
+        <h1 className="text-2xl font-semibold">Auctions</h1>
+        <EmptyState
+          title="No auction lots"
+          detail="Create a product of type Auction to start one."
+          action={<ButtonLink to="/seller/products/new">New product</ButtonLink>}
+        />
+      </div>
     );
   }
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Auctions</h1>
       <Table headers={['Lot', 'Status', 'Round', 'Current bid', 'Bids', 'Ends']}>
         {auctions.data.items.map((auction) => (
           <tr key={auction.id} className="border-b border-line">
             <td className="px-3 py-2">
               <Link to={`/products/${auction.productId}`} className="text-brand">
-                View lot
+                {titleOf(auction.productId)}
               </Link>
             </td>
             <td className="px-3 py-2">

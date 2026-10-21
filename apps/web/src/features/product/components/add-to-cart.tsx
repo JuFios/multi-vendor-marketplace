@@ -39,7 +39,7 @@ export function AddToCart({ productId, stock }: { productId: string; stock: numb
 
   return (
     <form
-      className="flex items-start gap-2"
+      className="flex flex-wrap items-end gap-3"
       onSubmit={(event) => {
         event.preventDefault();
         if (valid) {
@@ -60,16 +60,11 @@ export function AddToCart({ productId, stock }: { productId: string; stock: numb
           }}
         />
       </div>
-      <Button
-        type="submit"
-        className="mt-6"
-        disabled={!valid || stock <= 0}
-        loading={add.isPending}
-      >
+      <Button type="submit" disabled={!valid || stock <= 0} loading={add.isPending}>
         Add to cart
       </Button>
       {add.isError ? (
-        <p role="alert" className="mt-6 text-sm text-danger">
+        <p role="alert" className="w-full text-sm text-danger">
           {errorMessage(add.error)}
         </p>
       ) : null}

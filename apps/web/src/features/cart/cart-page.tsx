@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router';
 
-import { Button } from '../../components/button';
+import { Button, ButtonLink } from '../../components/button';
 import { EmptyState } from '../../components/empty-state';
 import { ErrorState } from '../../components/error-state';
 import { Money } from '../../components/money';
@@ -29,11 +28,13 @@ export function CartPage() {
   }
   if (cart.data.groups.length === 0) {
     return (
-      <div className="space-y-3 text-center">
-        <EmptyState title="Your cart is empty" detail="Add something from the catalog." />
-        <Link to="/" className="text-sm font-medium text-brand">
-          Browse the catalog
-        </Link>
+      <div className="space-y-4">
+        <h1 className="text-2xl font-semibold">Your cart</h1>
+        <EmptyState
+          title="Your cart is empty"
+          detail="Add something from the catalog."
+          action={<ButtonLink to="/">Browse the catalog</ButtonLink>}
+        />
       </div>
     );
   }
@@ -63,7 +64,7 @@ export function CartPage() {
           }}
         />
       ))}
-      <div className="flex items-center justify-between rounded-lg border border-line bg-surface p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
         <p>
           {cart.data.itemsCount} items from {cart.data.sellerCount}{' '}
           {cart.data.sellerCount === 1 ? 'seller' : 'sellers'}
@@ -71,9 +72,11 @@ export function CartPage() {
         <p className="text-lg font-semibold">
           Total: <Money cents={cart.data.totalCents} />
         </p>
-        <Link to="/checkout">
-          <Button disabled={blocked}>Proceed to checkout</Button>
-        </Link>
+        {blocked ? (
+          <Button disabled>Proceed to checkout</Button>
+        ) : (
+          <ButtonLink to="/checkout">Proceed to checkout</ButtonLink>
+        )}
       </div>
     </div>
   );

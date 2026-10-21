@@ -9,6 +9,7 @@ import { ErrorState } from '../../components/error-state';
 import { Input } from '../../components/input';
 import { Skeleton } from '../../components/skeleton';
 import { StatusBadge } from '../../components/status-badge';
+import { Textarea } from '../../components/textarea';
 import { fetchMyApplication, submitApplication } from '../../features/auth/api/auth-api';
 import { applicationSchema, type ApplicationValues } from '../../features/auth/auth-schemas';
 import { refreshSession } from '../../lib/api/api';
@@ -100,18 +101,13 @@ export function SellerApplicationPage() {
             error={form.formState.errors.storeName?.message}
             {...form.register('storeName')}
           />
-          <label className="flex flex-col gap-1 text-sm" htmlFor="description">
-            <span className="font-medium">Description</span>
-            <textarea
-              id="description"
-              rows={4}
-              className="rounded-md border border-line px-3 py-2 text-sm outline-none ring-brand focus:ring-2"
-              {...form.register('description')}
-            />
-            {form.formState.errors.description?.message !== undefined ? (
-              <span className="text-danger">{form.formState.errors.description.message}</span>
-            ) : null}
-          </label>
+          <Textarea
+            id="description"
+            label="Description"
+            error={form.formState.errors.description?.message}
+            rows={4}
+            {...form.register('description')}
+          />
           {submit.isError ? (
             <p role="alert" className="text-sm text-danger">
               {errorMessage(submit.error)}

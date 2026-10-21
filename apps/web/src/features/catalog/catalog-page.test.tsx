@@ -108,4 +108,19 @@ describe('CatalogPage', () => {
     expect(await screen.findByText('Could not load the catalog.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
+
+  it('lets a narrow screen show and hide the filters', async () => {
+    server.use(http.get('/api/catalog', () => HttpResponse.json(page())));
+    renderCatalog();
+    const toggle = await screen.findByRole('button', { name: 'Show filters' });
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+
+    expect(screen.getByRole('button', { name: 'Hide filters' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.getByRole('complementary', { name: 'Filters' })).not.toHaveClass('hidden');
+  });
 });

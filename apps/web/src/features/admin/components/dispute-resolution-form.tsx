@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button } from '../../../components/button';
 import { Money } from '../../../components/money';
 import { Select } from '../../../components/select';
+import { Textarea } from '../../../components/textarea';
 import type { SellerOrder } from '../../orders/orders-api';
 import { remainingQuantity } from '../../seller/refund';
 import type { ResolveBody } from '../admin-api';
@@ -125,19 +126,16 @@ export function DisputeResolutionForm({
         </>
       ) : null}
 
-      <label className="flex flex-col gap-1 text-sm" htmlFor="resolution-note">
-        <span className="font-medium">Note for both parties</span>
-        <textarea
-          id="resolution-note"
-          rows={3}
-          maxLength={NOTE_MAX_LENGTH}
-          className="rounded-md border border-line px-3 py-2 outline-none ring-brand focus:ring-2"
-          value={values.note}
-          onChange={(event) => {
-            setValues((current) => ({ ...current, note: event.target.value }));
-          }}
-        />
-      </label>
+      <Textarea
+        id="resolution-note"
+        label="Note for both parties"
+        rows={3}
+        maxLength={NOTE_MAX_LENGTH}
+        value={values.note}
+        onChange={(event) => {
+          setValues((current) => ({ ...current, note: event.target.value }));
+        }}
+      />
 
       {touched && problem !== null ? (
         <p role="alert" className="text-sm text-danger">

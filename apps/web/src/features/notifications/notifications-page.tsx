@@ -42,13 +42,18 @@ export function NotificationsPage() {
     );
   }
   if (notifications.data.total === 0) {
-    return <EmptyState title="No notifications" detail="Updates about your orders show up here." />;
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-semibold">Notifications</h1>
+        <EmptyState title="No notifications" detail="Updates about your orders show up here." />
+      </div>
+    );
   }
   const hasUnread = notifications.data.items.some((item) => item.readAt === null);
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Notifications</h1>
         <Button
           variant="secondary"

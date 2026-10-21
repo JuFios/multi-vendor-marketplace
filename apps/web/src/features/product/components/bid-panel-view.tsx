@@ -49,7 +49,7 @@ function BidForm({
 
   return (
     <form
-      className="flex items-start gap-2"
+      className="flex items-start gap-3"
       noValidate
       onSubmit={(event) => {
         onDismissError();

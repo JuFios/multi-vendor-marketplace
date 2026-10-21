@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { Button } from '../../../components/button';
 import { Modal } from '../../../components/modal';
 import { Select } from '../../../components/select';
+import { Textarea } from '../../../components/textarea';
 import { useToast } from '../../../components/toast-context';
 import { errorMessage } from '../../../lib/api/error-message';
 import { queryKeys } from '../../../lib/query-keys';
@@ -56,18 +57,13 @@ function ReviewForm({ productId, onClose }: { productId: string; onClose: () => 
           </option>
         ))}
       </Select>
-      <label className="flex flex-col gap-1 text-sm" htmlFor="review-text">
-        <span className="font-medium">Your review</span>
-        <textarea
-          id="review-text"
-          rows={4}
-          className="rounded-md border border-line px-3 py-2 outline-none ring-brand focus:ring-2"
-          {...form.register('text')}
-        />
-        {form.formState.errors.text?.message !== undefined ? (
-          <span className="text-danger">{form.formState.errors.text.message}</span>
-        ) : null}
-      </label>
+      <Textarea
+        id="review-text"
+        label="Your review"
+        error={form.formState.errors.text?.message}
+        rows={4}
+        {...form.register('text')}
+      />
       {submit.isError ? (
         <p role="alert" className="text-sm text-danger">
           {errorMessage(submit.error)}

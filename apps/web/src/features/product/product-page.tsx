@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router';
 
+import { Card } from '../../components/card';
 import { ErrorState } from '../../components/error-state';
 import { Money } from '../../components/money';
 import { RatingStars } from '../../components/product-card';
@@ -19,13 +20,15 @@ import { useLiveStock } from './use-live-stock';
 function FixedPriceBlock({ product }: { product: ProductDetails }) {
   const stock = useLiveStock(product.id, product.stock);
   return (
-    <div className="space-y-3">
-      <p className="text-2xl font-semibold">
-        {product.priceCents !== null ? <Money cents={product.priceCents} /> : '—'}
-      </p>
-      <StockIndicator stock={stock} />
+    <Card className="space-y-4">
+      <div className="space-y-1">
+        <p className="text-3xl font-semibold">
+          {product.priceCents !== null ? <Money cents={product.priceCents} /> : '—'}
+        </p>
+        <StockIndicator stock={stock} />
+      </div>
       <AddToCart productId={product.id} stock={stock} />
-    </div>
+    </Card>
   );
 }
 
@@ -72,7 +75,7 @@ export function ProductPage() {
           </div>
         )}
         <div className="space-y-4">
-          <div>
+          <div className="space-y-1">
             <h1 className="text-2xl font-semibold">{data.title}</h1>
             <p className="text-sm text-muted">
               {data.seller.storeName} · {data.category.name}

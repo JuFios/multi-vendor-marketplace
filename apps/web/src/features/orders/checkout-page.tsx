@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
-import { Button } from '../../components/button';
+import { Button, ButtonLink } from '../../components/button';
 import { EmptyState } from '../../components/empty-state';
 import { ErrorState } from '../../components/error-state';
 import { Money } from '../../components/money';
@@ -62,11 +62,13 @@ export function CheckoutPage() {
   }
   if (cart.data.groups.length === 0) {
     return (
-      <div className="space-y-3 text-center">
-        <EmptyState title="Nothing to check out" detail="Your cart is empty." />
-        <Link to="/" className="text-sm font-medium text-brand">
-          Browse the catalog
-        </Link>
+      <div className="space-y-4">
+        <h1 className="text-2xl font-semibold">Checkout</h1>
+        <EmptyState
+          title="Nothing to check out"
+          detail="Your cart is empty."
+          action={<ButtonLink to="/">Browse the catalog</ButtonLink>}
+        />
       </div>
     );
   }
