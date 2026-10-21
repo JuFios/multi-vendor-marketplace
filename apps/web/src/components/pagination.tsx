@@ -18,11 +18,7 @@ export function Pagination({ page, limit, total, onPageChange }: PaginationProps
         <Button variant="secondary" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
           Previous
         </Button>
-        <Button
-          variant="secondary"
-          disabled={page >= pages}
-          onClick={() => onPageChange(page + 1)}
-        >
+        <Button variant="secondary" disabled={page >= pages} onClick={() => onPageChange(page + 1)}>
           Next
         </Button>
       </div>

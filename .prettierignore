@@ -5,3 +5,4 @@ storybook-static
 package-lock.json
 openapi.json
 generated
+apps/web/src/lib/api/schema.d.ts

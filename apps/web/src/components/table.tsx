@@ -1,12 +1,6 @@
 import type { ReactNode } from 'react';
 
-export function Table({
-  headers,
-  children,
-}: {
-  headers: readonly string[];
-  children: ReactNode;
-}) {
+export function Table({ headers, children }: { headers: readonly string[]; children: ReactNode }) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-left text-sm">

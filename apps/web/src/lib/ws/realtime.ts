@@ -28,7 +28,10 @@ type ConnectListener = () => void;
 export class RealtimeClient {
   private socket: Socket | null = null;
   private status: ConnectionStatus = 'offline';
-  private readonly channels = new Map<string, { request: SubscribeRequest; handlers: Set<ChannelHandlers> }>();
+  private readonly channels = new Map<
+    string,
+    { request: SubscribeRequest; handlers: Set<ChannelHandlers> }
+  >();
   private readonly statusListeners = new Set<StatusListener>();
   private readonly connectListeners = new Set<ConnectListener>();
 
@@ -137,9 +140,9 @@ export class RealtimeClient {
     if (socket === null) {
       return;
     }
-    const ack = await socket
+    const ack = (await socket
       .timeout(8_000)
-      .emitWithAck(WS_CLIENT_MESSAGE.SUBSCRIBE, request) as SubscribeAck;
+      .emitWithAck(WS_CLIENT_MESSAGE.SUBSCRIBE, request)) as SubscribeAck;
     if (ack.ok) {
       handlers.onSnapshot(ack.snapshot.state);
     }
