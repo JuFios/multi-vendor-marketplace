@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "api:types": "openapi-typescript ../api/openapi.json -o src/lib/api/schema.d.ts",
+    "api:types": "openapi-typescript ../../docs/api/openapi.json -o src/lib/api/schema.d.ts && node -e \"const f='src/lib/api/schema.d.ts',fs=require('fs');fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace(/ \\* This file was [^\\n]*/,' * Types of the REST API, derived from docs/api/openapi.json.'))\"",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },

@@ -151,6 +151,7 @@ export class AuthController {
   })
   @ApiCookieAuth(REFRESH_COOKIE_AUTH)
   @ApiNoContentResponse()
+  @ApiErrorResponses(429, 500)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
     const token = refreshTokenOf(req);
     if (token !== undefined) {
@@ -162,6 +163,7 @@ export class AuthController {
   @Get('providers')
   @ApiOperation({ summary: 'Sign-in methods the frontend may offer.' })
   @ApiOkResponse({ type: ProvidersResponseDto })
+  @ApiErrorResponses(429, 500)
   providers(): ProvidersResponseDto {
     return { google: this.config.google !== null };
   }
