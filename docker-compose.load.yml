@@ -1,0 +1,36 @@
+# Load-test profile, layered on top of the full stack:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.load.yml up --build -d
+#   docker compose -f docker-compose.yml -f docker-compose.load.yml run --rm k6 run /load/bids.js
+#
+# It only lifts what would otherwise throttle the test itself. Production keeps the strict limits
+# from `.env.example`: a single load generator looks like one very busy client address.
+
+services:
+  api:
+    environment:
+      THROTTLE_DEFAULT_LIMIT: '1000000'
+      THROTTLE_DEFAULT_TTL: '60'
+      THROTTLE_LOGIN_LIMIT: '1000000'
+      THROTTLE_LOGIN_TTL: '60'
+      THROTTLE_REGISTER_LIMIT: '1000000'
+      THROTTLE_REGISTER_TTL: '60'
+      THROTTLE_REFRESH_LIMIT: '1000000'
+      THROTTLE_REFRESH_TTL: '60'
+      THROTTLE_BID_LIMIT: '1000000'
+      THROTTLE_BID_TTL: '10'
+      # Tokens are issued once up front and must outlive the whole run.
+      JWT_ACCESS_TTL_SEC: '3600'
+
+  k6:
+    image: grafana/k6:2.3.0
+    profiles: [load]
+    # Writes its summaries into the bind-mounted ./load/results.
+    user: '0:0'
+    environment:
+      API_URL: http://api:3000
+    volumes:
+      - ./load:/load
+    depends_on:
+      api:
+        condition: service_healthy

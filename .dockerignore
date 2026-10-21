@@ -9,6 +9,7 @@ apps/api/src/generated
 .github
 .env
 .env.*.local
+load/.tokens.json
 load/results
 **/.DS_Store
 **/*.log

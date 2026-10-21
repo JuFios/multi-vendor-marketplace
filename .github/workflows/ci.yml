@@ -48,6 +48,8 @@ jobs:
           hadolint/hadolint:v2.12.0 < apps/web/Dockerfile
       - name: docker compose config
         run: docker compose config -q
+      - name: docker compose config (load profile)
+        run: docker compose -f docker-compose.yml -f docker-compose.load.yml config -q
       - name: yamllint
         run: docker run --rm -v "$PWD":/code -w /code pipelinecomponents/yamllint:0.35.0 yamllint -s -c .yamllint.yml .
 
