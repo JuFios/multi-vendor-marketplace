@@ -20,12 +20,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { ForbiddenError } from '../../common/exceptions/app-error';
 import { ParseUuidPipe } from '../../common/pipes/parse-uuid.pipe';
 import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
 import { BEARER_AUTH } from '../../common/swagger/openapi';
-import type { AuthUser } from '../auth/auth-user';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CurrentSellerId } from '../auth/decorators/current-seller-id.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { SellerGuard } from '../sellers/seller.guard';
 
@@ -35,14 +33,6 @@ import { SellerProductPageDto, SellerProductResponseDto } from './dto/seller-pro
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateStockDto } from './dto/update-stock.dto';
 import { ProductsService } from './products.service';
-
-/** The store id of an approved seller; `SellerGuard` has already checked the store. */
-function sellerIdOf(user: AuthUser): string {
-  if (user.sellerId === undefined) {
-    throw new ForbiddenError('Only approved sellers can do this', 'SELLER_NOT_APPROVED');
-  }
-  return user.sellerId;
-}
 
 @ApiTags('seller-products')
 @ApiBearerAuth(BEARER_AUTH)
@@ -57,10 +47,10 @@ export class SellerProductsController {
   @ApiOkResponse({ type: SellerProductPageDto })
   @ApiErrorResponses(400, 401, 403)
   async list(
-    @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Query() query: ListOwnedProductsQueryDto,
   ): Promise<SellerProductPageDto> {
-    const { items, total } = await this.products.listOwned(sellerIdOf(user), query);
+    const { items, total } = await this.products.listOwned(sellerId, query);
     return {
       items: items.map((item) => SellerProductResponseDto.from(item)),
       total,
@@ -74,10 +64,9 @@ export class SellerProductsController {
   @ApiCreatedResponse({ type: SellerProductResponseDto })
   @ApiErrorResponses(400, 401, 403)
   async create(
-    @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Body() dto: CreateProductDto,
   ): Promise<SellerProductResponseDto> {
-    const sellerId = sellerIdOf(user);
     const text = {
       categoryId: dto.categoryId,
       title: dto.title,
@@ -106,10 +95,10 @@ export class SellerProductsController {
   @ApiOkResponse({ type: SellerProductResponseDto })
   @ApiErrorResponses(400, 401, 403, 404)
   async get(
-    @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Param('id', ParseUuidPipe) id: string,
   ): Promise<SellerProductResponseDto> {
-    return SellerProductResponseDto.from(await this.products.getOwned(sellerIdOf(user), id));
+    return SellerProductResponseDto.from(await this.products.getOwned(sellerId, id));
   }
 
   @Patch(':id')
@@ -117,11 +106,11 @@ export class SellerProductsController {
   @ApiOkResponse({ type: SellerProductResponseDto })
   @ApiErrorResponses(400, 401, 403, 404)
   async update(
-    @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Param('id', ParseUuidPipe) id: string,
     @Body() dto: UpdateProductDto,
   ): Promise<SellerProductResponseDto> {
-    return SellerProductResponseDto.from(await this.products.update(sellerIdOf(user), id, dto));
+    return SellerProductResponseDto.from(await this.products.update(sellerId, id, dto));
   }
 
   @Patch(':id/stock')
@@ -129,13 +118,11 @@ export class SellerProductsController {
   @ApiOkResponse({ type: SellerProductResponseDto })
   @ApiErrorResponses(400, 401, 403, 404)
   async setStock(
-    @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Param('id', ParseUuidPipe) id: string,
     @Body() dto: UpdateStockDto,
   ): Promise<SellerProductResponseDto> {
-    return SellerProductResponseDto.from(
-      await this.products.setStock(sellerIdOf(user), id, dto.stock),
-    );
+    return SellerProductResponseDto.from(await this.products.setStock(sellerId, id, dto.stock));
   }
 
   @Delete(':id')
@@ -144,9 +131,9 @@ export class SellerProductsController {
   @ApiNoContentResponse()
   @ApiErrorResponses(400, 401, 403, 404)
   async archive(
-    @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Param('id', ParseUuidPipe) id: string,
   ): Promise<void> {
-    await this.products.archive(sellerIdOf(user), id);
+    await this.products.archive(sellerId, id);
   }
 }

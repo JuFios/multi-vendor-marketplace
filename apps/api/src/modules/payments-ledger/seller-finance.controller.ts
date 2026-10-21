@@ -1,11 +1,9 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { ForbiddenError } from '../../common/exceptions/app-error';
 import { ApiErrorResponses } from '../../common/swagger/api-error-responses.decorator';
 import { BEARER_AUTH } from '../../common/swagger/openapi';
-import type { AuthUser } from '../auth/auth-user';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CurrentSellerId } from '../auth/decorators/current-seller-id.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { SellerGuard } from '../sellers/seller.guard';
 
@@ -26,12 +24,9 @@ export class SellerFinanceController {
   @ApiOkResponse({ type: FinanceSummaryDto })
   @ApiErrorResponses(400, 401, 403)
   summary(
-    @CurrentUser() user: AuthUser,
+    @CurrentSellerId() sellerId: string,
     @Query() query: LedgerRangeQueryDto,
   ): Promise<FinanceSummaryDto> {
-    if (user.sellerId === undefined) {
-      throw new ForbiddenError('Only approved sellers can do this', 'SELLER_NOT_APPROVED');
-    }
-    return this.ledger.summaryOf(user.sellerId, query);
+    return this.ledger.summaryOf(sellerId, query);
   }
 }
