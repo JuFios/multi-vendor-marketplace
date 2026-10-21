@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { Button } from '../../components/button';
@@ -105,7 +105,7 @@ function ProductForm({ product }: { product?: SellerProduct }) {
     resolver: zodResolver(schema),
     defaultValues: editing ? valuesOf(product) : EMPTY_PRODUCT_FORM,
   });
-  const type = form.watch('type');
+  const type = useWatch({ control: form.control, name: 'type' });
   const errors = form.formState.errors;
 
   const save = useMutation({

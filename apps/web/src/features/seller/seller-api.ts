@@ -1,4 +1,5 @@
 import { api, unwrap } from '../../lib/api/api';
+import { parseApiError } from '../../lib/api/errors';
 import type { components } from '../../lib/api/schema';
 
 export type SellerProduct = components['schemas']['SellerProductResponseDto'];
@@ -51,7 +52,6 @@ export async function archiveProduct(id: string): Promise<void> {
     params: { path: { id } },
   });
   if (!response.ok) {
-    const { parseApiError } = await import('../../lib/api/errors');
     throw parseApiError(response.status, error);
   }
 }
