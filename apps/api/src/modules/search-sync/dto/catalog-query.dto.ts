@@ -90,7 +90,7 @@ export class CatalogQueryDto implements CatalogQuery {
   @IsEnum(CATALOG_SORTS)
   sort: CatalogSort = 'relevance';
 
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ type: Number, minimum: 1, default: 1 })
   @Type(() => Number)
   @IsInt()
   @Min(1)

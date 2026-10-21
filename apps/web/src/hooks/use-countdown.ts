@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 
-export function remainingMs(endsAt: string, serverTime: string, now = Date.now()): number {
-  const offset = Date.parse(serverTime) - now;
-  return Date.parse(endsAt) - (now + offset);
+/** Time left by the server's clock: `serverTime` was read `elapsedMs` ago on this device. */
+export function remainingMs(endsAt: string, serverTime: string, elapsedMs: number): number {
+  return Date.parse(endsAt) - (Date.parse(serverTime) + elapsedMs);
 }
 
 export function formatCountdown(ms: number): string {
@@ -23,8 +23,9 @@ export function useCountdown(endsAt: string | undefined, serverTime: string | un
     if (endsAt === undefined || serverTime === undefined) {
       return;
     }
+    const receivedAt = Date.now();
     const tick = () => {
-      setLabel(formatCountdown(remainingMs(endsAt, serverTime)));
+      setLabel(formatCountdown(remainingMs(endsAt, serverTime, Date.now() - receivedAt)));
     };
     tick();
     const timer = window.setInterval(tick, 1000);

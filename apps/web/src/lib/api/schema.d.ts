@@ -1540,7 +1540,6 @@ export interface components {
             page: number;
             limit: number;
         };
-        Object: Record<string, never>;
         IdNameDto: {
             /** Format: uuid */
             id: string;
@@ -2553,6 +2552,7 @@ export interface operations {
     AdminSellerApplicationsController_list: {
         parameters: {
             query?: {
+                page?: number;
                 status?: "PENDING" | "APPROVED" | "REJECTED";
             };
             header?: never;
@@ -2993,6 +2993,7 @@ export interface operations {
     SellerProductsController_list: {
         parameters: {
             query?: {
+                page?: number;
                 categoryId?: string;
                 moderationStatus?: "PENDING" | "APPROVED" | "REJECTED";
                 type?: "FIXED_PRICE" | "AUCTION";
@@ -3444,6 +3445,7 @@ export interface operations {
     AdminProductsController_list: {
         parameters: {
             query?: {
+                page?: number;
                 status?: "PENDING" | "APPROVED" | "REJECTED";
             };
             header?: never;
@@ -3667,6 +3669,7 @@ export interface operations {
     AuctionsController_listBids: {
         parameters: {
             query?: {
+                page?: number;
                 /** @description Defaults to the current round. */
                 round?: number;
             };
@@ -3790,7 +3793,9 @@ export interface operations {
     };
     SellerAuctionsController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3849,7 +3854,7 @@ export interface operations {
                 inStock?: boolean;
                 type?: "FIXED_PRICE" | "AUCTION";
                 sort?: "relevance" | "price_asc" | "price_desc" | "rating_desc" | "newest";
-                page?: components["schemas"]["Object"];
+                page?: number;
                 limit?: number;
             };
             header?: never;
@@ -4175,6 +4180,7 @@ export interface operations {
     AdminLedgerController_list: {
         parameters: {
             query?: {
+                page?: number;
                 /** @description Only this store’s entries. */
                 sellerId?: string;
                 /** @description ISO 8601, inclusive. */
@@ -4285,7 +4291,9 @@ export interface operations {
     };
     OrdersController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4487,6 +4495,7 @@ export interface operations {
     SellerOrdersController_list: {
         parameters: {
             query?: {
+                page?: number;
                 status?: "NEW" | "PROCESSING" | "SHIPPED" | "COMPLETED" | "CANCELLED";
             };
             header?: never;
@@ -4814,6 +4823,7 @@ export interface operations {
     AdminOrdersController_list: {
         parameters: {
             query?: {
+                page?: number;
                 status?: "NEW" | "PROCESSING" | "PARTIALLY_SHIPPED" | "SHIPPED" | "COMPLETED" | "CANCELLED";
             };
             header?: never;
@@ -5059,6 +5069,7 @@ export interface operations {
     NotificationsController_list: {
         parameters: {
             query?: {
+                page?: number;
                 /** @description Only notifications created after this moment: what a client missed while it was offline. */
                 after?: string;
             };
@@ -5202,7 +5213,9 @@ export interface operations {
     };
     ReviewsController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+            };
             header?: never;
             path: {
                 id: string;
@@ -5359,7 +5372,9 @@ export interface operations {
     };
     DisputesController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5565,6 +5580,7 @@ export interface operations {
     AdminDisputesController_list: {
         parameters: {
             query?: {
+                page?: number;
                 status?: "OPEN" | "UNDER_REVIEW" | "RESOLVED_BUYER_FAVOR" | "RESOLVED_SELLER_FAVOR";
             };
             header?: never;
