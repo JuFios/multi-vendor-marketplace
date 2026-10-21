@@ -105,6 +105,13 @@ describe('MeiliSearchAdapter (e2e)', () => {
     expect(result.items[0]?.priceCents).toBe(200);
   });
 
+  it('fails a write that Meilisearch did not apply, so the queue retries it', async () => {
+    // Meilisearch accepts the task and then fails it: the id has a character it does not allow.
+    await expect(search.upsert([document('not a valid id!')])).rejects.toThrow(
+      /indexing products failed \(failed\)/,
+    );
+  });
+
   it('removes documents', async () => {
     await search.upsert([document('1'), document('2')]);
 

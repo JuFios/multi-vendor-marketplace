@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
-import { Meilisearch, type Index } from 'meilisearch';
+import { Meilisearch, type Index, type Task } from 'meilisearch';
 
 import { withTimeout } from '../common/utils/with-timeout';
 import { searchConfig } from '../config/search.config';
@@ -43,6 +43,16 @@ const SETTINGS = {
   pagination: { maxTotalHits: MAX_TOTAL_HITS },
   faceting: { maxValuesPerFacet: MAX_FACET_VALUES },
 } as const;
+
+/**
+ * `waitTask` resolves with the finished task even when Meilisearch failed or cancelled it. A
+ * write that did not apply must fail the job, so the queue retries it and the redrive sees it.
+ */
+function assertSucceeded(task: Task, action: string): void {
+  if (task.status !== 'succeeded') {
+    throw new Error(`${action} failed (${task.status}): ${task.error?.message ?? 'unknown'}`);
+  }
+}
 
 const toFacetCounts = (distribution: Record<string, number> | undefined): FacetCount[] =>
   Object.entries(distribution ?? {}).map(([value, count]) => ({ value, count }));
@@ -104,9 +114,10 @@ export class MeiliSearchAdapter implements SearchPort {
       return;
     }
     await this.ensureIndex();
-    await this.index()
+    const task = await this.index()
       .addDocuments([...documents])
       .waitTask({ timeout: TASK_TIMEOUT_MS });
+    assertSucceeded(task, 'indexing products');
   }
 
   async remove(ids: readonly string[]): Promise<void> {
@@ -114,14 +125,16 @@ export class MeiliSearchAdapter implements SearchPort {
       return;
     }
     await this.ensureIndex();
-    await this.index()
+    const task = await this.index()
       .deleteDocuments([...ids])
       .waitTask({ timeout: TASK_TIMEOUT_MS });
+    assertSucceeded(task, 'removing products from the index');
   }
 
   async clear(): Promise<void> {
     await this.ensureIndex();
-    await this.index().deleteAllDocuments().waitTask({ timeout: TASK_TIMEOUT_MS });
+    const task = await this.index().deleteAllDocuments().waitTask({ timeout: TASK_TIMEOUT_MS });
+    assertSucceeded(task, 'clearing the index');
   }
 
   async countDocuments(): Promise<number> {
