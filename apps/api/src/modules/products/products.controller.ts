@@ -30,17 +30,15 @@ export class ProductsController {
   @ApiOperation({ summary: 'Current stock snapshot, never cached.' })
   @ApiOkResponse({ type: ProductStockResponseDto })
   @ApiErrorResponses(400, 404)
-  async getStock(@Param('id', ParseUuidPipe) id: string): Promise<ProductStockResponseDto> {
-    return ProductStockResponseDto.from(await this.products.getPublicStock(id));
+  getStock(@Param('id', ParseUuidPipe) id: string): Promise<ProductStockResponseDto> {
+    return this.products.getPublicAvailability(id);
   }
 
   @Get(':id/similar')
-  @ApiOperation({ summary: 'Up to 8 other in-stock products of the same category.' })
+  @ApiOperation({ summary: 'Up to 8 other available products of the same category.' })
   @ApiOkResponse({ type: [ProductSummaryResponseDto] })
   @ApiErrorResponses(400, 404)
-  async getSimilar(@Param('id', ParseUuidPipe) id: string): Promise<ProductSummaryResponseDto[]> {
-    return (await this.products.getSimilar(id)).map((product) =>
-      ProductSummaryResponseDto.from(product),
-    );
+  getSimilar(@Param('id', ParseUuidPipe) id: string): Promise<ProductSummaryResponseDto[]> {
+    return this.products.getSimilar(id);
   }
 }

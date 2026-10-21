@@ -154,17 +154,16 @@ describe('Realtime pushes (e2e)', () => {
     expect(ship.status).toBe(200);
     await flushEvents();
 
-    // A seller order change reaches the buyer twice: with the seller order and as the aggregate.
+    // The aggregate reaches the buyer once, from order.status_changed, at the order's version.
     const forBuyer = await buyerSocket.waitForEvent<OrderStatusPayload>(
       'order.status',
       5000,
-      (payload) => payload.sellerOrderId !== undefined,
+      (payload) => payload.status === 'PROCESSING',
     );
     expect(forBuyer).toMatchObject({
       orderId: order.id,
       status: 'PROCESSING',
-      sellerOrderId: order.sellerOrders[0]?.id,
-      sellerOrderStatus: 'PROCESSING',
+      hasCancelledParts: false,
     });
     const forStore =
       await sellerSocket.waitForEvent<SellerOrderStatusPayload>('sellerOrder.status');

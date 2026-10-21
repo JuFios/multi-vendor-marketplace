@@ -10,6 +10,14 @@ export type CatalogSort = (typeof CATALOG_SORTS)[number];
 export const CATALOG_PRODUCT_TYPES = ['FIXED_PRICE', 'AUCTION'] as const;
 export type CatalogProductType = (typeof CATALOG_PRODUCT_TYPES)[number];
 
+export const CATALOG_AUCTION_STATUSES = [
+  'ACTIVE',
+  'SOLD_TO_WINNER',
+  'ORDERED',
+  'NOT_SOLD',
+] as const;
+export type CatalogAuctionStatus = (typeof CATALOG_AUCTION_STATUSES)[number];
+
 export const CATALOG_MAX_LIMIT = 50;
 export const CATALOG_DEFAULT_LIMIT = 20;
 
@@ -46,6 +54,16 @@ export interface CatalogDocument {
   readonly createdAt: number;
   readonly imageUrl: string | null;
   readonly version: number;
+  readonly auctionId: string | null;
+  readonly auctionStatus: CatalogAuctionStatus | null;
+  readonly auctionEndsAt: number | null;
+}
+
+/** The lot behind an auction product, as far as the catalog is concerned. */
+export interface IndexableAuction {
+  readonly id: string;
+  readonly status: CatalogAuctionStatus;
+  readonly endsAt: Date;
 }
 
 /** A product read from the database, with the names the index denormalizes into the document. */
@@ -58,13 +76,17 @@ export interface IndexableProduct {
   readonly sellerId: string;
   readonly sellerName: string;
   readonly type: CatalogProductType;
+  /** What a buyer pays: the price of a fixed-price product, the going bid of a lot. */
   readonly priceCents: number | null;
   readonly ratingAvg: number;
   readonly ratingCount: number;
+  /** Whether a buyer can still get it: units left, or for a lot a round that takes bids. */
+  readonly inStock: boolean;
   readonly stock: number;
   readonly images: readonly string[];
   readonly createdAt: Date;
   readonly version: number;
+  readonly auction: IndexableAuction | null;
 }
 
 export function toCatalogDocument(product: IndexableProduct): CatalogDocument {
@@ -80,11 +102,14 @@ export function toCatalogDocument(product: IndexableProduct): CatalogDocument {
     priceCents: product.priceCents,
     ratingAvg: product.ratingAvg,
     ratingCount: product.ratingCount,
-    inStock: product.stock > 0,
+    inStock: product.inStock,
     stock: product.stock,
     createdAt: product.createdAt.getTime(),
     imageUrl: product.images[0] ?? null,
     version: product.version,
+    auctionId: product.auction?.id ?? null,
+    auctionStatus: product.auction?.status ?? null,
+    auctionEndsAt: product.auction?.endsAt.getTime() ?? null,
   };
 }
 
@@ -103,6 +128,10 @@ export interface CatalogItem {
   readonly categoryName: string;
   readonly sellerId: string;
   readonly sellerName: string;
+  /** Null for a fixed-price product; the id a bid or an `auction:{id}` subscription needs. */
+  readonly auctionId: string | null;
+  readonly auctionStatus: CatalogAuctionStatus | null;
+  readonly auctionEndsAt: string | null;
 }
 
 export function toCatalogItem(document: CatalogDocument): CatalogItem {
@@ -120,6 +149,10 @@ export function toCatalogItem(document: CatalogDocument): CatalogItem {
     categoryName: document.categoryName,
     sellerId: document.sellerId,
     sellerName: document.sellerName,
+    auctionId: document.auctionId,
+    auctionStatus: document.auctionStatus,
+    auctionEndsAt:
+      document.auctionEndsAt === null ? null : new Date(document.auctionEndsAt).toISOString(),
   };
 }
 

@@ -204,4 +204,37 @@ describe('HTTP hardening and rate limiting (e2e)', () => {
       }
     });
   });
+
+  describe('while the rate-limit storage is unreachable', () => {
+    let degraded: NestExpressApplication;
+
+    beforeAll(async () => {
+      degraded = await createTestApp(
+        [
+          {
+            token: REDIS_CLIENT,
+            // `status` keeps the shutdown hook from quitting a connection that is not there.
+            useValue: {
+              status: 'end',
+              eval: () => Promise.reject(new Error('ECONNREFUSED')),
+            },
+          },
+        ],
+        { imports: [ProbeModule], worker: false },
+      );
+    });
+
+    afterAll(async () => {
+      await degraded.close();
+    });
+
+    it('keeps serving rate-limited routes instead of failing every request', async () => {
+      for (let i = 0; i < 3; i += 1) {
+        await request(degraded.getHttpServer() as App)
+          .get('/api/probe/login')
+          .set(asClient('10.0.5.1'))
+          .expect(200);
+      }
+    });
+  });
 });

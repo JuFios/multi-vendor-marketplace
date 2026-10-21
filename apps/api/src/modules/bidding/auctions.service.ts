@@ -5,7 +5,7 @@ import { EVENT_TYPE } from '../../outbox/events/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 import type { AppTransactionHost } from '../../prisma/transaction';
 
-import { type AuctionRecord, isAllowedDuration } from './auction';
+import { type AuctionRecord, isAllowedDuration, type LotListing, lotListingOf } from './auction';
 import { AuctionsRepository } from './auctions.repository';
 import {
   AuctionEndsAtOutOfRangeError,
@@ -118,6 +118,12 @@ export class AuctionsService {
   /** The auctions of the given products, each read together with the database clock. */
   findByProductIds(productIds: readonly string[]): Promise<AuctionRecord[]> {
     return this.auctions.findByProductIds(productIds);
+  }
+
+  /** How the catalog shows each of the given lots, by product id. */
+  async findListings(productIds: readonly string[]): Promise<Map<string, LotListing>> {
+    const auctions = await this.auctions.findByProductIds(productIds);
+    return new Map(auctions.map((auction) => [auction.productId, lotListingOf(auction)]));
   }
 
   /**

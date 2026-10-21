@@ -1,5 +1,7 @@
+import type { EventPayloads } from '../../outbox/events/event-types';
 import type { AuctionStatus } from '../bidding/auction';
 import type { OrderStatusValue, SellerOrderStatusValue } from '../orders/order-status';
+import type { PaymentStatusValue } from '../orders/seller-order-state-machine';
 
 /** Socket.IO namespace every realtime connection joins. */
 export const WS_NAMESPACE = '/realtime';
@@ -10,13 +12,19 @@ export const WS_CLIENT_MESSAGE = {
   UNSUBSCRIBE: 'unsubscribe',
 } as const;
 
-/** Events the server pushes. Every one except `notification` carries a `version`. */
+/**
+ * Events the server pushes. The ones that mirror state a client merges carry a `version`;
+ * `refund.created` and `sellerOrder.cancelled` are append-only notices and carry ids instead.
+ */
 export const WS_EVENT = {
   PRODUCT_STOCK: 'product.stock',
   AUCTION_STATE: 'auction.state',
   ORDER_STATUS: 'order.status',
   SELLER_ORDER_CREATED: 'sellerOrder.created',
   SELLER_ORDER_STATUS: 'sellerOrder.status',
+  SELLER_ORDER_PAYMENT: 'sellerOrder.payment',
+  SELLER_ORDER_CANCELLED: 'sellerOrder.cancelled',
+  REFUND_CREATED: 'refund.created',
   NOTIFICATION: 'notification',
 } as const;
 
@@ -61,16 +69,13 @@ export interface AuctionStatePayload {
 }
 
 /**
- * Status of an order for its customer. With `sellerOrderId` the change comes from that seller
- * order and `version` is the seller order's, otherwise it is the order's own: a client keeps
- * the latest version per `sellerOrderId ?? orderId`.
+ * Status of an order for its customer; `version` is the order's own, so a client keeps the
+ * latest push per order and ignores the rest.
  */
 export interface OrderStatusPayload {
   readonly orderId: string;
   readonly status: OrderStatusValue;
   readonly hasCancelledParts: boolean;
-  readonly sellerOrderId?: string;
-  readonly sellerOrderStatus?: SellerOrderStatusValue;
   readonly version: number;
   readonly correlationId?: string | null;
 }
@@ -90,6 +95,34 @@ export interface SellerOrderStatusPayload {
   readonly orderId: string;
   readonly status: SellerOrderStatusValue;
   readonly version: number;
+  readonly correlationId?: string | null;
+}
+
+/** Payment outcome of a seller order; `version` is the seller order's. */
+export interface SellerOrderPaymentPayload {
+  readonly sellerOrderId: string;
+  readonly orderId: string;
+  readonly paymentStatus: PaymentStatusValue;
+  readonly version: number;
+  readonly correlationId?: string | null;
+}
+
+/** A seller order was cancelled: the reason and the stock that came back. */
+export interface SellerOrderCancelledPayload {
+  readonly sellerOrderId: string;
+  readonly orderId: string;
+  readonly reason: string;
+  readonly actorType: EventPayloads['seller_order.cancelled']['actorType'];
+  readonly restocked: readonly { readonly productId: string; readonly quantity: number }[];
+  readonly correlationId?: string | null;
+}
+
+/** Money returned for a seller order; the ids let a client refresh its refund list. */
+export interface RefundCreatedPayload {
+  readonly refundIds: readonly string[];
+  readonly sellerOrderId: string;
+  readonly orderId: string;
+  readonly amountCents: number;
   readonly correlationId?: string | null;
 }
 

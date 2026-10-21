@@ -4,6 +4,7 @@ import type {
   DisputeStatus,
   ModerationStatus,
   OrderStatus,
+  PaymentStatus,
   SellerOrderStatus,
 } from '../../generated/prisma/client';
 
@@ -26,6 +27,7 @@ export const EVENT_TYPE = {
   SELLER_ORDER_CREATED: 'seller_order.created',
   PAYMENT_CAPTURED: 'payment.captured',
   PAYMENT_FAILED: 'payment.failed',
+  SELLER_ORDER_PAYMENT_CHANGED: 'seller_order.payment_changed',
   SELLER_ORDER_STATUS_CHANGED: 'seller_order.status_changed',
   SELLER_ORDER_CANCELLED: 'seller_order.cancelled',
   ORDER_STATUS_CHANGED: 'order.status_changed',
@@ -109,6 +111,14 @@ export interface EventPayloads {
   };
   [EVENT_TYPE.PAYMENT_CAPTURED]: { sellerOrderId: string; paymentAttemptId: string };
   [EVENT_TYPE.PAYMENT_FAILED]: { sellerOrderId: string; reason: string };
+  [EVENT_TYPE.SELLER_ORDER_PAYMENT_CHANGED]: {
+    sellerOrderId: string;
+    orderId: string;
+    sellerId: string;
+    customerId: string;
+    paymentStatus: PaymentStatus;
+    version: number;
+  };
   [EVENT_TYPE.SELLER_ORDER_STATUS_CHANGED]: {
     sellerOrderId: string;
     orderId: string;

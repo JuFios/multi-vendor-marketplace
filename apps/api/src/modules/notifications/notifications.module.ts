@@ -23,6 +23,6 @@ import { RedisRealtimePublisher } from './redis-realtime-publisher.service';
     RealtimeService,
     { provide: REALTIME_PUBLISHER, useClass: RedisRealtimePublisher },
   ],
-  exports: [NotificationsService, RealtimeService],
+  exports: [NotificationsService, RealtimeService, REALTIME_PUBLISHER],
 })
 export class NotificationsModule {}

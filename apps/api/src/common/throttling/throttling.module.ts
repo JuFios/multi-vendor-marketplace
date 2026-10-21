@@ -7,9 +7,12 @@ import {
   type ThrottlerModuleOptions,
   type ThrottlerOptions,
 } from '@nestjs/throttler';
+import type { Counter } from '@prometheus-io/client';
+import { getToken } from '@willsoto/nestjs-prometheus';
 import type { Redis } from 'ioredis';
 
 import { throttleConfig, type ThrottleRule } from '../../config/throttle.config';
+import { THROTTLE_STORAGE_FAILURES_TOTAL } from '../../metrics/metrics.constants';
 import { REDIS_CLIENT } from '../../redis/redis.constants';
 
 import { rateLimitMetadataKey } from './rate-limit.decorator';
@@ -60,12 +63,13 @@ function optInThrottler(
 @Module({
   imports: [
     ThrottlerModule.forRootAsync({
-      inject: [throttleConfig.KEY, REDIS_CLIENT],
+      inject: [throttleConfig.KEY, REDIS_CLIENT, getToken(THROTTLE_STORAGE_FAILURES_TOTAL)],
       useFactory: (
         config: ConfigType<typeof throttleConfig>,
         redis: Redis,
+        failures: Counter<string>,
       ): ThrottlerModuleOptions => ({
-        storage: new RedisThrottlerStorage(redis),
+        storage: new RedisThrottlerStorage(redis, failures),
         throttlers: [
           { name: THROTTLER.DEFAULT, limit: config.default.limit, ttl: config.default.ttlMs },
           optInThrottler(THROTTLER.LOGIN, config.login),

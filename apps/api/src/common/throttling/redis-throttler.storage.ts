@@ -1,4 +1,6 @@
+import { Logger } from '@nestjs/common';
 import type { ThrottlerStorage } from '@nestjs/throttler';
+import type { Counter } from '@prometheus-io/client';
 import type { Redis } from 'ioredis';
 
 const KEY_PREFIX = 'throttle:';
@@ -29,7 +31,12 @@ const toSeconds = (ms: number): number => Math.ceil(ms / 1000);
 
 /** Shared by every api instance, so limits hold regardless of which one serves the request. */
 export class RedisThrottlerStorage implements ThrottlerStorage {
-  constructor(private readonly redis: Redis) {}
+  private readonly logger = new Logger(RedisThrottlerStorage.name);
+
+  constructor(
+    private readonly redis: Redis,
+    private readonly failures: Counter<string>,
+  ) {}
 
   async increment(
     key: string,
@@ -39,21 +46,38 @@ export class RedisThrottlerStorage implements ThrottlerStorage {
     throttlerName: string,
   ): Promise<ThrottlerStorageRecord> {
     const base = `${KEY_PREFIX}${throttlerName}:${key}`;
-    const [totalHits, ttlMs, blocked, blockTtlMs] = (await this.redis.eval(
-      HIT_SCRIPT,
-      2,
-      base,
-      `${base}:block`,
-      ttl,
-      limit,
-      blockDuration,
-    )) as HitResult;
+    try {
+      const [totalHits, ttlMs, blocked, blockTtlMs] = (await this.redis.eval(
+        HIT_SCRIPT,
+        2,
+        base,
+        `${base}:block`,
+        ttl,
+        limit,
+        blockDuration,
+      )) as HitResult;
 
-    return {
-      totalHits,
-      timeToExpire: toSeconds(ttlMs),
-      isBlocked: blocked === 1,
-      timeToBlockExpire: toSeconds(blockTtlMs),
-    };
+      return {
+        totalHits,
+        timeToExpire: toSeconds(ttlMs),
+        isBlocked: blocked === 1,
+        timeToBlockExpire: toSeconds(blockTtlMs),
+      };
+    } catch (error) {
+      // Fail open: the limiter protects the API, it must not take it down with its storage.
+      // The counter keeps the blind spot visible while Redis is unreachable.
+      this.failures.inc();
+      this.logger.error({
+        msg: 'throttle.storage_failed',
+        throttler: throttlerName,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return {
+        totalHits: 1,
+        timeToExpire: toSeconds(ttl),
+        isBlocked: false,
+        timeToBlockExpire: 0,
+      };
+    }
   }
 }

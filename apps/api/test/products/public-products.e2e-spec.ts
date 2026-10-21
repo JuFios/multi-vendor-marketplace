@@ -5,7 +5,7 @@ import { Prisma } from '../../src/generated/prisma/client';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { bearerFor } from '../utils/auth';
 import { resetDb } from '../utils/db';
-import { createCategory, createProduct, createSeller } from '../utils/factories';
+import { createAuction, createCategory, createProduct, createSeller } from '../utils/factories';
 import { createTestApp } from '../utils/test-app';
 
 interface StockBody {
@@ -16,6 +16,9 @@ interface StockBody {
 
 interface SummaryBody {
   id: string;
+  type: string;
+  priceCents: number | null;
+  inStock: boolean;
 }
 
 describe('Public products (e2e)', () => {
@@ -124,6 +127,71 @@ describe('Public products (e2e)', () => {
       expect(response.body).toMatchObject({ priceCents: 7_500, version: 1 });
     });
 
+    it('shows a lot at its going bid with the auction behind it, even through the page cache', async () => {
+      const { seller } = await createSeller(prisma);
+      const category = await createCategory(prisma);
+      const product = await createProduct(prisma, {
+        sellerId: seller.id,
+        categoryId: category.id,
+        type: 'AUCTION',
+        priceCents: null,
+        stock: 1,
+      });
+      const auction = await createAuction(prisma, {
+        productId: product.id,
+        startPriceCents: 10_000,
+      });
+
+      const first = await http().get(`/api/products/${product.id}`).expect(200);
+      expect(first.body).toMatchObject({
+        type: 'AUCTION',
+        priceCents: 10_000,
+        inStock: true,
+        auction: {
+          id: auction.id,
+          status: 'ACTIVE',
+          priceCents: 10_000,
+          endsAt: auction.endsAt.toISOString(),
+          open: true,
+        },
+      });
+
+      await prisma.auction.update({
+        where: { id: auction.id },
+        data: { currentPriceCents: 12_000, bidCount: 1, version: 1 },
+      });
+
+      const second = await http().get(`/api/products/${product.id}`).expect(200);
+      expect(second.body).toMatchObject({
+        priceCents: 12_000,
+        auction: { priceCents: 12_000, open: true },
+      });
+    });
+
+    it('shows a lot that no longer takes bids as out of stock, on the page and in the snapshot', async () => {
+      const product = await createProduct(prisma, {
+        type: 'AUCTION',
+        priceCents: null,
+        stock: 1,
+      });
+      const auction = await createAuction(prisma, {
+        productId: product.id,
+        currentPriceCents: 12_000,
+      });
+      await http().get(`/api/products/${product.id}`).expect(200);
+      await prisma.auction.update({ where: { id: auction.id }, data: { status: 'ORDERED' } });
+
+      const details = await http().get(`/api/products/${product.id}`).expect(200);
+      const stock = await http().get(`/api/products/${product.id}/stock`).expect(200);
+
+      expect(details.body).toMatchObject({
+        priceCents: 12_000,
+        inStock: false,
+        auction: { status: 'ORDERED', open: false },
+      });
+      expect(stock.body).toMatchObject({ stock: 1, inStock: false });
+    });
+
     it('shows the new stock right after the seller changes it, and drops archived products', async () => {
       const { user, seller } = await createSeller(prisma);
       const product = await createProduct(prisma, { sellerId: seller.id, stock: 10 });
@@ -185,6 +253,44 @@ describe('Public products (e2e)', () => {
       expect(ids).toHaveLength(8);
       expect(ids).not.toContain(product.id);
       expect(ids.every((id) => similar.some((item) => item.id === id))).toBe(true);
+    });
+
+    it('offers a lot of the same category only while it takes bids, at its going bid', async () => {
+      const category = await createCategory(prisma);
+      const product = await createProduct(prisma, { categoryId: category.id });
+      const liveProduct = await createProduct(prisma, {
+        categoryId: category.id,
+        type: 'AUCTION',
+        priceCents: null,
+        stock: 1,
+      });
+      await createAuction(prisma, {
+        productId: liveProduct.id,
+        startPriceCents: 10_000,
+        currentPriceCents: 11_000,
+      });
+      const takenProduct = await createProduct(prisma, {
+        categoryId: category.id,
+        type: 'AUCTION',
+        priceCents: null,
+        stock: 1,
+      });
+      await createAuction(prisma, {
+        productId: takenProduct.id,
+        status: 'ORDERED',
+        currentPriceCents: 11_000,
+      });
+
+      const response = await http().get(`/api/products/${product.id}/similar`).expect(200);
+      const items = response.body as SummaryBody[];
+
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({
+        id: liveProduct.id,
+        type: 'AUCTION',
+        priceCents: 11_000,
+        inStock: true,
+      });
     });
   });
 });

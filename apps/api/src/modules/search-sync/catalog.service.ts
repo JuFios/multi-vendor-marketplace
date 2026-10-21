@@ -6,8 +6,10 @@ import { CacheService } from '../../cache/cache.service';
 import { SEARCH_DEGRADED_TOTAL } from '../../metrics/metrics.constants';
 import type { CatalogItem, CatalogQuery, CatalogResult } from '../../search/catalog';
 import { SEARCH_PORT, type SearchPort } from '../../search/search.port';
+import type { LotListing } from '../bidding/auction';
+import { AuctionsService } from '../bidding/auctions.service';
 import { CategoriesService } from '../categories/categories.service';
-import type { Product } from '../products/product';
+import { publicListingOf, type Product } from '../products/product';
 import type { CatalogMatches } from '../products/product';
 import { ProductsService } from '../products/products.service';
 import { SellersService } from '../sellers/sellers.service';
@@ -24,6 +26,7 @@ export class CatalogService {
   constructor(
     @Inject(SEARCH_PORT) private readonly search: SearchPort,
     private readonly products: ProductsService,
+    private readonly auctions: AuctionsService,
     private readonly categories: CategoriesService,
     private readonly sellers: SellersService,
     private readonly cache: CacheService,
@@ -99,13 +102,15 @@ export class CatalogService {
   /** Same filters from Postgres; only the category counts and the price range are offered as facets. */
   private async findInDatabase(query: CatalogQuery): Promise<CatalogPage> {
     const matches = await this.products.searchCatalog(query);
-    const [categoryNames, sellerNames] = await Promise.all([
+    const ids = matches.items.map(({ id }) => id);
+    const [categoryNames, sellerNames, lots] = await Promise.all([
       this.categoryNames(),
       this.sellers.findStoreNames([...new Set(matches.items.map(({ sellerId }) => sellerId))]),
+      this.auctions.findListings(ids),
     ]);
     return {
       items: matches.items.flatMap((product) => {
-        const item = toItem(product, categoryNames, sellerNames);
+        const item = toItem(product, lots.get(product.id), categoryNames, sellerNames);
         return item ? [item] : [];
       }),
       total: matches.total,
@@ -146,6 +151,7 @@ function categoryFacets(matches: CatalogMatches, names: ReadonlyMap<string, stri
 
 function toItem(
   product: Product,
+  lot: LotListing | undefined,
   categories: ReadonlyMap<string, string>,
   sellers: ReadonlyMap<string, string>,
 ): CatalogItem | null {
@@ -154,13 +160,14 @@ function toItem(
   if (categoryName === undefined || sellerName === undefined) {
     return null;
   }
+  const listing = publicListingOf(product, lot);
   return {
     id: product.id,
     title: product.title,
     type: product.type,
-    priceCents: product.priceCents,
+    priceCents: listing.priceCents,
     imageUrl: product.images[0] ?? null,
-    inStock: product.stock > 0,
+    inStock: listing.inStock,
     stock: product.stock,
     ratingAvg: product.ratingAvg,
     ratingCount: product.ratingCount,
@@ -168,5 +175,8 @@ function toItem(
     categoryName,
     sellerId: product.sellerId,
     sellerName,
+    auctionId: listing.auction?.auctionId ?? null,
+    auctionStatus: listing.auction?.status ?? null,
+    auctionEndsAt: listing.auction?.endsAt.toISOString() ?? null,
   };
 }

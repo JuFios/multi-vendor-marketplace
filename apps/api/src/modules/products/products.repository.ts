@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
-import type { Prisma, Product as ProductRow } from '../../generated/prisma/client';
+import { Prisma, type Product as ProductRow } from '../../generated/prisma/client';
 import type { AppTransactionHost } from '../../prisma/transaction';
 import type { CatalogQuery, CatalogSort } from '../../search/catalog';
 
@@ -31,16 +31,75 @@ export interface ModerationFilter {
   readonly limit: number;
 }
 
-const CATALOG_ORDER: Readonly<Record<CatalogSort, Prisma.ProductOrderByWithRelationInput[]>> = {
-  relevance: [{ createdAt: 'desc' }, { id: 'asc' }],
-  newest: [{ createdAt: 'desc' }, { id: 'asc' }],
-  price_asc: [{ priceCents: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
-  price_desc: [{ priceCents: { sort: 'desc', nulls: 'last' } }, { id: 'asc' }],
-  rating_desc: [{ ratingAvg: 'desc' }, { id: 'asc' }],
+/**
+ * What a buyer pays for the product: its price, or for a lot the leading bid (its start price
+ * while nobody has bid). A lot's own `price_cents` is null, so filtering and sorting on it would
+ * drop every auction from the catalog.
+ */
+const LISTING_PRICE = Prisma.sql`CASE
+  WHEN p.type = 'AUCTION'::product_type THEN COALESCE(a.current_price_cents, a.start_price_cents)
+  ELSE p.price_cents END`;
+
+/** Whether a buyer can still get it: units left, or for a lot a round that still takes bids. */
+const LISTING_AVAILABLE = Prisma.sql`CASE
+  WHEN p.type = 'AUCTION'::product_type
+    THEN COALESCE(a.status = 'ACTIVE'::auction_status AND a.ends_at > now(), FALSE)
+  ELSE p.stock > 0 END`;
+
+/** The product columns under the names `toProduct` reads, so one mapper serves both paths. */
+const PRODUCT_COLUMNS = Prisma.sql`p.id, p.seller_id AS "sellerId", p.category_id AS "categoryId",
+  p.type, p.title, p.description, p.images, p.price_cents AS "priceCents", p.stock, p.version,
+  p.moderation_status AS "moderationStatus", p.moderation_reason AS "moderationReason",
+  p.is_published AS "isPublished", p.archived_at AS "archivedAt", p.rating_sum AS "ratingSum",
+  p.rating_count AS "ratingCount", p.rating_avg AS "ratingAvg", p.created_at AS "createdAt",
+  p.updated_at AS "updatedAt"`;
+
+const CATALOG_FROM = Prisma.sql`FROM products AS p
+  LEFT JOIN auctions AS a ON a.product_id = p.id`;
+
+const CATALOG_ORDER: Readonly<Record<CatalogSort, Prisma.Sql>> = {
+  relevance: Prisma.sql`p.created_at DESC, p.id ASC`,
+  newest: Prisma.sql`p.created_at DESC, p.id ASC`,
+  price_asc: Prisma.sql`${LISTING_PRICE} ASC NULLS LAST, p.id ASC`,
+  price_desc: Prisma.sql`${LISTING_PRICE} DESC NULLS LAST, p.id ASC`,
+  rating_desc: Prisma.sql`p.rating_avg DESC, p.id ASC`,
 };
 
 /** Escapes the LIKE wildcards, so a search for "50%" means those characters. */
 const likePattern = (text: string): string => text.replace(/[\\%_]/g, '\\$&');
+
+/**
+ * The catalog filters as SQL over `products AS p` joined with `auctions AS a`. Every value goes
+ * in as a parameter, so none of them can add a clause of its own.
+ */
+function catalogWhere(query: CatalogQuery): Prisma.Sql {
+  const clauses: Prisma.Sql[] = [Prisma.sql`p.is_published = TRUE AND p.archived_at IS NULL`];
+  if (query.q !== undefined) {
+    clauses.push(Prisma.sql`p.title ILIKE ${`%${likePattern(query.q)}%`}`);
+  }
+  if (query.categoryId !== undefined) {
+    clauses.push(Prisma.sql`p.category_id = ${query.categoryId}::uuid`);
+  }
+  if (query.sellerId !== undefined) {
+    clauses.push(Prisma.sql`p.seller_id = ${query.sellerId}::uuid`);
+  }
+  if (query.type !== undefined) {
+    clauses.push(Prisma.sql`p.type = ${query.type}::product_type`);
+  }
+  if (query.ratingMin !== undefined) {
+    clauses.push(Prisma.sql`p.rating_avg >= ${query.ratingMin}::numeric`);
+  }
+  if (query.inStock !== undefined) {
+    clauses.push(Prisma.sql`${LISTING_AVAILABLE} = ${query.inStock}`);
+  }
+  if (query.priceMin !== undefined) {
+    clauses.push(Prisma.sql`${LISTING_PRICE} >= ${query.priceMin}`);
+  }
+  if (query.priceMax !== undefined) {
+    clauses.push(Prisma.sql`${LISTING_PRICE} <= ${query.priceMax}`);
+  }
+  return Prisma.join(clauses, ' AND ');
+}
 
 const toProduct = (row: ProductRow): Product => ({
   id: row.id,
@@ -222,7 +281,8 @@ export class ProductsRepository {
 
   /**
    * Adds one rating in a single UPDATE: sum, count and the two-decimal average move together,
-   * so concurrent reviews cannot lose each other's contribution.
+   * so concurrent reviews cannot lose each other's contribution. The version moves too, or the
+   * search indexer's race re-check would not see the change.
    */
   async addRating(
     id: string,
@@ -233,6 +293,7 @@ export class ProductsRepository {
       SET rating_sum = rating_sum + ${rating},
           rating_count = rating_count + 1,
           rating_avg = ROUND((rating_sum + ${rating})::numeric / (rating_count + 1), 2),
+          version = version + 1,
           updated_at = now()
       WHERE id = ${id}::uuid
       RETURNING rating_avg::text, rating_count`;
@@ -254,19 +315,14 @@ export class ProductsRepository {
     return row && toProduct(row);
   }
 
-  /** Published, in-stock products of a category other than `excludeId`, newest first. */
+  /** Published products a buyer can still get, of a category other than `excludeId`, newest first. */
   async findSimilar(categoryId: string, excludeId: string, limit: number): Promise<Product[]> {
-    const rows = await this.txHost.tx.product.findMany({
-      where: {
-        categoryId,
-        id: { not: excludeId },
-        isPublished: true,
-        archivedAt: null,
-        stock: { gt: 0 },
-      },
-      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-      take: limit,
-    });
+    const rows = await this.txHost.tx.$queryRaw<ProductRow[]>`
+      SELECT ${PRODUCT_COLUMNS} ${CATALOG_FROM}
+      WHERE p.category_id = ${categoryId}::uuid AND p.id <> ${excludeId}::uuid
+        AND p.is_published = TRUE AND p.archived_at IS NULL AND ${LISTING_AVAILABLE}
+      ORDER BY p.created_at DESC, p.id ASC
+      LIMIT ${limit}`;
     return rows.map(toProduct);
   }
 
@@ -336,51 +392,34 @@ export class ProductsRepository {
   /**
    * The catalog straight from the database, for when the search index cannot answer: the same
    * filters, a title substring instead of full-text search, no typo tolerance and no relevance.
+   * Price and availability come from the lot of an auction product, as they do in the index.
    */
   async searchCatalog(query: CatalogQuery): Promise<CatalogMatches> {
-    const where: Prisma.ProductWhereInput = {
-      isPublished: true,
-      archivedAt: null,
-      ...(query.q === undefined
-        ? {}
-        : { title: { contains: likePattern(query.q), mode: 'insensitive' } }),
-      ...(query.categoryId === undefined ? {} : { categoryId: query.categoryId }),
-      ...(query.sellerId === undefined ? {} : { sellerId: query.sellerId }),
-      ...(query.type === undefined ? {} : { type: query.type }),
-      ...(query.inStock === undefined ? {} : { stock: query.inStock ? { gt: 0 } : 0 }),
-      ...(query.ratingMin === undefined ? {} : { ratingAvg: { gte: query.ratingMin } }),
-      ...(query.priceMin === undefined && query.priceMax === undefined
-        ? {}
-        : {
-            priceCents: {
-              ...(query.priceMin === undefined ? {} : { gte: query.priceMin }),
-              ...(query.priceMax === undefined ? {} : { lte: query.priceMax }),
-            },
-          }),
-    };
-    const [rows, total, categories, prices] = await Promise.all([
-      this.txHost.tx.product.findMany({
-        where,
-        orderBy: CATALOG_ORDER[query.sort],
-        skip: (query.page - 1) * query.limit,
-        take: query.limit,
-      }),
-      this.txHost.tx.product.count({ where }),
-      this.txHost.tx.product.groupBy({ by: ['categoryId'], where, _count: { _all: true } }),
-      this.txHost.tx.product.aggregate({
-        where,
-        _min: { priceCents: true },
-        _max: { priceCents: true },
-      }),
+    const where = catalogWhere(query);
+    const [rows, counted, categories, prices] = await Promise.all([
+      this.txHost.tx.$queryRaw<ProductRow[]>`
+        SELECT ${PRODUCT_COLUMNS} ${CATALOG_FROM}
+        WHERE ${where}
+        ORDER BY ${CATALOG_ORDER[query.sort]}
+        LIMIT ${query.limit} OFFSET ${(query.page - 1) * query.limit}`,
+      this.txHost.tx.$queryRaw<{ total: number }[]>`
+        SELECT count(*)::int AS total ${CATALOG_FROM} WHERE ${where}`,
+      this.txHost.tx.$queryRaw<{ categoryId: string; count: number }[]>`
+        SELECT p.category_id AS "categoryId", count(*)::int AS count ${CATALOG_FROM}
+        WHERE ${where} GROUP BY p.category_id`,
+      this.txHost.tx.$queryRaw<{ min: number | null; max: number | null }[]>`
+        SELECT min(${LISTING_PRICE}) AS min, max(${LISTING_PRICE}) AS max
+        ${CATALOG_FROM} WHERE ${where}`,
     ]);
-    const { priceCents: min } = prices._min;
-    const { priceCents: max } = prices._max;
+    const [range] = prices;
+    const min = range?.min ?? null;
+    const max = range?.max ?? null;
     return {
       items: rows.map(toProduct),
-      total,
+      total: counted[0]?.total ?? 0,
       categoryCounts: categories.map((row) => ({
         categoryId: row.categoryId,
-        count: row._count._all,
+        count: row.count,
       })),
       priceRange: min === null || max === null ? null : { min, max },
     };

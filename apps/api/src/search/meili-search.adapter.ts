@@ -120,6 +120,10 @@ export class MeiliSearchAdapter implements SearchPort {
     return (await this.index().getStats()).numberOfDocuments;
   }
 
+  isAvailable(): Promise<boolean> {
+    return this.meili.isHealthy();
+  }
+
   private index(): Index<CatalogDocument> {
     return this.meili.index<CatalogDocument>(`${this.settings.indexPrefix}${INDEX_NAME}`);
   }

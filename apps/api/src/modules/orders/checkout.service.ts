@@ -22,7 +22,7 @@ import { OrderResponseDto } from './dto/order-response.dto';
 import { CartEmptyError, CartItemsUnavailableError } from './orders.errors';
 import { type CheckoutItem } from './orders.repository';
 import { OrdersRepository } from './orders.repository';
-import { splitCartBySeller } from './split-cart';
+import { assertOrderTotalsStorable, splitCartBySeller } from './split-cart';
 
 @Injectable()
 export class CheckoutService {
@@ -112,6 +112,7 @@ export class CheckoutService {
       })),
     ].sort((a, b) => (a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0));
     const groups = splitCartBySeller(items, this.settings.commissionBps);
+    assertOrderTotalsStorable(groups);
     const order = await this.orders.create(userId, groups, this.settings.commissionBps);
 
     for (const sellerOrder of order.sellerOrders) {

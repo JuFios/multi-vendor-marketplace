@@ -7,12 +7,17 @@ import { EVENT_TYPE } from '../../outbox/events/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 import type { AppTransactionHost } from '../../prisma/transaction';
 import type { CatalogQuery } from '../../search/catalog';
-import type { AuctionRecord } from '../bidding/auction';
+import type { AuctionRecord, LotListing } from '../bidding/auction';
 import { AuctionsService } from '../bidding/auctions.service';
 import { CategoriesService } from '../categories/categories.service';
 import { SellersService } from '../sellers/sellers.service';
 
-import { ProductDetailsResponseDto } from './dto/product-details-response.dto';
+import {
+  ProductDetailsResponseDto,
+  ProductStockResponseDto,
+  ProductSummaryResponseDto,
+  withLot,
+} from './dto/product-details-response.dto';
 import {
   changedFields,
   isPublished,
@@ -213,8 +218,8 @@ export class ProductsService {
   }
 
   /** The public product page, cached; unpublished and archived products are 404. */
-  getPublicDetails(id: string): Promise<ProductDetailsResponseDto> {
-    return this.detailsCache.remember(id, async () => {
+  async getPublicDetails(id: string): Promise<ProductDetailsResponseDto> {
+    const details = await this.detailsCache.remember(id, async () => {
       const product = await this.requirePublished(id);
       const [seller, category] = await Promise.all([
         this.sellers.getPublicProfile(product.sellerId),
@@ -229,6 +234,15 @@ export class ProductsService {
         category,
       );
     });
+    // A lot moves with every bid, so its state is read past the cache instead of waited for.
+    return details.type === 'AUCTION' ? withLot(details, await this.findLot(id)) : details;
+  }
+
+  /** The availability snapshot, never cached: a lot's changes with every bid. */
+  async getPublicAvailability(id: string): Promise<ProductStockResponseDto> {
+    const product = await this.requirePublished(id);
+    const lot = product.type === 'AUCTION' ? await this.findLot(id) : undefined;
+    return ProductStockResponseDto.from(product, lot);
   }
 
   /** Throws `PRODUCT_NOT_FOUND` unless the public catalog shows the product. */
@@ -250,10 +264,17 @@ export class ProductsService {
     return this.requirePublished(id);
   }
 
-  /** Other published, in-stock products of the same category (I-18). */
-  async getSimilar(id: string): Promise<Product[]> {
+  /** Other published, available products of the same category (I-18), priced as a buyer sees them. */
+  async getSimilar(id: string): Promise<ProductSummaryResponseDto[]> {
     const product = await this.requirePublished(id);
-    return this.products.findSimilar(product.categoryId, id, SIMILAR_PRODUCTS_LIMIT);
+    const similar = await this.products.findSimilar(product.categoryId, id, SIMILAR_PRODUCTS_LIMIT);
+    const lots = await this.auctions.findListings(similar.map((other) => other.id));
+    return similar.map((other) => ProductSummaryResponseDto.from(other, lots.get(other.id)));
+  }
+
+  /** The lot of an auction product; a fixed-price product has none. */
+  private async findLot(id: string): Promise<LotListing | undefined> {
+    return (await this.auctions.findListings([id])).get(id);
   }
 
   findByIds(ids: readonly string[]): Promise<Product[]> {

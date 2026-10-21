@@ -25,7 +25,10 @@ export const REALTIME_EVENT_TYPES = [
   EVENT_TYPE.PRODUCT_STOCK_CHANGED,
   EVENT_TYPE.SELLER_ORDER_CREATED,
   EVENT_TYPE.SELLER_ORDER_STATUS_CHANGED,
+  EVENT_TYPE.SELLER_ORDER_PAYMENT_CHANGED,
+  EVENT_TYPE.SELLER_ORDER_CANCELLED,
   EVENT_TYPE.ORDER_STATUS_CHANGED,
+  EVENT_TYPE.REFUND_CREATED,
 ] as const;
 
 /** A seller order starts like this (the column defaults), and `seller_order.created` omits both. */
@@ -59,6 +62,8 @@ export function projectEvent(event: AnyDomainEvent): Push[] {
       ];
     }
     case EVENT_TYPE.SELLER_ORDER_STATUS_CHANGED: {
+      // The order aggregate travels only with `order.status_changed`, at the order's version:
+      // two sources for one merged field let a stale push overwrite a newer one.
       const p = event.payload;
       return [
         {
@@ -72,19 +77,49 @@ export function projectEvent(event: AnyDomainEvent): Push[] {
             correlationId,
           },
         },
-        {
-          room: userRoom(p.customerId),
-          event: WS_EVENT.ORDER_STATUS,
-          payload: {
-            orderId: p.orderId,
-            status: p.orderStatus,
-            hasCancelledParts: p.hasCancelledParts,
-            sellerOrderId: p.sellerOrderId,
-            sellerOrderStatus: p.to,
-            version: p.version,
-            correlationId,
-          },
-        },
+      ];
+    }
+    case EVENT_TYPE.SELLER_ORDER_PAYMENT_CHANGED: {
+      const p = event.payload;
+      const payload = {
+        sellerOrderId: p.sellerOrderId,
+        orderId: p.orderId,
+        paymentStatus: p.paymentStatus,
+        version: p.version,
+        correlationId,
+      };
+      return [
+        { room: sellerRoom(p.sellerId), event: WS_EVENT.SELLER_ORDER_PAYMENT, payload },
+        { room: userRoom(p.customerId), event: WS_EVENT.SELLER_ORDER_PAYMENT, payload },
+      ];
+    }
+    case EVENT_TYPE.SELLER_ORDER_CANCELLED: {
+      const p = event.payload;
+      const payload = {
+        sellerOrderId: p.sellerOrderId,
+        orderId: p.orderId,
+        reason: p.reason,
+        actorType: p.actorType,
+        restocked: p.restocked,
+        correlationId,
+      };
+      return [
+        { room: sellerRoom(p.sellerId), event: WS_EVENT.SELLER_ORDER_CANCELLED, payload },
+        { room: userRoom(p.customerId), event: WS_EVENT.SELLER_ORDER_CANCELLED, payload },
+      ];
+    }
+    case EVENT_TYPE.REFUND_CREATED: {
+      const p = event.payload;
+      const payload = {
+        refundIds: p.refundIds,
+        sellerOrderId: p.sellerOrderId,
+        orderId: p.orderId,
+        amountCents: p.amountCents,
+        correlationId,
+      };
+      return [
+        { room: userRoom(p.customerId), event: WS_EVENT.REFUND_CREATED, payload },
+        { room: sellerRoom(p.sellerId), event: WS_EVENT.REFUND_CREATED, payload },
       ];
     }
     case EVENT_TYPE.ORDER_STATUS_CHANGED: {

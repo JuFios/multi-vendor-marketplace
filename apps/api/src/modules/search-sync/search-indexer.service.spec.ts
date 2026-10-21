@@ -1,4 +1,6 @@
 import type { SearchPort } from '../../search/search.port';
+import type { LotListing } from '../bidding/auction';
+import type { AuctionsService } from '../bidding/auctions.service';
 import type { CategoriesService } from '../categories/categories.service';
 import type { Product } from '../products/product';
 import type { ProductsService } from '../products/products.service';
@@ -29,11 +31,24 @@ const product = (version: number, overrides: Partial<Product> = {}): Product => 
   ...overrides,
 });
 
-function setup(reads: Product[][]) {
+const lot = (version: number, overrides: Partial<LotListing> = {}): LotListing => ({
+  auctionId: 'a1',
+  status: 'ACTIVE',
+  priceCents: 5_000,
+  endsAt: new Date('2026-02-01T00:00:00.000Z'),
+  open: true,
+  version,
+  ...overrides,
+});
+
+/** Reads are consumed in order; each product read is paired with the lots read next to it. */
+function setup(reads: Product[][], lotReads: [string, LotListing][][] = []) {
   const findPublishedByIds = jest.fn();
-  for (const read of reads) {
+  const findListings = jest.fn();
+  reads.forEach((read, index) => {
     findPublishedByIds.mockResolvedValueOnce(read);
-  }
+    findListings.mockResolvedValueOnce(new Map(lotReads[index] ?? []));
+  });
   const search = {
     upsert: jest.fn().mockResolvedValue(undefined),
     remove: jest.fn().mockResolvedValue(undefined),
@@ -42,6 +57,7 @@ function setup(reads: Product[][]) {
   const indexer = new SearchIndexer(
     search as unknown as SearchPort,
     { findPublishedByIds } as unknown as ProductsService,
+    { findListings } as unknown as AuctionsService,
     {
       list: jest.fn().mockResolvedValue([{ id: 'c1', name: 'Cat' }]),
     } as unknown as CategoriesService,
@@ -50,7 +66,7 @@ function setup(reads: Product[][]) {
     } as unknown as SellersService,
     namespace as unknown as CatalogNamespace,
   );
-  return { indexer, search, namespace, findPublishedByIds };
+  return { indexer, search, namespace, findPublishedByIds, findListings };
 }
 
 describe('SearchIndexer.syncProducts', () => {
@@ -100,5 +116,72 @@ describe('SearchIndexer.syncProducts', () => {
 
     expect(search.remove).toHaveBeenCalledWith(['p1']);
     expect(search.upsert).toHaveBeenCalledWith([]);
+  });
+});
+
+describe('SearchIndexer with auction lots', () => {
+  const listed = (version: number, overrides: Partial<Product> = {}): Product =>
+    product(version, { type: 'AUCTION', priceCents: null, stock: 1, ...overrides });
+
+  it('indexes a lot at its going bid, with the auction a buyer needs to bid', async () => {
+    const { indexer, search } = setup(
+      [[listed(1)], [listed(1)]],
+      [[['p1', lot(3)]], [['p1', lot(3)]]],
+    );
+
+    await indexer.syncProducts(['p1']);
+
+    expect(search.upsert).toHaveBeenCalledWith([
+      expect.objectContaining({
+        type: 'AUCTION',
+        priceCents: 5_000,
+        inStock: true,
+        auctionId: 'a1',
+        auctionStatus: 'ACTIVE',
+        auctionEndsAt: Date.parse('2026-02-01T00:00:00.000Z'),
+      }),
+    ]);
+  });
+
+  it('shows a lot that no longer takes bids as unavailable', async () => {
+    const sold = lot(4, { status: 'ORDERED', open: false });
+    const { indexer, search } = setup([[listed(1)], [listed(1)]], [[['p1', sold]], [['p1', sold]]]);
+
+    await indexer.syncProducts(['p1']);
+
+    expect(search.upsert).toHaveBeenCalledWith([expect.objectContaining({ inStock: false })]);
+  });
+
+  it('hides a round whose deadline passed while the sweeper still reports it as ACTIVE', async () => {
+    const expired = lot(4, { open: false });
+    const { indexer, search } = setup(
+      [[listed(1)], [listed(1)]],
+      [[['p1', expired]], [['p1', expired]]],
+    );
+
+    await indexer.syncProducts(['p1']);
+
+    expect(search.upsert).toHaveBeenCalledWith([
+      expect.objectContaining({ auctionStatus: 'ACTIVE', inStock: false }),
+    ]);
+  });
+
+  it('writes again when a bid moved the lot while it was writing', async () => {
+    const { indexer, search } = setup(
+      [[listed(1)], [listed(1)], [listed(1)], [listed(1)]],
+      [
+        [['p1', lot(3)]],
+        [['p1', lot(4, { priceCents: 6_000 })]],
+        [['p1', lot(4, { priceCents: 6_000 })]],
+        [['p1', lot(4, { priceCents: 6_000 })]],
+      ],
+    );
+
+    await indexer.syncProducts(['p1']);
+
+    expect(search.upsert).toHaveBeenCalledTimes(2);
+    expect(search.upsert).toHaveBeenLastCalledWith([
+      expect.objectContaining({ priceCents: 6_000 }),
+    ]);
   });
 });

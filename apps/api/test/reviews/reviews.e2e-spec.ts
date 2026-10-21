@@ -93,7 +93,9 @@ describe('Reviews (e2e)', () => {
 
     expect(created.body).toMatchObject({ rating: 4, text: 'Solid', authorName: 'Test User' });
     const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
-    expect(product).toMatchObject({ ratingSum: 4, ratingCount: 1 });
+    // The version moves with the rating, or the indexer's post-write re-check would miss a
+    // review that landed while it was writing.
+    expect(product).toMatchObject({ ratingSum: 4, ratingCount: 1, version: 1 });
     expect(Number(product.ratingAvg)).toBe(4);
     const indexed = (
       await app.get<SearchPort>(SEARCH_PORT).search({

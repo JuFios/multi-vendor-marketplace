@@ -20,7 +20,6 @@ import { realtimeConfig } from '../../config/realtime.config';
 import { WS_CONNECTIONS } from '../../metrics/metrics.constants';
 import { AccessTokenService } from '../auth/access-token.service';
 import { AuctionsService } from '../bidding/auctions.service';
-import { ProductStockResponseDto } from '../products/dto/product-details-response.dto';
 import { ProductsService } from '../products/products.service';
 
 import {
@@ -125,7 +124,7 @@ export class RealtimeGateway
               channel: 'product',
               state: toProductStock(
                 request.id,
-                ProductStockResponseDto.from(await this.products.getPublicStock(request.id)),
+                await this.products.getPublicAvailability(request.id),
               ),
             };
       data.followed.add(room);

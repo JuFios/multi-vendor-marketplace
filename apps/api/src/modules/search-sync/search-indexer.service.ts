@@ -2,8 +2,10 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { type IndexableProduct, toCatalogDocument } from '../../search/catalog';
 import { SEARCH_PORT, type SearchPort } from '../../search/search.port';
+import type { LotListing } from '../bidding/auction';
+import { AuctionsService } from '../bidding/auctions.service';
 import { CategoriesService } from '../categories/categories.service';
-import type { Product } from '../products/product';
+import { publicListingOf, type Product } from '../products/product';
 import { ProductsService } from '../products/products.service';
 import { SellersService } from '../sellers/sellers.service';
 
@@ -12,11 +14,20 @@ import { REINDEX_BATCH_SIZE } from './search-sync.constants';
 
 const MAX_SYNC_ATTEMPTS = 3;
 
+type Lots = ReadonlyMap<string, LotListing>;
+
 const sameVersions = (before: readonly Product[], after: readonly Product[]): boolean =>
   before.length === after.length &&
   before.every((product) =>
     after.some((now) => now.id === product.id && now.version === product.version),
   );
+
+/**
+ * Whether every lot is still at the version its document was built from. A bid moves the auction,
+ * not the product, so the product versions alone would not show that a write is already stale.
+ */
+const sameLotVersions = (before: Lots, after: Lots): boolean =>
+  [...before].every(([productId, lot]) => after.get(productId)?.version === lot.version);
 
 interface Names {
   readonly categories: ReadonlyMap<string, string>;
@@ -34,6 +45,7 @@ export class SearchIndexer {
   constructor(
     @Inject(SEARCH_PORT) private readonly search: SearchPort,
     private readonly products: ProductsService,
+    private readonly auctions: AuctionsService,
     private readonly categories: CategoriesService,
     private readonly sellers: SellersService,
     private readonly namespace: CatalogNamespace,
@@ -48,10 +60,10 @@ export class SearchIndexer {
    */
   async syncProducts(ids: readonly string[]): Promise<void> {
     for (let attempt = 1; ; attempt += 1) {
-      const published = await this.products.findPublishedByIds(ids);
-      const { indexed, removed } = await this.apply(published, ids);
-      const current = await this.products.findPublishedByIds(ids);
-      if (sameVersions(published, current)) {
+      const [published, lots] = await this.readState(ids);
+      const { indexed, removed } = await this.apply(published, lots, ids);
+      const [current, currentLots] = await this.readState(ids);
+      if (sameVersions(published, current) && sameLotVersions(lots, currentLots)) {
         await this.namespace.bump();
         this.logger.log({ msg: 'search.synced', requested: ids.length, indexed, removed });
         return;
@@ -70,10 +82,8 @@ export class SearchIndexer {
       if (batch.length === 0) {
         break;
       }
-      await this.apply(
-        batch,
-        batch.map(({ id }) => id),
-      );
+      const ids = batch.map(({ id }) => id);
+      await this.apply(batch, await this.auctions.findListings(ids), ids);
       after = batch.at(-1)?.id ?? null;
     }
     await this.namespace.bump();
@@ -93,12 +103,8 @@ export class SearchIndexer {
       if (batch.length === 0) {
         break;
       }
-      indexed += (
-        await this.apply(
-          batch,
-          batch.map(({ id }) => id),
-        )
-      ).indexed;
+      const ids = batch.map(({ id }) => id);
+      indexed += (await this.apply(batch, await this.auctions.findListings(ids), ids)).indexed;
       after = batch.at(-1)?.id ?? null;
     }
     await this.namespace.bump();
@@ -106,14 +112,20 @@ export class SearchIndexer {
     return indexed;
   }
 
+  /** The products the catalog shows and the state of their lots, read together. */
+  private readState(ids: readonly string[]): Promise<[Product[], Lots]> {
+    return Promise.all([this.products.findPublishedByIds(ids), this.auctions.findListings(ids)]);
+  }
+
   /** Upserts what can be shown and removes everything else among `requested`. */
   private async apply(
     published: readonly Product[],
+    lots: Lots,
     requested: readonly string[],
   ): Promise<{ indexed: number; removed: number }> {
     const names = await this.namesFor(published);
     const documents = published.flatMap((product) => {
-      const indexable = this.toIndexable(product, names);
+      const indexable = this.toIndexable(product, names, lots.get(product.id));
       return indexable ? [toCatalogDocument(indexable)] : [];
     });
     const kept = new Set(documents.map(({ id }) => id));
@@ -134,13 +146,22 @@ export class SearchIndexer {
     return { categories: new Map(categories.map(({ id, name }) => [id, name])), sellers };
   }
 
-  /** A product whose store is not approved, or whose category is gone, is not shown. */
-  private toIndexable(product: Product, names: Names): IndexableProduct | null {
+  /**
+   * A product whose store is not approved, or whose category is gone, is not shown. A lot carries
+   * the price and the availability of its auction: its own `priceCents` is null and its single
+   * unit of stock says nothing about whether it can still be won.
+   */
+  private toIndexable(
+    product: Product,
+    names: Names,
+    lot: LotListing | undefined,
+  ): IndexableProduct | null {
     const categoryName = names.categories.get(product.categoryId);
     const sellerName = names.sellers.get(product.sellerId);
     if (categoryName === undefined || sellerName === undefined) {
       return null;
     }
+    const listing = publicListingOf(product, lot);
     return {
       id: product.id,
       title: product.title,
@@ -150,13 +171,22 @@ export class SearchIndexer {
       sellerId: product.sellerId,
       sellerName,
       type: product.type,
-      priceCents: product.priceCents,
+      priceCents: listing.priceCents,
       ratingAvg: product.ratingAvg,
       ratingCount: product.ratingCount,
+      inStock: listing.inStock,
       stock: product.stock,
       images: product.images,
       createdAt: product.createdAt,
       version: product.version,
+      auction:
+        listing.auction === null
+          ? null
+          : {
+              id: listing.auction.auctionId,
+              status: listing.auction.status,
+              endsAt: listing.auction.endsAt,
+            },
     };
   }
 }

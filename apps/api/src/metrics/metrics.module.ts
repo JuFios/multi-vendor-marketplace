@@ -26,6 +26,7 @@ import {
   QUEUE_JOBS_COMPLETED_TOTAL,
   QUEUE_JOBS_FAILED_TOTAL,
   SEARCH_DEGRADED_TOTAL,
+  THROTTLE_STORAGE_FAILURES_TOTAL,
   BID_OPTIMISTIC_RETRIES_TOTAL,
   BIDS_PLACED_TOTAL,
   BIDS_REJECTED_TOTAL,
@@ -133,6 +134,10 @@ const metricProviders = [
   makeCounterProvider({
     name: SEARCH_DEGRADED_TOTAL,
     help: 'Catalog requests answered from the SQL fallback because the search index failed.',
+  }),
+  makeCounterProvider({
+    name: THROTTLE_STORAGE_FAILURES_TOTAL,
+    help: 'Rate-limit storage calls that failed and were answered fail-open.',
   }),
 ];
 

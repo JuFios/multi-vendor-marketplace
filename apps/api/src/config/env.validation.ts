@@ -257,6 +257,12 @@ export class EnvironmentVariables {
   @Min(100)
   SEARCH_TIMEOUT_MS = 1500;
 
+  // How often the worker re-queues search updates that failed while the index was down.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  SEARCH_REDRIVE_INTERVAL_MS = 30_000;
+
   // Prepended to every index name so profiles never share indexes.
   @Matches(/^[A-Za-z0-9_]*$/)
   MEILI_INDEX_PREFIX = '';

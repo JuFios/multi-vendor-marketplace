@@ -53,7 +53,7 @@ describe('projectEvent', () => {
     });
   });
 
-  it('sends a seller order change to the store and, with the order state, to the customer only', () => {
+  it('sends a seller order change to the store only; the aggregate travels with the order', () => {
     const pushes = projectEvent(
       event('seller_order.status_changed', {
         sellerOrderId: 'so1',
@@ -69,18 +69,69 @@ describe('projectEvent', () => {
       }),
     );
 
-    expect(pushes.map(({ room, event: name }) => [room, name])).toEqual([
-      ['seller:s1', 'sellerOrder.status'],
-      ['user:c1', 'order.status'],
+    expect(pushes).toEqual([
+      {
+        room: 'seller:s1',
+        event: 'sellerOrder.status',
+        payload: {
+          sellerOrderId: 'so1',
+          orderId: 'o1',
+          status: 'SHIPPED',
+          version: 3,
+          correlationId: 'corr-1',
+        },
+      },
     ]);
-    expect(pushes[1]?.payload).toMatchObject({
-      orderId: 'o1',
-      status: 'PROCESSING',
-      hasCancelledParts: true,
-      sellerOrderId: 'so1',
-      sellerOrderStatus: 'SHIPPED',
-      version: 3,
-    });
+  });
+
+  it('tells both sides of a seller order how its payment ended', () => {
+    const pushes = projectEvent(
+      event('seller_order.payment_changed', {
+        sellerOrderId: 'so1',
+        orderId: 'o1',
+        sellerId: 's1',
+        customerId: 'c1',
+        paymentStatus: 'CAPTURED',
+        version: 2,
+      }),
+    );
+
+    expect(pushes.map(({ room }) => room)).toEqual(['seller:s1', 'user:c1']);
+    expect(pushes[0]?.payload).toMatchObject({ paymentStatus: 'CAPTURED', version: 2 });
+  });
+
+  it('announces a cancellation and a refund to both sides', () => {
+    const cancelled = projectEvent(
+      event('seller_order.cancelled', {
+        sellerOrderId: 'so1',
+        orderId: 'o1',
+        sellerId: 's1',
+        customerId: 'c1',
+        actorType: 'SYSTEM',
+        reason: 'PAYMENT_FAILED',
+        restocked: [{ productId: 'p1', quantity: 2 }],
+      }),
+    );
+    expect(cancelled.map(({ room, event: name }) => [room, name])).toEqual([
+      ['seller:s1', 'sellerOrder.cancelled'],
+      ['user:c1', 'sellerOrder.cancelled'],
+    ]);
+
+    const refund = projectEvent(
+      event('refund.created', {
+        refundIds: ['r1'],
+        sellerOrderId: 'so1',
+        orderId: 'o1',
+        sellerId: 's1',
+        customerId: 'c1',
+        amountCents: 500,
+      }),
+    );
+    expect(refund.map(({ room, event: name }) => [room, name])).toEqual([
+      ['user:c1', 'refund.created'],
+      ['seller:s1', 'refund.created'],
+    ]);
+    expect(refund[0]?.payload).toMatchObject({ refundIds: ['r1'], amountCents: 500 });
   });
 
   it('sends an order change to its customer', () => {

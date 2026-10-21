@@ -4,7 +4,11 @@ import { EVENT_TYPE } from '../../outbox/events/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 
 import { PaymentAttemptsRepository } from './payment-attempts.repository';
-import { PAYMENT_GATEWAY, type PaymentGatewayPort } from './payment-gateway.port';
+import {
+  type CaptureResult,
+  PAYMENT_GATEWAY,
+  type PaymentGatewayPort,
+} from './payment-gateway.port';
 
 @Injectable()
 export class PaymentsService {
@@ -17,11 +21,19 @@ export class PaymentsService {
   ) {}
 
   /**
-   * Charges one seller order and records the outcome as an attempt and an event. A decline is
+   * Takes the money for one seller order. Stays outside any database transaction: the call
+   * must not hold a connection, and the gateway answers a repeated seller order with the first
+   * outcome, so a charge that repeats after a rollback cannot take the money twice.
+   */
+  capture(sellerOrderId: string, amountCents: number): Promise<CaptureResult> {
+    return this.gateway.capture({ sellerOrderId, amountCents });
+  }
+
+  /**
+   * Records the outcome as an attempt and an event, in the caller's transaction. A decline is
    * a normal outcome (the saga compensates); only an exception makes the queue retry.
    */
-  async charge(sellerOrderId: string, amountCents: number): Promise<void> {
-    const result = await this.gateway.capture({ sellerOrderId, amountCents });
+  async record(sellerOrderId: string, amountCents: number, result: CaptureResult): Promise<void> {
     const paymentAttemptId = await this.attempts.create({
       sellerOrderId,
       amountCents,

@@ -61,6 +61,11 @@ export function availabilityOf(line: CartLineSource): CartAvailability {
   return line.quantity > line.stock ? 'INSUFFICIENT_STOCK' : 'AVAILABLE';
 }
 
+/** What a line costs: the current unit price times the quantity. */
+export function lineTotalCents(priceCents: number | null, quantity: number): number {
+  return (priceCents ?? 0) * quantity;
+}
+
 /**
  * Groups lines by seller, in the order sellers first appear. Prices are the current ones, so
  * the totals always match what the lines show; `itemsCount` is the sum of quantities.
@@ -76,7 +81,7 @@ export function buildCart(lines: readonly CartLineSource[]): CartView {
       quantity: line.quantity,
       stock: line.stock,
       availability: availabilityOf(line),
-      lineTotalCents: unitPriceCents * line.quantity,
+      lineTotalCents: lineTotalCents(line.priceCents, line.quantity),
     };
     const group = bySeller.get(line.sellerId);
     if (group) {

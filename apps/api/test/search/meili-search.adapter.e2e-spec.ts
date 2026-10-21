@@ -30,6 +30,9 @@ const document = (id: string, overrides: Partial<CatalogDocument> = {}): Catalog
   stock: 5,
   createdAt: 1_000,
   imageUrl: null,
+  auctionId: null,
+  auctionStatus: null,
+  auctionEndsAt: null,
   version: 0,
   ...overrides,
 });

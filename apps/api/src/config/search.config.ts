@@ -9,5 +9,6 @@ export const searchConfig = registerAs('search', () => {
     masterKey: env.MEILI_MASTER_KEY,
     indexPrefix: env.MEILI_INDEX_PREFIX,
     timeoutMs: env.SEARCH_TIMEOUT_MS,
+    redriveIntervalMs: env.SEARCH_REDRIVE_INTERVAL_MS,
   };
 });
