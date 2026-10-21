@@ -36,7 +36,7 @@ describe('createAuthorizedFetch', () => {
     const { fetch: authorized } = createAuthorizedFetch({
       tokens: { getAccessToken: () => 'old', setAccessToken: () => undefined },
       refresh: () => Promise.resolve(null),
-      fetchImpl: (() => Promise.resolve(new Response(null, { status: 401 }))),
+      fetchImpl: () => Promise.resolve(new Response(null, { status: 401 })),
     });
 
     const response = await authorized('http://localhost/api/cart');
