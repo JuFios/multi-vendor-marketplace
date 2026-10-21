@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 
-import { Button } from '../../components/button';
+import { Button, ButtonLink } from '../../components/button';
 import { EmptyState } from '../../components/empty-state';
 import { ErrorState } from '../../components/error-state';
 import { Modal } from '../../components/modal';
@@ -84,9 +84,7 @@ export function SellerProductsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Products</h1>
-        <Link to="/seller/products/new">
-          <Button>New product</Button>
-        </Link>
+        <ButtonLink to="/seller/products/new">New product</ButtonLink>
       </div>
       <div className="flex flex-wrap gap-3">
         <Select

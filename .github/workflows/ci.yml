@@ -143,11 +143,11 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Check OpenAPI client types
+      - name: Check OpenAPI spec and client types
         run: |
           npm run openapi:export -w apps/api
           npm run api:types -w apps/web
-          git diff --exit-code -- apps/web/src/lib/api/schema.d.ts
+          git diff --exit-code -- docs/api/openapi.json apps/web/src/lib/api/schema.d.ts
       - name: Build all workspaces
         run: npm run build
       - name: Build Storybook

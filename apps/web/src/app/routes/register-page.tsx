@@ -26,7 +26,7 @@ export function RegisterPage() {
   }
 
   return (
-    <Card className="mx-auto max-w-sm">
+    <Card className="mx-auto mt-4 max-w-sm p-6 md:mt-10">
       <h1 className="mb-4 text-xl font-semibold">Create an account</h1>
       <form
         className="flex flex-col gap-3"

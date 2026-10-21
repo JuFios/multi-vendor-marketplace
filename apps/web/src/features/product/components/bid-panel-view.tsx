@@ -23,17 +23,23 @@ export interface BidPanelViewProps {
   isWinner: boolean;
   pending: boolean;
   error: string | null;
+  /** Changes whenever a bid of this buyer was accepted; the form starts empty again. */
+  placedBids?: number;
   onBid: (amountCents: number) => void;
+  /** The buyer edits or resubmits the amount: the previous failure no longer applies. */
+  onDismissError?: () => void;
 }
 
 function BidForm({
   minimumCents,
   pending,
   onBid,
+  onDismissError,
 }: {
   minimumCents: number;
   pending: boolean;
   onBid: (amountCents: number) => void;
+  onDismissError: () => void;
 }) {
   const schema = useMemo(() => bidSchema(minimumCents), [minimumCents]);
   const form = useForm<{ amount: string }>({
@@ -43,9 +49,10 @@ function BidForm({
 
   return (
     <form
-      className="flex items-start gap-2"
+      className="flex items-start gap-3"
       noValidate
       onSubmit={(event) => {
+        onDismissError();
         void form.handleSubmit((values) => {
           const cents = dollarsToCents(values.amount);
           if (cents !== null) {
@@ -60,7 +67,7 @@ function BidForm({
           inputMode="decimal"
           placeholder={(minimumCents / 100).toFixed(2)}
           error={form.formState.errors.amount?.message}
-          {...form.register('amount')}
+          {...form.register('amount', { onChange: onDismissError })}
         />
       </div>
       <Button type="submit" loading={pending} className="mt-6">
@@ -109,7 +116,9 @@ export function BidPanelView({
   isWinner,
   pending,
   error,
+  placedBids = 0,
   onBid,
+  onDismissError = () => undefined,
 }: BidPanelViewProps) {
   const active = auction.status === 'ACTIVE';
   const minimum = auction.minNextBidCents ?? auction.startPriceCents;
@@ -149,7 +158,13 @@ export function BidPanelView({
         signedIn ? (
           <div className="space-y-1">
             <p className="text-sm text-muted">Minimum next bid: {formatMoney(minimum)}</p>
-            <BidForm minimumCents={minimum} pending={pending} onBid={onBid} />
+            <BidForm
+              key={placedBids}
+              minimumCents={minimum}
+              pending={pending}
+              onBid={onBid}
+              onDismissError={onDismissError}
+            />
           </div>
         ) : (
           <p className="text-sm">

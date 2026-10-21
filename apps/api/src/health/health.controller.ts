@@ -24,6 +24,7 @@ export class HealthController {
 
   /** Liveness probe; does not touch any dependency. */
   @ApiOperation({ summary: 'Liveness probe' })
+  @ApiErrorResponses(500)
   @Get()
   check(): HealthResponse {
     return { status: 'ok' };

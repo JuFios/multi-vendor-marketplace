@@ -26,10 +26,15 @@ export function DisputesListPage({ basePath }: { basePath: string }) {
     );
   }
   if (disputes.data.items.length === 0) {
-    return <EmptyState title="No disputes" detail="Disputes you open or receive appear here." />;
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-semibold">Disputes</h1>
+        <EmptyState title="No disputes" detail="Disputes you open or receive appear here." />
+      </div>
+    );
   }
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Disputes</h1>
       <Table headers={['Opened', 'Reason', 'Status', '']}>
         {disputes.data.items.map((dispute) => (

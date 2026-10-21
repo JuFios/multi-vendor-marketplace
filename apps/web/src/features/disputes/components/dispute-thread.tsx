@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Button } from '../../../components/button';
 import { cn } from '../../../components/cn';
 import { StatusBadge } from '../../../components/status-badge';
+import { Textarea } from '../../../components/textarea';
 import { formatDateTime } from '../../../lib/format';
 import type { DisputeDetails } from '../disputes-api';
 
@@ -85,18 +86,13 @@ export function DisputeThread({
             })(event);
           }}
         >
-          <label className="flex flex-col gap-1 text-sm" htmlFor="dispute-message">
-            <span className="font-medium">Message</span>
-            <textarea
-              id="dispute-message"
-              rows={3}
-              className="rounded-md border border-line px-3 py-2 outline-none ring-brand focus:ring-2"
-              {...form.register('text')}
-            />
-            {form.formState.errors.text?.message !== undefined ? (
-              <span className="text-danger">{form.formState.errors.text.message}</span>
-            ) : null}
-          </label>
+          <Textarea
+            id="dispute-message"
+            label="Message"
+            error={form.formState.errors.text?.message}
+            rows={3}
+            {...form.register('text')}
+          />
           {error !== null ? (
             <p role="alert" className="text-sm text-danger">
               {error}

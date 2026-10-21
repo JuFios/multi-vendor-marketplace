@@ -4,6 +4,7 @@ import { AnalyticsPage } from '../features/admin/analytics-page';
 import { ApplicationsPage } from '../features/admin/applications-page';
 import { CategoriesPage } from '../features/admin/categories-page';
 import { AdminDisputeDetailsPage, AdminDisputesPage } from '../features/admin/disputes-pages';
+import { LedgerPage } from '../features/admin/ledger-page';
 import { ProductModerationPage } from '../features/admin/moderation-page';
 import { AdminOrderDetailsPage } from '../features/admin/order-details-page';
 import { AdminOrdersPage } from '../features/admin/orders-page';
@@ -18,6 +19,7 @@ import { OrdersPage } from '../features/orders/orders-page';
 import { ProductPage } from '../features/product/product-page';
 import { SellerAuctionsPage } from '../features/seller/auctions-page';
 import { SellerDashboardPage } from '../features/seller/dashboard-page';
+import { SellerFinancePage } from '../features/seller/finance-page';
 import { SellerOrderDetailsPage } from '../features/seller/order-details-page';
 import { SellerOrdersPage } from '../features/seller/orders-page';
 import { EditProductPage, NewProductPage } from '../features/seller/product-form-page';
@@ -80,6 +82,7 @@ export const routes: RouteObject[] = [
               { path: 'products/:id', element: <EditProductPage /> },
               { path: 'auctions', element: <SellerAuctionsPage /> },
               { path: 'orders', element: <SellerOrdersPage /> },
+              { path: 'finance', element: <SellerFinancePage /> },
               { path: 'orders/:id', element: <SellerOrderDetailsPage /> },
               { path: 'disputes', element: <SellerDisputesPage /> },
               { path: 'disputes/:id', element: <SellerDisputeDetailsPage /> },
@@ -99,6 +102,7 @@ export const routes: RouteObject[] = [
               { path: 'products', element: <ProductModerationPage /> },
               { path: 'categories', element: <CategoriesPage /> },
               { path: 'orders', element: <AdminOrdersPage /> },
+              { path: 'ledger', element: <LedgerPage /> },
               { path: 'orders/:id', element: <AdminOrderDetailsPage /> },
               { path: 'disputes', element: <AdminDisputesPage /> },
               { path: 'disputes/:id', element: <AdminDisputeDetailsPage /> },

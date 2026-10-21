@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Button } from '../../../components/button';
 import { Modal } from '../../../components/modal';
 import { Money } from '../../../components/money';
+import { Textarea } from '../../../components/textarea';
 import { errorMessage } from '../../../lib/api/error-message';
 import { isApiError } from '../../../lib/api/errors';
 import { IdempotencySession } from '../../../lib/api/idempotency';
@@ -84,19 +85,16 @@ function RefundForm({ order, onRefunded }: { order: SellerOrder; onRefunded: () 
         })}
       </ul>
 
-      <label className="flex flex-col gap-1 text-sm" htmlFor="refund-reason">
-        <span className="font-medium">Reason</span>
-        <textarea
-          id="refund-reason"
-          rows={2}
-          maxLength={500}
-          className="rounded-md border border-line px-3 py-2 outline-none ring-brand focus:ring-2"
-          value={reason}
-          onChange={(event) => {
-            setReason(event.target.value);
-          }}
-        />
-      </label>
+      <Textarea
+        id="refund-reason"
+        label="Reason"
+        rows={2}
+        maxLength={500}
+        value={reason}
+        onChange={(event) => {
+          setReason(event.target.value);
+        }}
+      />
 
       <dl
         className="grid grid-cols-2 gap-1 rounded-md bg-slate-50 p-3 text-sm"

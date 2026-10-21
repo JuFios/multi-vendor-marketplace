@@ -9,8 +9,11 @@ interface PaginationProps {
 
 export function Pagination({ page, limit, total, onPageChange }: PaginationProps) {
   const pages = Math.max(1, Math.ceil(total / limit));
+  if (pages === 1 && page === 1) {
+    return null;
+  }
   return (
-    <div className="flex items-center justify-between gap-3 text-sm text-muted">
+    <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
       <span>
         Page {page} of {pages} ({total} items)
       </span>

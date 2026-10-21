@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { Button } from './button';
 import { Modal } from './modal';
+import { Textarea } from './textarea';
 
 interface ReasonDialogProps {
   open: boolean;
@@ -30,19 +31,16 @@ function ReasonForm({
   return (
     <div className="space-y-3">
       {description !== undefined ? <p className="text-sm">{description}</p> : null}
-      <label className="flex flex-col gap-1 text-sm" htmlFor="reason-text">
-        <span className="font-medium">{label ?? 'Reason'}</span>
-        <textarea
-          id="reason-text"
-          rows={3}
-          maxLength={maxLength}
-          className="rounded-md border border-line px-3 py-2 outline-none ring-brand focus:ring-2"
-          value={reason}
-          onChange={(event) => {
-            setReason(event.target.value);
-          }}
-        />
-      </label>
+      <Textarea
+        id="reason-text"
+        label={label ?? 'Reason'}
+        rows={3}
+        maxLength={maxLength}
+        value={reason}
+        onChange={(event) => {
+          setReason(event.target.value);
+        }}
+      />
       {error ? (
         <p role="alert" className="text-sm text-danger">
           {error}

@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { NestFactory } from '@nestjs/core';
@@ -9,6 +9,8 @@ import { GLOBAL_PREFIX } from '../app.setup';
 import { createOpenApiDocument } from '../common/swagger/openapi';
 import { METRICS_PATH } from '../metrics/metrics.constants';
 
+// Run from apps/api (npm workspace): the spec is published at the repository root.
+const OUTPUT_DIR = join(process.cwd(), '..', '..', 'docs', 'api');
 const OUTPUT_FILE = 'openapi.json';
 
 async function exportOpenApi(): Promise<void> {
@@ -20,7 +22,8 @@ async function exportOpenApi(): Promise<void> {
   });
   app.setGlobalPrefix(GLOBAL_PREFIX, { exclude: [METRICS_PATH] });
   const document = createOpenApiDocument(app);
-  writeFileSync(join(process.cwd(), OUTPUT_FILE), `${JSON.stringify(document, null, 2)}\n`);
+  mkdirSync(OUTPUT_DIR, { recursive: true });
+  writeFileSync(join(OUTPUT_DIR, OUTPUT_FILE), `${JSON.stringify(document, null, 2)}\n`);
   await app.close();
 }
 

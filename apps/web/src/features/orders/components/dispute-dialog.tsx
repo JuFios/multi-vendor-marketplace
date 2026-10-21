@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { Button } from '../../../components/button';
 import { Modal } from '../../../components/modal';
+import { Textarea } from '../../../components/textarea';
 import { errorMessage } from '../../../lib/api/error-message';
 import { openDispute, type Dispute } from '../../disputes/disputes-api';
 
@@ -41,18 +42,13 @@ function DisputeForm({
         })(event);
       }}
     >
-      <label className="flex flex-col gap-1 text-sm" htmlFor="dispute-reason">
-        <span className="font-medium">What went wrong?</span>
-        <textarea
-          id="dispute-reason"
-          rows={4}
-          className="rounded-md border border-line px-3 py-2 outline-none ring-brand focus:ring-2"
-          {...form.register('reason')}
-        />
-        {form.formState.errors.reason?.message !== undefined ? (
-          <span className="text-danger">{form.formState.errors.reason.message}</span>
-        ) : null}
-      </label>
+      <Textarea
+        id="dispute-reason"
+        label="What went wrong?"
+        error={form.formState.errors.reason?.message}
+        rows={4}
+        {...form.register('reason')}
+      />
       {open.isError ? (
         <p role="alert" className="text-sm text-danger">
           {errorMessage(open.error)}

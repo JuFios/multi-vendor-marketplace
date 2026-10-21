@@ -31,7 +31,7 @@ export function RatingStars({ average, count }: { average: number; count: number
 export function ProductCard({ product }: { product: ProductCardData }) {
   const isAuction = product.type === 'AUCTION';
   return (
-    <Link to={`/products/${product.id}`} className="block">
+    <Link to={`/products/${product.id}`} className="block h-full">
       <Card className="flex h-full flex-col gap-2 transition hover:shadow-md">
         {product.imageUrl ? (
           <img

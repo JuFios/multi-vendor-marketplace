@@ -9,6 +9,7 @@ import { Modal } from '../../components/modal';
 import { Money } from '../../components/money';
 import { Skeleton } from '../../components/skeleton';
 import { StatusBadge } from '../../components/status-badge';
+import { Textarea } from '../../components/textarea';
 import { useToast } from '../../components/toast-context';
 import { errorMessage } from '../../lib/api/error-message';
 import { formatDateTime } from '../../lib/format';
@@ -181,19 +182,16 @@ export function SellerOrderDetailsPage() {
       >
         <div className="space-y-3">
           <p className="text-sm">The buyer is refunded and the items return to stock.</p>
-          <label className="flex flex-col gap-1 text-sm" htmlFor="cancel-reason">
-            <span className="font-medium">Reason (shown to the buyer)</span>
-            <textarea
-              id="cancel-reason"
-              rows={3}
-              maxLength={500}
-              className="rounded-md border border-line px-3 py-2 outline-none ring-brand focus:ring-2"
-              value={reason}
-              onChange={(event) => {
-                setReason(event.target.value);
-              }}
-            />
-          </label>
+          <Textarea
+            id="cancel-reason"
+            label="Reason (shown to the buyer)"
+            rows={3}
+            maxLength={500}
+            value={reason}
+            onChange={(event) => {
+              setReason(event.target.value);
+            }}
+          />
           {cancel.isError ? (
             <p role="alert" className="text-sm text-danger">
               {errorMessage(cancel.error)}

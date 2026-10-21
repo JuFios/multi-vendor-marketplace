@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
+import { ButtonLink } from '../../components/button';
 import { EmptyState } from '../../components/empty-state';
 import { ErrorState } from '../../components/error-state';
 import { Money } from '../../components/money';
@@ -33,16 +34,18 @@ export function OrdersPage() {
   }
   if (orders.data.total === 0) {
     return (
-      <div className="space-y-3 text-center">
-        <EmptyState title="No orders yet" detail="Orders you place appear here." />
-        <Link to="/" className="text-sm font-medium text-brand">
-          Browse the catalog
-        </Link>
+      <div className="space-y-4">
+        <h1 className="text-2xl font-semibold">My orders</h1>
+        <EmptyState
+          title="No orders yet"
+          detail="Orders you place appear here."
+          action={<ButtonLink to="/">Browse the catalog</ButtonLink>}
+        />
       </div>
     );
   }
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <h1 className="text-2xl font-semibold">My orders</h1>
       <Table headers={['Placed', 'Shipments', 'Status', 'Total', '']}>
         {orders.data.items.map((order) => (

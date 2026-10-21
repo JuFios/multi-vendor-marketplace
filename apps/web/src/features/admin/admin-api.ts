@@ -118,6 +118,23 @@ export function resolveDispute(input: { id: string; key: string; body: ResolveBo
   );
 }
 
+export const LEDGER_PAGE_SIZE = 20;
+
+export function fetchLedger(input: { page: number; from: string; to: string; sellerId?: string }) {
+  return unwrap(
+    api.GET('/api/admin/ledger', { params: { query: { ...input, limit: LEDGER_PAGE_SIZE } } }),
+  );
+}
+
+/** Every approved store, for the store filter and to name the stores in the ledger. */
+export function fetchApprovedStores() {
+  return unwrap(
+    api.GET('/api/admin/seller-applications', {
+      params: { query: { status: 'APPROVED', page: 1, limit: 100 } },
+    }),
+  );
+}
+
 export function fetchAnalyticsSummary(input: { from: string; to: string }) {
   return unwrap(api.GET('/api/admin/analytics/summary', { params: { query: input } }));
 }

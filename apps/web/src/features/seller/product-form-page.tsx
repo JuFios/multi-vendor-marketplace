@@ -2,15 +2,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 
-import { Button } from '../../components/button';
+import { Button, ButtonLink } from '../../components/button';
 import { Card } from '../../components/card';
 import { ErrorState } from '../../components/error-state';
 import { Input } from '../../components/input';
 import { Select } from '../../components/select';
 import { Skeleton } from '../../components/skeleton';
 import { StatusBadge } from '../../components/status-badge';
+import { Textarea } from '../../components/textarea';
 import { useToast } from '../../components/toast-context';
 import { errorMessage } from '../../lib/api/error-message';
 import { queryKeys } from '../../lib/query-keys';
@@ -123,14 +124,14 @@ function ProductForm({ product }: { product?: SellerProduct }) {
   return (
     <form
       noValidate
-      className="space-y-4"
+      className="space-y-5"
       onSubmit={(event) => {
         void form.handleSubmit((values) => {
           save.mutate(values);
         })(event);
       }}
     >
-      <Card className="space-y-3">
+      <Card className="space-y-4 p-5">
         <Select label="Type" disabled={editing} {...form.register('type')}>
           <option value="FIXED_PRICE">Fixed price</option>
           <option value="AUCTION">Auction</option>
@@ -148,34 +149,25 @@ function ProductForm({ product }: { product?: SellerProduct }) {
           ))}
         </Select>
         <Input label="Title" error={errors.title?.message} {...form.register('title')} />
-        <label className="flex flex-col gap-1 text-sm" htmlFor="description">
-          <span className="font-medium">Description</span>
-          <textarea
-            id="description"
-            rows={5}
-            className="rounded-md border border-line px-3 py-2 outline-none ring-brand focus:ring-2"
-            {...form.register('description')}
-          />
-          {errors.description?.message !== undefined ? (
-            <span className="text-danger">{errors.description.message}</span>
-          ) : null}
-        </label>
-        <label className="flex flex-col gap-1 text-sm" htmlFor="images">
-          <span className="font-medium">Image URLs (one per line, up to 5)</span>
-          <textarea
-            id="images"
-            rows={3}
-            className="rounded-md border border-line px-3 py-2 font-mono text-xs outline-none ring-brand focus:ring-2"
-            {...form.register('images')}
-          />
-          {errors.images?.message !== undefined ? (
-            <span className="text-danger">{errors.images.message}</span>
-          ) : null}
-        </label>
+        <Textarea
+          id="description"
+          label="Description"
+          error={errors.description?.message}
+          rows={5}
+          {...form.register('description')}
+        />
+        <Textarea
+          id="images"
+          label="Image URLs (one per line, up to 5)"
+          className="font-mono text-xs"
+          error={errors.images?.message}
+          rows={3}
+          {...form.register('images')}
+        />
       </Card>
 
       {type === 'FIXED_PRICE' ? (
-        <Card className="grid gap-3 sm:grid-cols-2">
+        <Card className="grid gap-4 p-5 sm:grid-cols-2">
           <Input
             label="Price"
             inputMode="decimal"
@@ -192,7 +184,7 @@ function ProductForm({ product }: { product?: SellerProduct }) {
           ) : null}
         </Card>
       ) : !editing ? (
-        <Card className="grid gap-3 sm:grid-cols-3">
+        <Card className="grid gap-4 p-5 sm:grid-cols-3">
           <Input
             label="Starting price"
             inputMode="decimal"
@@ -223,13 +215,13 @@ function ProductForm({ product }: { product?: SellerProduct }) {
           {errorMessage(save.error)}
         </p>
       ) : null}
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <Button type="submit" loading={save.isPending}>
           {editing ? 'Save changes' : 'Create product'}
         </Button>
-        <Link to="/seller/products">
-          <Button variant="secondary">Cancel</Button>
-        </Link>
+        <ButtonLink to="/seller/products" variant="secondary">
+          Cancel
+        </ButtonLink>
       </div>
     </form>
   );

@@ -2,7 +2,9 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 
+import { Button } from '../../components/button';
 import { Checkbox } from '../../components/checkbox';
+import { cn } from '../../components/cn';
 import { EmptyState } from '../../components/empty-state';
 import { ErrorState } from '../../components/error-state';
 import { Input } from '../../components/input';
@@ -37,6 +39,7 @@ const TYPE_LABELS = { FIXED_PRICE: 'Fixed price', AUCTION: 'Auction' } as const;
 export function CatalogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = parseFilters(searchParams);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [term, setTerm] = useState(filters.q);
   const [priceMin, setPriceMin] = useState(filters.priceMin);
   const [priceMax, setPriceMax] = useState(filters.priceMax);
@@ -75,85 +78,102 @@ export function CatalogPage() {
 
   return (
     <div className="grid gap-6 md:grid-cols-[16rem_1fr]">
-      <aside className="space-y-5" aria-label="Filters">
-        <FacetFilter
-          title="Category"
-          selected={filters.categoryId}
-          options={(data?.facets.categories ?? []).map((facet) => ({
-            value: facet.id,
-            label: facet.name,
-            count: facet.count,
-          }))}
-          onChange={(categoryId) => {
-            update({ categoryId });
-          }}
-        />
-        <FacetFilter
-          title="Seller"
-          selected={filters.sellerId}
-          options={(data?.facets.sellers ?? []).map((facet) => ({
-            value: facet.id,
-            label: facet.name,
-            count: facet.count,
-          }))}
-          onChange={(sellerId) => {
-            update({ sellerId });
-          }}
-        />
-        <FacetFilter
-          title="Type"
-          selected={filters.type}
-          options={(data?.facets.types ?? []).map((facet) => ({
-            value: facet.value,
-            label: TYPE_LABELS[facet.value],
-            count: facet.count,
-          }))}
-          onChange={(type) => {
-            update({ type: type === 'FIXED_PRICE' || type === 'AUCTION' ? type : '' });
-          }}
-        />
-        <div className="space-y-1">
-          <Checkbox
-            label={`In stock only (${data?.facets.inStock.find((facet) => facet.value)?.count ?? 0})`}
-            checked={filters.inStock}
-            onChange={(event) => {
-              update({ inStock: event.target.checked });
-            }}
-          />
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-sm font-semibold">Price</h2>
-          <PriceRangeInput
-            min={priceMin}
-            max={priceMax}
-            onMinChange={(value) => {
-              setPriceMin(value);
-              updateDebounced({ priceMin: value });
-            }}
-            onMaxChange={(value) => {
-              setPriceMax(value);
-              updateDebounced({ priceMax: value });
-            }}
-          />
-          {data?.priceRange != null && data.total > 0 ? (
-            <p className="text-xs text-muted">
-              Available: {formatMoney(data.priceRange.min)} – {formatMoney(data.priceRange.max)}
-            </p>
-          ) : null}
-        </div>
-        <Select
-          label="Minimum rating"
-          value={filters.ratingMin}
-          onChange={(event) => {
-            update({ ratingMin: event.target.value });
+      <div className="space-y-3">
+        <Button
+          variant="secondary"
+          className="w-full md:hidden"
+          aria-expanded={filtersOpen}
+          aria-controls="catalog-filters"
+          onClick={() => {
+            setFiltersOpen((open) => !open);
           }}
         >
-          <option value="">Any rating</option>
-          <option value="4">4 and up</option>
-          <option value="3">3 and up</option>
-          <option value="2">2 and up</option>
-        </Select>
-      </aside>
+          {filtersOpen ? 'Hide filters' : 'Show filters'}
+        </Button>
+        <aside
+          id="catalog-filters"
+          className={cn('space-y-5', !filtersOpen && 'hidden md:block')}
+          aria-label="Filters"
+        >
+          <FacetFilter
+            title="Category"
+            selected={filters.categoryId}
+            options={(data?.facets.categories ?? []).map((facet) => ({
+              value: facet.id,
+              label: facet.name,
+              count: facet.count,
+            }))}
+            onChange={(categoryId) => {
+              update({ categoryId });
+            }}
+          />
+          <FacetFilter
+            title="Seller"
+            selected={filters.sellerId}
+            options={(data?.facets.sellers ?? []).map((facet) => ({
+              value: facet.id,
+              label: facet.name,
+              count: facet.count,
+            }))}
+            onChange={(sellerId) => {
+              update({ sellerId });
+            }}
+          />
+          <FacetFilter
+            title="Type"
+            selected={filters.type}
+            options={(data?.facets.types ?? []).map((facet) => ({
+              value: facet.value,
+              label: TYPE_LABELS[facet.value],
+              count: facet.count,
+            }))}
+            onChange={(type) => {
+              update({ type: type === 'FIXED_PRICE' || type === 'AUCTION' ? type : '' });
+            }}
+          />
+          <div className="space-y-1">
+            <Checkbox
+              label={`In stock only (${data?.facets.inStock.find((facet) => facet.value)?.count ?? 0})`}
+              checked={filters.inStock}
+              onChange={(event) => {
+                update({ inStock: event.target.checked });
+              }}
+            />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold">Price</h2>
+            <PriceRangeInput
+              min={priceMin}
+              max={priceMax}
+              onMinChange={(value) => {
+                setPriceMin(value);
+                updateDebounced({ priceMin: value });
+              }}
+              onMaxChange={(value) => {
+                setPriceMax(value);
+                updateDebounced({ priceMax: value });
+              }}
+            />
+            {data?.priceRange != null && data.total > 0 ? (
+              <p className="text-xs text-muted">
+                Available: {formatMoney(data.priceRange.min)} – {formatMoney(data.priceRange.max)}
+              </p>
+            ) : null}
+          </div>
+          <Select
+            label="Minimum rating"
+            value={filters.ratingMin}
+            onChange={(event) => {
+              update({ ratingMin: event.target.value });
+            }}
+          >
+            <option value="">Any rating</option>
+            <option value="4">4 and up</option>
+            <option value="3">3 and up</option>
+            <option value="2">2 and up</option>
+          </Select>
+        </aside>
+      </div>
 
       <section className="space-y-4">
         {data?.degraded === true ? (
