@@ -152,6 +152,20 @@ describe('SearchIndexer with auction lots', () => {
     expect(search.upsert).toHaveBeenCalledWith([expect.objectContaining({ inStock: false })]);
   });
 
+  it('hides a round whose deadline passed while the sweeper still reports it as ACTIVE', async () => {
+    const expired = lot(4, { open: false });
+    const { indexer, search } = setup(
+      [[listed(1)], [listed(1)]],
+      [[['p1', expired]], [['p1', expired]]],
+    );
+
+    await indexer.syncProducts(['p1']);
+
+    expect(search.upsert).toHaveBeenCalledWith([
+      expect.objectContaining({ auctionStatus: 'ACTIVE', inStock: false }),
+    ]);
+  });
+
   it('writes again when a bid moved the lot while it was writing', async () => {
     const { indexer, search } = setup(
       [[listed(1)], [listed(1)], [listed(1)], [listed(1)]],

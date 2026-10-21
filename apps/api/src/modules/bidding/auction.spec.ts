@@ -2,6 +2,7 @@ import {
   AUCTION_MAX_DURATION_SEC,
   AUCTION_MIN_DURATION_SEC,
   isAllowedDuration,
+  lotListingOf,
   maskBidder,
   minNextBidCents,
 } from './auction';
@@ -17,6 +18,44 @@ describe('minNextBidCents', () => {
     expect(
       minNextBidCents({ currentPriceCents: 1_000, startPriceCents: 1_000, bidStepCents: 250 }),
     ).toBe(1_250);
+  });
+});
+
+describe('lotListingOf', () => {
+  type LotSource = Parameters<typeof lotListingOf>[0];
+  const now = new Date('2026-02-01T00:00:00.000Z');
+  const auction = (overrides: Partial<LotSource> = {}): LotSource => ({
+    id: 'a1',
+    status: 'ACTIVE',
+    currentPriceCents: null,
+    startPriceCents: 1_000,
+    endsAt: new Date(now.getTime() + 60_000),
+    dbNow: now,
+    version: 3,
+    ...overrides,
+  });
+
+  it('prices a lot at its start price while nobody has bid', () => {
+    expect(lotListingOf(auction())).toMatchObject({
+      auctionId: 'a1',
+      priceCents: 1_000,
+      open: true,
+      version: 3,
+    });
+  });
+
+  it('prices a lot at the leading bid once there is one', () => {
+    expect(lotListingOf(auction({ currentPriceCents: 1_500 })).priceCents).toBe(1_500);
+  });
+
+  it('closes a round whose deadline passed, even before the sweeper moves it out of ACTIVE', () => {
+    const expired = auction({ endsAt: new Date(now.getTime() - 1) });
+
+    expect(lotListingOf(expired)).toMatchObject({ status: 'ACTIVE', open: false });
+  });
+
+  it('is closed for a status that no longer takes bids', () => {
+    expect(lotListingOf(auction({ status: 'ORDERED' })).open).toBe(false);
   });
 });
 

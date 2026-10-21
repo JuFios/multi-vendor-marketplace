@@ -262,7 +262,7 @@ describe('GET /api/catalog (e2e)', () => {
       expect((await get('?priceMax=7500')).items).toEqual([]);
     });
 
-    it('shows a lot that no longer takes bids as unavailable, whatever its status says', async () => {
+    it('shows a lot that no longer takes bids as unavailable', async () => {
       const store = await createSeller(prisma);
       const category = await createCategory(prisma);
       const lot = (overrides: Partial<LotOptions> = {}) =>
@@ -284,7 +284,9 @@ describe('GET /api/catalog (e2e)', () => {
           expect.objectContaining({ id: sold.product.id, auctionStatus: 'SOLD_TO_WINNER' }),
           expect.objectContaining({ id: ordered.product.id, auctionStatus: 'ORDERED' }),
           expect.objectContaining({ id: notSold.product.id, auctionStatus: 'NOT_SOLD' }),
-          expect.objectContaining({ id: expired.product.id, auctionStatus: 'ACTIVE' }),
+          // The sweeper may already have turned the expired round into NOT_SOLD; either way it is
+          // not for sale. The transient ACTIVE-but-past state is pinned by the unit tests.
+          expect.objectContaining({ id: expired.product.id, inStock: false }),
         ]),
       );
       expect(closed.facets.inStock).toEqual(expect.arrayContaining([{ value: false, count: 4 }]));
