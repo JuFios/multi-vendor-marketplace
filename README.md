@@ -84,8 +84,8 @@ pure domain logic.
 | `notifications`   | Notifications, WebSocket gateway and the event-to-WebSocket projection     |
 
 Technical modules (`prisma`, `redis`, `queue`, `outbox`, `idempotency`, `cache`, `search`,
-`logger`, `metrics`, `health`, `common`, `config`) sit beside them and never import a business
-module.
+`adapters` (the Socket.IO Redis adapter), `logger`, `metrics`, `health`, `common`, `config`) sit
+beside them and never import a business module.
 
 The boundaries are enforced, not just agreed on:
 
@@ -108,9 +108,9 @@ the REST API in [`docs/api/openapi.json`](docs/api/openapi.json) (also served as
 
 ### Checkout
 
-One transaction decrements the stock of every store's products, creates the order and one seller
-order per store, writes the ledger and the outbox rows. A single unavailable line rolls back the
-whole checkout.
+One transaction decrements the stock of every store's products, hands won auction lots to the
+order, creates the order and one seller order per store, writes the ledger and the outbox rows. A
+single unavailable line rolls back the whole checkout.
 
 ```mermaid
 sequenceDiagram
@@ -122,24 +122,28 @@ sequenceDiagram
     participant Q as BullMQ
     Buyer->>API: POST /api/orders/checkout (Idempotency-Key)
     API->>DB: claim the idempotency key
-    API->>DB: read cart, pre-validate every line (collect all problems)
     API->>DB: BEGIN
-    loop products sorted by id
-        API->>DB: UPDATE products SET stock = stock - q WHERE stock >= q
+    API->>DB: lock the ACTIVE cart (FOR UPDATE), read its lines,<br/>pre-validate every line (collect all problems)
+    loop fixed-price products sorted by id
+        API->>DB: UPDATE products SET stock = stock - q<br/>WHERE stock >= q AND is_published AND archived_at IS NULL
+    end
+    loop won auction lots
+        API->>DB: UPDATE auctions SET status = 'ORDERED'<br/>WHERE winner_id = buyer AND winner_deadline_at > now()
     end
     API->>DB: INSERT order, seller orders (one per store), items, ledger rows
-    API->>DB: INSERT outbox rows (seller_order.created, product.stock_changed)
+    API->>DB: INSERT outbox rows (product.stock_changed, seller_order.created, auction.ordered)
     API->>DB: cart CONVERTED, idempotency key COMPLETED with the response
     API->>DB: COMMIT
     API-->>Buyer: 201 order with seller orders
     W->>DB: relay committed outbox rows
-    W->>Q: seller_order.created, product.stock_changed
+    W->>Q: seller_order.created, product.stock_changed, auction.ordered
     Note over Q,W: payment saga, notifications, WebSocket, search, cache, analytics
 ```
 
 If a line cannot be fulfilled the buyer gets `409 CART_ITEMS_UNAVAILABLE` (pre-check, lists every
-problem) or `409 INSUFFICIENT_STOCK` (lost the race on the conditional update); nothing is
-changed.
+problem), `409 INSUFFICIENT_STOCK` (lost the race on the conditional update) or
+`409 AUCTION_WINDOW_EXPIRED` (the winner's checkout window of a lot ran out); nothing is changed.
+An empty cart is `400 CART_EMPTY`.
 
 ### Bidding
 
@@ -154,19 +158,24 @@ sequenceDiagram
     participant DB as PostgreSQL
     Bidder->>API: POST /api/auctions/:id/bids {amountCents} (Idempotency-Key)
     loop at most BID_MAX_RETRIES attempts
-        API->>DB: SELECT auction (version v)
+        API->>DB: SELECT auction (version v) with the database now()
         API->>API: validate amount >= minNext, auction active, not own lot
-        API->>DB: BEGIN, INSERT bid
-        API->>DB: UPDATE auctions SET price, version = v + 1<br/>WHERE id AND version = v AND status = 'ACTIVE' AND ends_at > now()
+        API->>DB: BEGIN
+        API->>DB: one statement: WITH advanced AS (UPDATE auctions SET price, version = v + 1<br/>WHERE id AND version = v AND status = 'ACTIVE' AND ends_at > now() RETURNING *)<br/>INSERT INTO bids SELECT … FROM advanced
         alt 1 row updated
-            API->>DB: INSERT outbox auction.bid_placed, COMMIT
+            API->>DB: INSERT outbox auction.bid_placed, idempotency key COMPLETED, COMMIT
             API-->>Bidder: 201 bid and auction snapshot
         else 0 rows (another bid won the race)
-            API->>DB: ROLLBACK, re-read and re-validate
+            API->>DB: COMMIT (nothing was written), re-read and re-validate
         end
     end
     API-->>Bidder: 409 BID_CONFLICT (client reads the state and tries again)
 ```
+
+The bid row and the auction update are a single statement on purpose: inserting the bid first
+would take a shared foreign-key lock on the auction row that two concurrent bidders then both hold
+while waiting to update it, which deadlocks. A rule violation (`BID_TOO_LOW`, `AUCTION_NOT_ACTIVE`,
+`AUCTION_ENDED`, `SELF_BID_FORBIDDEN`) is `422` with `minNextBidCents` in the error details.
 
 Closing an auction is a conditional update of the same row (`WHERE status = 'ACTIVE' AND ends_at <=
 now()`). Both statements lock that row, so a bid in the last millisecond either lands before the
@@ -203,6 +212,26 @@ sequenceDiagram
 Delivery is at-least-once: a crash between publishing and marking the row publishes twice. BullMQ
 drops the duplicate by `jobId`, and each consumer's inbox row (`processed_events`) drops it
 again.
+
+### WebSocket channels
+
+The namespace is `/realtime`. Public rooms are followed with `subscribe {channel, id}` (the ack
+carries the current snapshot, at most `WS_MAX_SUBSCRIPTIONS` per connection); private rooms are
+joined from the access token in the handshake, and the socket is closed when that token expires.
+
+| Room                | Who                    | Events                                                                                                                             |
+| ------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `product:{id}`      | anyone                 | `product.stock` (`stock`, `inStock`, `version`)                                                                                    |
+| `auction:{id}`      | anyone                 | `auction.state` (re-read from the database on every auction event, with `serverTime` and `version`)                                |
+| `user:{userId}`     | the signed-in user     | `order.status` (aggregate), `sellerOrder.status`, `sellerOrder.payment`, `sellerOrder.cancelled`, `refund.created`, `notification` |
+| `seller:{sellerId}` | the store in the token | `sellerOrder.created`, `sellerOrder.status`, `sellerOrder.payment`, `sellerOrder.cancelled`, `refund.created`                      |
+
+Notifications for a store go to its owner's `user:` room. The SPA treats every order event as a
+signal to refetch the order queries rather than patching its cache from the payload; a
+`notification` shows a toast and refreshes the notification list. The buyer gets `sellerOrder.status`
+for each of their seller orders as well as `order.status`, which is only sent when the aggregate
+status changes, so a seller order moving NEW → PROCESSING inside an already `PROCESSING` order
+still updates the buyer's order page live.
 
 ## Technology choices
 
@@ -294,7 +323,7 @@ Tested by redelivering the same event to each consumer and asserting a single ef
 | Case from the specification                         | How it is handled                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Concurrent bids in the last second of an auction    | Bid and close are conditional updates of the same row; the row lock orders them. The deadline is the database's `now()`. Bids landing before the close count, later ones are `AUCTION_ENDED`. Load-tested with 200 concurrent bidders (see below).                                                                                                                                                                                      |
-| Seller deletes a product that is in somebody's cart | Delete is a soft delete (`archivedAt`). The cart line turns `UNAVAILABLE`; checkout answers `409 CART_ITEMS_UNAVAILABLE` listing every affected line. An auction with bids or a pending winner cannot be archived (`409 PRODUCT_HAS_ACTIVE_AUCTION`).                                                                                                                                                                                   |
+| Seller deletes a product that is in somebody's cart | Delete is a soft delete (`archivedAt`). The cart line turns `UNAVAILABLE`; checkout answers `409 CART_ITEMS_UNAVAILABLE` listing every affected line. An auction with bids or a pending winner cannot be archived (`409 PRODUCT_HAS_ACTIVE_AUCTION`); a running one without bids is closed as `NOT_SOLD`.                                                                                                                               |
 | Partial cancellation of a multi-vendor order        | A seller order is cancelled alone: stock returns, commission is reversed, the order's totals and aggregate status are recomputed (`PARTIALLY_SHIPPED`, `hasCancelledParts`), the other seller orders keep going.                                                                                                                                                                                                                        |
 | The same event delivered twice                      | Relay publishes with `jobId = event id`, every consumer has an inbox row in the effect's transaction (see [Idempotency](#idempotency)).                                                                                                                                                                                                                                                                                                 |
 | WebSocket connection lost during a live auction     | Socket.IO reconnects by itself. On every connect the client re-subscribes to its channels and receives the current snapshot in the acknowledgement, invalidates its order queries and fetches missed notifications (`GET /api/notifications?after=`). Events apply only if their `version` is newer; the countdown uses `serverTime` from the snapshot. A bid is a REST call with an idempotency key, so retrying after a drop is safe. |
@@ -311,8 +340,11 @@ in memory only. The refresh token is a random 256-bit value, stored only as a ha
 httpOnly `SameSite=Lax` cookie scoped to `/api/auth`, rotated on every use; presenting an already
 rotated token revokes the whole family. The refresh endpoint also requires an `X-Requested-With`
 header as a CSRF guard. A wrong email and a wrong password produce the same answer. Signing in
-with Google links to an existing account with the same verified email and keeps password login
-working.
+with Google requires Google to report the email as verified; it then links to an existing account
+with the same email. An account whose email was already verified keeps password login and its
+sessions. If the email was never verified, linking marks it verified, clears the password and
+revokes all of the account's refresh tokens, so whoever registered the address first loses access
+(see [Known limitations](#known-limitations-and-what-i-would-do-differently)).
 
 **Authorization and IDOR.** Roles are checked by guards (`CUSTOMER`, `SELLER`, `ADMIN`; seller
 endpoints also require an approved store). Ownership is checked in the service or repository with the
@@ -458,7 +490,15 @@ Created by the seed. The defaults below apply when the variables are not set (se
 | Customer                   | `buyer1@example.com` … `buyer3@example.com` | `change-me-demo`  |
 | Pending seller application | `seller-pending@example.com`                | `change-me-demo`  |
 
-The seed also creates categories, fixed-price products and running auctions.
+The seed also creates categories, fixed-price products and running auctions. It creates no orders,
+so the admin's 30-day sales chart starts empty. To fill the last 60 days with orders, refunds and
+abandoned carts (repeatable, fixed ids), run the history seed after the main one:
+
+```bash
+docker compose run --rm migrate npm run db:seed:history
+```
+
+On the host it is `npm run db:seed:history -w apps/api`; see [`docs/DATABASE.md`](docs/DATABASE.md).
 
 ### Configuration
 
@@ -482,6 +522,10 @@ npm run dev -w apps/api          # HTTP + WebSocket on http://localhost:3000
 npm run dev:worker -w apps/api   # background worker (metrics on :9100)
 npm run dev -w apps/web          # Vite on http://localhost:5173
 ```
+
+Other scripts of `apps/api`: `db:seed:history` (60 days of sales history), `db:reset` (drop,
+migrate and seed again), `db:deploy` (apply migrations without generating new ones),
+`search:reindex` (rebuild the Meilisearch index from the database), `db:studio` (Prisma Studio).
 
 ## Demo walkthrough
 
@@ -525,7 +569,7 @@ A manual checklist for a fresh `docker compose up --build`. Open http://localhos
 - [ ] **Admin.** Sign in as `admin@example.com`: approve `seller-pending@example.com`'s
       application, create a category, take the dispute into review and resolve it, open the
       ledger and the analytics page (revenue, sales by store, top products, conversion, 30-day chart against the
-      previous period) and use "Export CSV" / "Export JSON". New products are published at once
+      previous period; run the history seed first for a full chart) and use "Export CSV" / "Export JSON". New products are published at once
       and wait in "Product moderation" (as the approved store, create one in the seller area,
       then approve or reject it as the admin).
 - [ ] **Degraded search.** `docker compose stop meilisearch`; the catalog keeps working and says
@@ -552,8 +596,9 @@ redis meilisearch`). They include the multi-vendor checkout, concurrent bids on 
   degradation, WebSocket resync and the security suite.
 - **Load tests** (`load/`): k6 scenarios, see below.
 - **Storybook** for the UI components: `npm run storybook -w apps/web`.
-- **CI** (`.github/workflows/ci.yml`) runs on every push and pull request: lint, infrastructure
-  lint (`actionlint`, `hadolint`, `yamllint`, `docker compose config`), unit tests, e2e tests on
+- **CI** (`.github/workflows/ci.yml`) runs on every push and pull request: lint, formatting
+  check (`prettier --check`), typecheck, infrastructure lint (`actionlint`, `hadolint`,
+  `yamllint`, `docker compose config` for both compose files), unit tests, e2e tests on
   service containers, build of the workspaces, Storybook and Docker images, and a check that
   `docs/api/openapi.json` and the generated frontend types are up to date.
 
@@ -641,16 +686,24 @@ Where the specification leaves room, these are the decisions taken.
 - **Bid history privacy.** Other bidders appear as `Bidder #a1b2`; your own bids are marked.
 - **Not implemented, by design.** Delivery addresses, real payment providers, e-mail, image
   uploads (images are URLs), auction anti-sniping extensions and "you were outbid" notifications.
-- **Accounts from Google.** An identity from Google is linked to the existing account with the same
-  verified email, and the password stays valid.
+- **Accounts from Google.** An identity from Google (with an email Google has verified) is linked
+  to the existing account with the same email. The password stays valid only if that account's
+  email was already verified; otherwise it is cleared and the account signs in with Google from
+  then on. Without such an account a new one is created without a password.
 
 ## Known limitations and what I would do differently
 
 - **Pre-account hijacking.** There is no email verification (outside the specification). Someone
-  could register a password account with another person's email address in advance; when the owner
-  later signs in with Google the accounts are merged. As a partial mitigation, linking Google to
-  an account whose email was never verified revokes all of that account's refresh tokens. The real
-  fix is to verify email ownership at registration.
+  could register a password account with another person's email address in advance and use it
+  until the owner signs in with Google. Linking then clears the password and revokes all refresh
+  tokens of that account, so the squatter is locked out, but whatever they did before (orders,
+  reviews, a seller application) stays on the owner's account. Since no registration verifies its
+  email, an honest user who links Google to their password account also loses password login and
+  has no way to set a new password. The real fix is to verify email ownership at registration and
+  to offer a password reset.
+- **Catalog cache granularity.** `search-sync` bumps the catalog namespace after every synced
+  product, including every bid and stock change, so under a busy auction the catalog cache is
+  invalidated continuously.
 - **Retention.** `outbox_events`, `processed_events` and `idempotency_keys` are append-only:
   nothing prunes them, so they grow with traffic. A long-running deployment needs a retention job
   (and partitioning of the outbox by time).
