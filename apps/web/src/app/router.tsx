@@ -2,6 +2,7 @@ import { createBrowserRouter, type RouteObject } from 'react-router';
 
 import { ProtectedRoute } from '../features/auth/protected-route';
 import { CatalogPage } from '../features/catalog/catalog-page';
+import { ProductPage } from '../features/product/product-page';
 
 import { RootLayout } from './layouts/root-layout';
 import { AuthCallbackPage } from './routes/auth-callback-page';
@@ -16,6 +17,7 @@ export const routes: RouteObject[] = [
     element: <RootLayout />,
     children: [
       { index: true, element: <CatalogPage /> },
+      { path: 'products/:id', element: <ProductPage /> },
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
       { path: 'auth/callback', element: <AuthCallbackPage /> },
