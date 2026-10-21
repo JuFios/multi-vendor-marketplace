@@ -213,6 +213,11 @@ Delivery is at-least-once: a crash between publishing and marking the row publis
 drops the duplicate by `jobId`, and each consumer's inbox row (`processed_events`) drops it
 again.
 
+The relay only picks up event types the running build has a route for. A row of a type it does not
+know (written by a newer build before a rollback) stays pending and is counted by
+`outbox_pending_events`; it is relayed once a build that routes it runs again, and it never holds
+up the events behind it.
+
 ### WebSocket channels
 
 The namespace is `/realtime`. Public rooms are followed with `subscribe {channel, id}` (the ack
@@ -295,7 +300,10 @@ database down) are not business outcomes: the job is retried with exponential ba
 attempts are exhausted, stays in the failed set (the dead-letter queue, `queue_dead_letter_total`).
 A race where a payment is captured for a seller order that was cancelled in the meantime is
 resolved by marking it `REFUNDED`, since its finances were already reversed on cancellation.
-`MOCK_PAYMENT_FAILURE_RATE` lets you watch the compensation happen.
+`MOCK_PAYMENT_FAILURE_RATE` lets you watch the compensation happen. The mock derives each outcome
+from the seller order id, so a capture repeated after a rolled-back recording gets the same answer
+on any worker and after a restart, as a real provider answers a repeated idempotency key. The
+compensation is logged and counted only after its transaction has committed.
 
 ## Idempotency
 
@@ -331,6 +339,7 @@ Tested by redelivering the same event to each consumer and asserting a single ef
 | Search index unavailable                            | The catalog falls back to PostgreSQL (`degraded: true`, header `X-Search-Degraded`, no facets or typo tolerance). Failed index updates are re-driven by the worker once Meilisearch is back.                                                                                                                                                                                                                                            |
 | Redis unavailable                                   | The cache fails open and reads from the database; the outbox keeps events pending and the relay backs off, so nothing is lost.                                                                                                                                                                                                                                                                                                          |
 | Stock changes between "add to cart" and checkout    | Checkout pre-validates every line and then decrements with `WHERE stock >= q`; the atomic update is the final authority.                                                                                                                                                                                                                                                                                                                |
+| Seller sets the stock while units are selling       | The stock form sends the product `version` it was loaded at as `expectedVersion`; if a sale changed the product meanwhile nothing is written and the answer is `409 PRODUCT_VERSION_CONFLICT` with the current stock, which the form shows. Without `expectedVersion` the endpoint keeps its plain absolute-value semantics.                                                                                                            |
 | Two buyers race for the last unit                   | Exactly one conditional decrement succeeds; the other gets `409 INSUFFICIENT_STOCK` and nothing changes. Load-tested: 500 buyers, 100 units, exactly 100 orders.                                                                                                                                                                                                                                                                        |
 
 ## Security
@@ -443,10 +452,10 @@ fail readiness, because the catalog degrades without it).
 
 ## Caching
 
-| Cache           | Key                         | TTL   | Invalidation                                                                                                                                                                                                                                 |
-| --------------- | --------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product page    | `cache:product:{id}`        | 300 s | `DEL` right after the transaction that changed the product, stock or rating; `DEL` again by the `cache` consumer on `product.*` and `auction.*` events (covers a reader that cached old data between commit and `DEL`); TTL as the last line |
-| Catalog queries | `cache:catalog:{ns}:{hash}` | 60 s  | `ns` is a counter bumped by `search-sync` after the index has been updated, so every cached page of the old namespace becomes unreachable at once; degraded answers are never cached                                                         |
+| Cache           | Key                         | TTL   | Invalidation                                                                                                                                                                                                                                                                                                                                                     |
+| --------------- | --------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product page    | `cache:product:{id}`        | 300 s | `DEL` right after the transaction that changed the product, stock or rating; `DEL` again by the `cache` consumer on `product.*` and `auction.*` events (covers a reader that cached old data between commit and `DEL`); TTL as the last line                                                                                                                     |
+| Catalog queries | `cache:catalog:{ns}:{hash}` | 60 s  | `ns` is a counter bumped by `search-sync` after the index has been updated, so every cached page of the old namespace becomes unreachable at once. Updates within `CATALOG_CACHE_BUMP_WINDOW_MS` (500 ms) share one bump at the end of the window across all workers, so a busy auction does not empty the cache on every bid; degraded answers are never cached |
 
 Stock and auction snapshots (`/api/products/:id/stock`, `/api/auctions/:id`) are never cached,
 because clients use them to resynchronise. The cache wrapper fails open: if Redis is down, reads go
@@ -701,9 +710,6 @@ Where the specification leaves room, these are the decisions taken.
   email, an honest user who links Google to their password account also loses password login and
   has no way to set a new password. The real fix is to verify email ownership at registration and
   to offer a password reset.
-- **Catalog cache granularity.** `search-sync` bumps the catalog namespace after every synced
-  product, including every bid and stock change, so under a busy auction the catalog cache is
-  invalidated continuously.
 - **Retention.** `outbox_events`, `processed_events` and `idempotency_keys` are append-only:
   nothing prunes them, so they grow with traffic. A long-running deployment needs a retention job
   (and partitioning of the outbox by time).
