@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -13,6 +13,7 @@ import { errorMessage } from '../../lib/api/error-message';
 import { formatDateTime } from '../../lib/format';
 import { queryKeys } from '../../lib/query-keys';
 import { fetchDisputes } from '../disputes/disputes-api';
+import { fetchReviewEligibility } from '../product/product-api';
 
 import { DisputeDialog } from './components/dispute-dialog';
 import { ReviewDialog } from './components/review-dialog';
@@ -34,6 +35,27 @@ export function OrderDetailsPage() {
     queryKey: queryKeys.disputes({ page: 1 }),
     queryFn: () => fetchDisputes(1),
   });
+
+  // Only products of completed shipments can be reviewed; ask once per product which of them
+  // the buyer has reviewed already, so that the page does not offer a review twice.
+  const completedProductIds = [
+    ...new Set(
+      (order.data?.sellerOrders ?? [])
+        .filter((sellerOrder) => sellerOrder.status === 'COMPLETED')
+        .flatMap((sellerOrder) => sellerOrder.items.map((item) => item.productId)),
+    ),
+  ];
+  const eligibility = useQueries({
+    queries: completedProductIds.map((productId) => ({
+      queryKey: queryKeys.reviewEligibility(productId),
+      queryFn: () => fetchReviewEligibility(productId),
+    })),
+  });
+  const reviewedProductIds = new Set(
+    completedProductIds.filter(
+      (_, index) => eligibility[index]?.data?.reason === 'ALREADY_REVIEWED',
+    ),
+  );
 
   const refreshOrder = () => queryClient.invalidateQueries({ queryKey: queryKeys.order(id) });
   const cancel = useMutation({
@@ -105,6 +127,7 @@ export function OrderDetailsPage() {
           key={sellerOrder.id}
           sellerOrder={sellerOrder}
           dispute={disputeOf(sellerOrder.id)}
+          reviewedProductIds={reviewedProductIds}
           busy={receive.isPending || cancel.isPending}
           onCancel={() => {
             setCancelling(sellerOrder.id);

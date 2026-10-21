@@ -27,6 +27,7 @@ export function BidPanel({ auctionId }: { auctionId: string }) {
   const keySession = useRef(new IdempotencySession());
   const lastAmount = useRef<number | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [placedBids, setPlacedBids] = useState(0);
 
   const bid = useMutation({
     mutationFn: (amountCents: number) => {
@@ -38,6 +39,7 @@ export function BidPanel({ auctionId }: { auctionId: string }) {
     },
     onSuccess: (placed) => {
       setFailure(null);
+      setPlacedBids((count) => count + 1);
       keySession.current.reset();
       lastAmount.current = null;
       apply(placed.auction);
@@ -80,6 +82,10 @@ export function BidPanel({ auctionId }: { auctionId: string }) {
       isWinner={isWinner}
       pending={bid.isPending}
       error={failure}
+      placedBids={placedBids}
+      onDismissError={() => {
+        setFailure(null);
+      }}
       onBid={(amountCents) => {
         setFailure(null);
         bid.mutate(amountCents);

@@ -225,4 +225,43 @@ describe('BidPanel', () => {
     expect(await screen.findByText('You won this lot!')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Go to cart' })).toBeInTheDocument();
   });
+
+  it('empties the amount field once the bid was accepted', async () => {
+    server.use(
+      http.post(`/api/auctions/${AUCTION_ID}/bids`, () =>
+        HttpResponse.json(
+          {
+            bid: { ...bidsPage.items[0], id: 'b3', amountCents: 13000, isOwn: true },
+            auction: { ...auction, version: 4, currentPriceCents: 13000, minNextBidCents: 13500 },
+          },
+          { status: 201 },
+        ),
+      ),
+    );
+    renderPanel();
+    await screen.findByText('Minimum next bid: $125.00');
+    await userEvent.type(screen.getByLabelText('Your bid'), '130');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Place bid' }));
+
+    await screen.findByText('Minimum next bid: $135.00');
+    expect(screen.getByLabelText('Your bid')).toHaveValue('');
+  });
+
+  it('drops the previous server error as soon as the buyer edits the amount', async () => {
+    server.use(
+      http.post(`/api/auctions/${AUCTION_ID}/bids`, () =>
+        HttpResponse.json({ error: { code: 'INTERNAL', message: 'boom' } }, { status: 500 }),
+      ),
+    );
+    renderPanel();
+    await screen.findByText('Minimum next bid: $125.00');
+    await userEvent.type(screen.getByLabelText('Your bid'), '130');
+    await userEvent.click(screen.getByRole('button', { name: 'Place bid' }));
+    await screen.findByRole('alert');
+
+    await userEvent.type(screen.getByLabelText('Your bid'), '5');
+
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });

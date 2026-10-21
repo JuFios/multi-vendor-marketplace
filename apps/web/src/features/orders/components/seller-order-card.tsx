@@ -14,6 +14,8 @@ export interface SellerOrderCardProps {
   /** An existing dispute for this shipment, if any. */
   dispute?: { id: string; status: string } | undefined;
   disputeBasePath?: string;
+  /** Products of this order the buyer has already reviewed. */
+  reviewedProductIds?: ReadonlySet<string>;
   busy?: boolean;
   /** Statuses in which the cancel action is offered; the buyer may cancel only new shipments. */
   cancellableStatuses?: readonly string[];
@@ -29,6 +31,7 @@ export function SellerOrderCard({
   sellerOrder,
   dispute,
   disputeBasePath = '/account/disputes',
+  reviewedProductIds,
   busy = false,
   cancellableStatuses = ['NEW'],
   onCancel,
@@ -63,7 +66,9 @@ export function SellerOrderCard({
             </span>
             <span className="flex items-center gap-3">
               <Money cents={item.lineTotalCents} />
-              {status === 'COMPLETED' && onReview !== undefined ? (
+              {status === 'COMPLETED' && reviewedProductIds?.has(item.productId) === true ? (
+                <span className="text-xs text-muted">Reviewed</span>
+              ) : status === 'COMPLETED' && onReview !== undefined ? (
                 <Button
                   variant="ghost"
                   aria-label={`Review ${item.title}`}

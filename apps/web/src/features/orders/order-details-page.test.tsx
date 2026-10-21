@@ -9,8 +9,12 @@ import { server } from '../../test/server';
 
 import { OrderDetailsPage } from './order-details-page';
 
-function renderDetails(data: ReturnType<typeof order>) {
+function renderDetails(
+  data: ReturnType<typeof order>,
+  eligibility: { eligible: boolean; reason?: string } = { eligible: true },
+) {
   server.use(
+    http.get('/api/products/p1/reviews/eligibility', () => HttpResponse.json(eligibility)),
     http.get('/api/orders/o1', () => HttpResponse.json(data)),
     http.get('/api/disputes', () => HttpResponse.json({ items: [], total: 0, page: 1, limit: 50 })),
   );
@@ -74,23 +78,19 @@ describe('OrderDetailsPage', () => {
     expect(confirmed).toBe(true);
   });
 
-  it('explains why a product cannot be reviewed twice', async () => {
-    server.use(
-      http.get('/api/products/p1/reviews/eligibility', () =>
-        HttpResponse.json({ eligible: false, reason: 'ALREADY_REVIEWED' }),
-      ),
-    );
-    renderDetails(order([sellerOrder({ status: 'COMPLETED' })]));
+  it('shows "Reviewed" instead of the review button for a product that was reviewed already', async () => {
+    renderDetails(order([sellerOrder({ status: 'COMPLETED' })]), {
+      eligible: false,
+      reason: 'ALREADY_REVIEWED',
+    });
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Review Keyboard' }));
-
-    expect(await screen.findByText('You have already reviewed this product.')).toBeInTheDocument();
+    expect(await screen.findByText('Reviewed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review Keyboard' })).toBeNull();
   });
 
   it('submits a review for an eligible product', async () => {
     let body: unknown;
     server.use(
-      http.get('/api/products/p1/reviews/eligibility', () => HttpResponse.json({ eligible: true })),
       http.post('/api/products/p1/reviews', async ({ request }) => {
         body = await request.json();
         return HttpResponse.json({ id: 'r1' }, { status: 201 });
