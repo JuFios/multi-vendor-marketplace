@@ -120,7 +120,7 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant W as worker
     participant Q as BullMQ
-    Buyer->>API: POST /api/orders/checkout (Idempotency-Key)
+    Buyer->>API: POST /api/orders/checkout {expectedTotalCents} (Idempotency-Key)
     API->>DB: claim the idempotency key
     API->>DB: BEGIN
     API->>DB: lock the ACTIVE cart (FOR UPDATE), read its lines,<br/>pre-validate every line (collect all problems)
@@ -130,6 +130,7 @@ sequenceDiagram
     loop won auction lots
         API->>DB: UPDATE auctions SET status = 'ORDERED'<br/>WHERE winner_id = buyer AND winner_deadline_at > now()
     end
+    API->>API: total ≠ expectedTotalCents → 409 CHECKOUT_TOTAL_CHANGED (rollback)
     API->>DB: INSERT order, seller orders (one per store), items, ledger rows
     API->>DB: INSERT outbox rows (product.stock_changed, seller_order.created, auction.ordered)
     API->>DB: cart CONVERTED, idempotency key COMPLETED with the response
@@ -144,6 +145,12 @@ If a line cannot be fulfilled the buyer gets `409 CART_ITEMS_UNAVAILABLE` (pre-c
 problem), `409 INSUFFICIENT_STOCK` (lost the race on the conditional update) or
 `409 AUCTION_WINDOW_EXPIRED` (the winner's checkout window of a lot ran out); nothing is changed.
 An empty cart is `400 CART_EMPTY`.
+
+The order is priced with the prices the stock is taken at, which a seller may have changed since
+the buyer looked at the cart. The web client sends the total it showed as `expectedTotalCents`;
+when the prices moved, the checkout answers `409 CHECKOUT_TOTAL_CHANGED` with both totals and
+buys nothing, so the buyer is never charged an amount they did not see. The field is optional for
+other API clients, which then pay the current prices.
 
 ### Bidding
 
@@ -181,6 +188,13 @@ Closing an auction is a conditional update of the same row (`WHERE status = 'ACT
 now()`). Both statements lock that row, so a bid in the last millisecond either lands before the
 close and counts, or is rejected. An accepted bid after the close is impossible.
 
+A lot follows the moderation of its product. Under pre-moderation it is created `PENDING`: it takes
+no bids, has no timer, and its round starts on approval with its full length. Rejecting the
+product ends the lot as `NOT_SOLD` (bids or not, also during a winner's checkout window) with
+`auction.closed` (`closedBy: MODERATION`); the update moves the version, so a bid read before the
+rejection fails its check and is then refused as `AUCTION_NOT_ACTIVE`. Moderation locks the lot
+before the product, in the same order as archiving.
+
 ### Outbox to consumers to WebSocket
 
 ```mermaid
@@ -216,7 +230,8 @@ again.
 The relay only picks up event types the running build has a route for. A row of a type it does not
 know (written by a newer build before a rollback) stays pending and is counted by
 `outbox_pending_events`; it is relayed once a build that routes it runs again, and it never holds
-up the events behind it.
+up the events behind it. An event that keeps failing on its own (five failed publications) is
+moved behind the others in every batch: it is still retried, but no longer blocks the queue.
 
 ### WebSocket channels
 
@@ -347,7 +362,9 @@ Tested by redelivering the same event to each consumer and asserting a single ef
 **Authentication.** Passwords are hashed with argon2id. The access JWT lives 15 minutes and is held
 in memory only. The refresh token is a random 256-bit value, stored only as a hash, sent as an
 httpOnly `SameSite=Lax` cookie scoped to `/api/auth`, rotated on every use; presenting an already
-rotated token revokes the whole family. The refresh endpoint also requires an `X-Requested-With`
+rotated token revokes the whole family. Browser tabs share the cookie, so the web client refreshes
+under a Web Lock (`navigator.locks`): tabs take turns and each one presents the cookie the previous
+refresh set, instead of two tabs presenting the same token and logging the user out everywhere. The refresh endpoint also requires an `X-Requested-With`
 header as a CSRF guard. A wrong email and a wrong password produce the same answer. Signing in
 with Google requires Google to report the email as verified; it then links to an existing account
 with the same email. An account whose email was already verified keeps password login and its
@@ -392,6 +409,14 @@ another store's seller orders.
 | Others   | 100 per 60 s | address            |
 
 Exceeding a limit answers `429 RATE_LIMITED` with `Retry-After`.
+
+The client address comes from `X-Forwarded-For` through exactly one trusted hop (`TRUST_PROXY=1`,
+nginx). In the compose stack the api port 3000 is also published on the host for Swagger, metrics
+and the load scripts, and a client that talks to it directly, past nginx, can choose its own
+address in that header and so its own per-address bucket. This is a deliberate trade-off for a
+local stack: the per-email login limit and the per-user bid limit do not depend on the address.
+A real deployment exposes only the proxy (or trusts only its address) — see
+[Known limitations](#known-limitations-and-what-i-would-do-differently).
 
 **XSS.** Free text (product title and description, reviews, dispute reasons and messages, profile
 name, cancellation and refund reasons) is sanitized on the server with no tags allowed; product
@@ -679,15 +704,18 @@ Where the specification leaves room, these are the decisions taken.
   is `CANCELLED`.
 - **Partial refund.** A financial operation only; stock does not change. Allowed on paid seller
   orders in processing, shipped or completed state, by the owning seller or, through a dispute, an
-  admin. Stock returns only when a seller order is cancelled before shipping.
-- **Reviews.** Only a customer with a completed seller order containing the product may review it,
-  once; the review is published at once; the rating is the average to two decimals.
+  admin. Stock returns only when a seller order is cancelled before shipping, and then only the
+  units that were not refunded: refunded units never come back, whichever happened first. A fully
+  refunded auction lot is not offered again.
+- **Reviews.** Only a customer with a completed seller order containing the product, not refunded
+  in full, may review it, once; the review is published at once; the rating is the average to two decimals.
 - **Disputes.** Opened by the buyer on a specific seller order (processing, shipped or completed),
   one open dispute per seller order. Buyer, store and admin exchange messages. An admin takes it
   into review and resolves it for the buyer (optionally refunding items and setting the final
   status of the seller order) or for the seller.
 - **Product moderation.** By default products are published at once and enter a review queue; a
-  rejection unpublishes them. `PRODUCT_PREMODERATION=true` publishes only after approval.
+  rejection unpublishes them and ends a lot as not sold. `PRODUCT_PREMODERATION=true` publishes
+  only after approval; a lot waits as `PENDING` and its round starts on approval.
 - **Deleting a product.** Soft delete.
 - **Analytics.** Platform revenue is the sum of commissions after recalculations. Seller revenue
   is the sum of `subtotal − refunded`. Top five lists rank by net revenue. A "day" is the order's
@@ -716,6 +744,11 @@ Where the specification leaves room, these are the decisions taken.
   email, an honest user who links Google to their password account also loses their old password
   and has to set a new one on the account page. The real fix is to verify email ownership at
   registration; a password reset by e-mail would also need an e-mail service.
+- **Directly reachable api in compose.** The api port is published next to nginx for convenience,
+  while the api trusts one proxy hop for the client address. Requests sent straight to it can
+  pick their address with `X-Forwarded-For` and spread over per-address rate-limit buckets; the
+  per-email login and per-user bid limits still hold. Production would publish only the proxy,
+  or set `trust proxy` to the proxy's address instead of a hop count.
 - **Retention.** `outbox_events`, `processed_events` and `idempotency_keys` are append-only:
   nothing prunes them, so they grow with traffic. A long-running deployment needs a retention job
   (and partitioning of the outbox by time).
