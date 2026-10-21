@@ -341,6 +341,81 @@
         ]
       }
     },
+    "/api/users/me/password": {
+      "post": {
+        "operationId": "PasswordController_setPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPasswordDto"
+              },
+              "example": {
+                "currentPassword": "S3cure-pass",
+                "newPassword": "N3w-secure-pass"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The password was set."
+          },
+          "400": {
+            "description": "Malformed or invalid request (VALIDATION_FAILED, BAD_REQUEST).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials (UNAUTHORIZED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found, or not visible to the caller (NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RATE_LIMITED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set or change the password of the authenticated user.",
+        "tags": [
+          "users"
+        ],
+        "description": "Sets or changes the password. With a password already set, `currentPassword` must match it (400 VALIDATION_FAILED otherwise). Without one (an account from Google, or one whose password was cleared when Google was linked to it) the new password is set directly. Rate limited like login."
+      }
+    },
     "/api/users/me": {
       "get": {
         "operationId": "UsersController_me",
@@ -1706,7 +1781,7 @@
               },
               "example": {
                 "stock": 12,
-                "expectedVersion": 3
+                "expectedStock": 10
               }
             }
           }
@@ -1782,7 +1857,7 @@
         "tags": [
           "seller-products"
         ],
-        "description": "SELLER only. Sets the stock to an absolute number; connected clients are notified. Send the `version` the number was decided on as `expectedVersion`: if a sale or another edit changed the product meanwhile, nothing is written and the answer is 409 PRODUCT_VERSION_CONFLICT with the current `stock` and `version`."
+        "description": "SELLER only. Sets the stock to an absolute number; connected clients are notified. Send the stock the new number was decided on as `expectedStock`: if a sale or a cancellation changed it meanwhile, nothing is written and the answer is 409 PRODUCT_STOCK_CONFLICT with the current `stock`."
       }
     },
     "/api/products/{id}": {
@@ -6036,6 +6111,24 @@
           "google"
         ]
       },
+      "SetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Required when the account already has a password."
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "newPassword"
+        ]
+      },
       "UserResponseDto": {
         "type": "object",
         "properties": {
@@ -6064,6 +6157,10 @@
           "emailVerified": {
             "type": "boolean"
           },
+          "hasPassword": {
+            "type": "boolean",
+            "description": "Whether email and password sign-in works. False for an account created through Google, or one whose password was cleared when Google was linked; `POST /api/users/me/password` sets one."
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -6075,6 +6172,7 @@
           "name",
           "roles",
           "emailVerified",
+          "hasPassword",
           "createdAt"
         ]
       },
@@ -6580,10 +6678,10 @@
             "maximum": 1000000,
             "description": "The new absolute stock."
           },
-          "expectedVersion": {
+          "expectedStock": {
             "type": "number",
             "minimum": 0,
-            "description": "The product `version` the new stock was decided on. When given and the product has changed since (a sale, another edit), nothing is written and the answer is 409 PRODUCT_VERSION_CONFLICT with the current stock and version."
+            "description": "The stock the new value was decided on. When given and the stock has changed since (a sale, a cancellation), nothing is written and the answer is 409 PRODUCT_STOCK_CONFLICT with the current stock. Other edits of the product (a review, a new title) do not count."
           }
         },
         "required": [

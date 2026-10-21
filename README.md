@@ -331,7 +331,7 @@ Tested by redelivering the same event to each consumer and asserting a single ef
 | Case from the specification                         | How it is handled                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Concurrent bids in the last second of an auction    | Bid and close are conditional updates of the same row; the row lock orders them. The deadline is the database's `now()`. Bids landing before the close count, later ones are `AUCTION_ENDED`. Load-tested with 200 concurrent bidders (see below).                                                                                                                                                                                      |
-| Seller deletes a product that is in somebody's cart | Delete is a soft delete (`archivedAt`). The cart line turns `UNAVAILABLE`; checkout answers `409 CART_ITEMS_UNAVAILABLE` listing every affected line. An auction with bids or a pending winner cannot be archived (`409 PRODUCT_HAS_ACTIVE_AUCTION`); a running one without bids is closed as `NOT_SOLD`.                                                                                                                               |
+| Seller deletes a product that is in somebody's cart | Delete is a soft delete (`archivedAt`). The cart line turns `UNAVAILABLE`; checkout answers `409 CART_ITEMS_UNAVAILABLE` listing every affected line. An auction with bids or a pending winner cannot be archived (`409 PRODUCT_HAS_ACTIVE_AUCTION`); a running one without bids is closed as `NOT_SOLD` (live viewers see it end; the seller gets no "ended without a sale" notification for their own action).                        |
 | Partial cancellation of a multi-vendor order        | A seller order is cancelled alone: stock returns, commission is reversed, the order's totals and aggregate status are recomputed (`PARTIALLY_SHIPPED`, `hasCancelledParts`), the other seller orders keep going.                                                                                                                                                                                                                        |
 | The same event delivered twice                      | Relay publishes with `jobId = event id`, every consumer has an inbox row in the effect's transaction (see [Idempotency](#idempotency)).                                                                                                                                                                                                                                                                                                 |
 | WebSocket connection lost during a live auction     | Socket.IO reconnects by itself. On every connect the client re-subscribes to its channels and receives the current snapshot in the acknowledgement, invalidates its order queries and fetches missed notifications (`GET /api/notifications?after=`). Events apply only if their `version` is newer; the countdown uses `serverTime` from the snapshot. A bid is a REST call with an idempotency key, so retrying after a drop is safe. |
@@ -339,7 +339,7 @@ Tested by redelivering the same event to each consumer and asserting a single ef
 | Search index unavailable                            | The catalog falls back to PostgreSQL (`degraded: true`, header `X-Search-Degraded`, no facets or typo tolerance). Failed index updates are re-driven by the worker once Meilisearch is back.                                                                                                                                                                                                                                            |
 | Redis unavailable                                   | The cache fails open and reads from the database; the outbox keeps events pending and the relay backs off, so nothing is lost.                                                                                                                                                                                                                                                                                                          |
 | Stock changes between "add to cart" and checkout    | Checkout pre-validates every line and then decrements with `WHERE stock >= q`; the atomic update is the final authority.                                                                                                                                                                                                                                                                                                                |
-| Seller sets the stock while units are selling       | The stock form sends the product `version` it was loaded at as `expectedVersion`; if a sale changed the product meanwhile nothing is written and the answer is `409 PRODUCT_VERSION_CONFLICT` with the current stock, which the form shows. Without `expectedVersion` the endpoint keeps its plain absolute-value semantics.                                                                                                            |
+| Seller sets the stock while units are selling       | The stock form sends the stock it was loaded with as `expectedStock`; if a sale or cancellation changed it meanwhile nothing is written and the answer is `409 PRODUCT_STOCK_CONFLICT` with the current stock, which the form shows without losing other unsaved edits. Other changes to the product (a review, a new title) do not conflict. Without `expectedStock` the endpoint keeps its plain absolute-value semantics.            |
 | Two buyers race for the last unit                   | Exactly one conditional decrement succeeds; the other gets `409 INSUFFICIENT_STOCK` and nothing changes. Load-tested: 500 buyers, 100 units, exactly 100 orders.                                                                                                                                                                                                                                                                        |
 
 ## Security
@@ -353,7 +353,10 @@ with Google requires Google to report the email as verified; it then links to an
 with the same email. An account whose email was already verified keeps password login and its
 sessions. If the email was never verified, linking marks it verified, clears the password and
 revokes all of the account's refresh tokens, so whoever registered the address first loses access
-(see [Known limitations](#known-limitations-and-what-i-would-do-differently)).
+(see [Known limitations](#known-limitations-and-what-i-would-do-differently)). The owner, signed in
+through Google, can set a new password on the account page (`POST /api/users/me/password`, no
+current password needed while none is set; changing an existing one requires it, rate limited
+like login).
 
 **Authorization and IDOR.** Roles are checked by guards (`CUSTOMER`, `SELLER`, `ADMIN`; seller
 endpoints also require an approved store). Ownership is checked in the service or repository with the
@@ -697,8 +700,9 @@ Where the specification leaves room, these are the decisions taken.
   uploads (images are URLs), auction anti-sniping extensions and "you were outbid" notifications.
 - **Accounts from Google.** An identity from Google (with an email Google has verified) is linked
   to the existing account with the same email. The password stays valid only if that account's
-  email was already verified; otherwise it is cleared and the account signs in with Google from
-  then on. Without such an account a new one is created without a password.
+  email was already verified; otherwise it is cleared and the account signs in with Google until
+  the owner sets a new password on the account page. Without such an account a new one is created
+  without a password, which can be added the same way.
 
 ## Known limitations and what I would do differently
 
@@ -706,10 +710,11 @@ Where the specification leaves room, these are the decisions taken.
   could register a password account with another person's email address in advance and use it
   until the owner signs in with Google. Linking then clears the password and revokes all refresh
   tokens of that account, so the squatter is locked out, but whatever they did before (orders,
-  reviews, a seller application) stays on the owner's account. Since no registration verifies its
-  email, an honest user who links Google to their password account also loses password login and
-  has no way to set a new password. The real fix is to verify email ownership at registration and
-  to offer a password reset.
+  reviews, a seller application) stays on the owner's account, and an access token issued to them
+  before the link stays valid until it expires (15 minutes). Since no registration verifies its
+  email, an honest user who links Google to their password account also loses their old password
+  and has to set a new one on the account page. The real fix is to verify email ownership at
+  registration; a password reset by e-mail would also need an e-mail service.
 - **Retention.** `outbox_events`, `processed_events` and `idempotency_keys` are append-only:
   nothing prunes them, so they grow with traffic. A long-running deployment needs a retention job
   (and partitioning of the outbox by time).
