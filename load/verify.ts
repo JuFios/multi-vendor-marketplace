@@ -16,6 +16,7 @@ import { type Fixture, readFixture, RESULTS_DIR } from './lib/fixture';
 const API_URL = (process.env.API_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 const DATABASE_URL =
   process.env.DATABASE_URL ?? 'postgresql://marketplace:marketplace@localhost:5432/marketplace';
+const WORKER_METRICS_URL = process.env.WORKER_METRICS_URL ?? 'http://localhost:9100/metrics';
 // Asynchronous work (outbox relay, payment saga) may still run when the load stops.
 const DRAIN_TIMEOUT_MS = 120_000;
 
@@ -28,7 +29,10 @@ const REPORTED_METRICS = [
   'app_errors_total',
   'queue_jobs_failed_total',
   'queue_dead_letter_total',
+  'queue_jobs_completed_total',
+  'queue_waiting_jobs',
   'outbox_pending_events',
+  'outbox_publish_failures_total',
 ] as const;
 
 interface Check {
@@ -246,8 +250,8 @@ async function verifyCheckout(
   }
 }
 
-async function readMetrics(): Promise<Record<string, number>> {
-  const response = await fetch(`${API_URL}/metrics`);
+async function readMetrics(url: string): Promise<Record<string, number>> {
+  const response = await fetch(url);
   const text = await response.text();
   const values: Record<string, number> = {};
   for (const line of text.split('\n')) {
@@ -276,19 +280,43 @@ async function main(): Promise<void> {
     await verifyAuction(prisma, fixture.auction);
     await verifyCheckout(prisma, fixture.stockProduct);
 
-    const metrics = await readMetrics();
+    const metrics = await readMetrics(`${API_URL}/metrics`);
+    // Queue consumers run in the worker. A failed attempt is retried; only a job that used up its
+    // retries counts as dead-lettered.
+    const workerMetrics = await readMetrics(WORKER_METRICS_URL).catch(() => undefined);
+    if (workerMetrics === undefined) {
+      console.log(`worker metrics not reachable at ${WORKER_METRICS_URL}, queue check skipped`);
+    } else {
+      const sumOf = (name: string): number =>
+        Object.entries(workerMetrics)
+          .filter(([key]) => key === name || key.startsWith(`${name}{`))
+          .reduce((sum, [, value]) => sum + value, 0);
+      const deadLettered = sumOf('queue_dead_letter_total');
+      const waiting = sumOf('queue_waiting_jobs');
+      check(
+        'queues: nothing dead-lettered or waiting',
+        deadLettered === 0 && waiting === 0,
+        `${deadLettered} dead-lettered, ${waiting} waiting, ${sumOf('queue_jobs_failed_total')} failed attempts retried`,
+      );
+    }
     await mkdir(RESULTS_DIR, { recursive: true });
     await writeFile(
       join(RESULTS_DIR, 'verify.json'),
-      `${JSON.stringify({ drainMs, checks, metrics }, null, 2)}\n`,
+      `${JSON.stringify({ drainMs, checks, metrics, workerMetrics }, null, 2)}\n`,
     );
 
     for (const entry of checks) {
       console.log(`${entry.ok ? 'PASS' : 'FAIL'}  ${entry.name} (${entry.detail})`);
     }
-    console.log(`\nasynchronous work drained in ${drainMs} ms\n\napi metrics:`);
-    for (const [name, value] of Object.entries(metrics)) {
-      console.log(`  ${name} ${value}`);
+    console.log(`\nasynchronous work drained in ${drainMs} ms`);
+    for (const [title, group] of [
+      ['api metrics', metrics],
+      ['worker metrics', workerMetrics ?? {}],
+    ] as const) {
+      console.log(`\n${title}:`);
+      for (const [name, value] of Object.entries(group)) {
+        console.log(`  ${name} ${value}`);
+      }
     }
     const failed = checks.filter((entry) => !entry.ok).length;
     console.log(`\n${failed === 0 ? 'all invariants hold' : `${failed} invariant(s) violated`}`);
