@@ -55,6 +55,7 @@ const PRODUCT_COLUMNS = Prisma.sql`p.id, p.seller_id AS "sellerId", p.category_i
   p.updated_at AS "updatedAt"`;
 
 const CATALOG_FROM = Prisma.sql`FROM products AS p
+  JOIN seller_profiles AS sp ON sp.id = p.seller_id AND sp.status = 'APPROVED'::seller_status
   LEFT JOIN auctions AS a ON a.product_id = p.id`;
 
 const CATALOG_ORDER: Readonly<Record<CatalogSort, Prisma.Sql>> = {

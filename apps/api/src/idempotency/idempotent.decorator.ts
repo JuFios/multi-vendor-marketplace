@@ -1,6 +1,7 @@
-import { applyDecorators, SetMetadata, UseInterceptors } from '@nestjs/common';
+import { applyDecorators, SetMetadata, UseFilters, UseInterceptors } from '@nestjs/common';
 import { ApiHeader } from '@nestjs/swagger';
 
+import { IdempotencyReplayFilter } from './idempotency-replay';
 import {
   IDEMPOTENCY_HEADER,
   IDEMPOTENT_SCOPE_METADATA,
@@ -17,6 +18,7 @@ export const Idempotent = (scope: IdempotencyScope): MethodDecorator =>
   applyDecorators(
     SetMetadata(IDEMPOTENT_SCOPE_METADATA, scope),
     UseInterceptors(IdempotencyInterceptor),
+    UseFilters(IdempotencyReplayFilter),
     ApiHeader({
       name: IDEMPOTENCY_HEADER,
       required: true,

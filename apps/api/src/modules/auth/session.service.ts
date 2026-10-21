@@ -64,8 +64,8 @@ export class SessionService {
 
   /**
    * Exchanges a refresh token for a new one in the same family. Presenting a token that was
-   * already rotated or revoked revokes the whole family, and that revocation is committed
-   * before the error is raised.
+   * already rotated revokes the whole family, and that revocation is committed before the
+   * error is raised. A token of a family ended by logout is only rejected.
    */
   async refresh(rawToken: string, client: ClientContext): Promise<AuthSession> {
     const outcome = await this.txHost.withTransaction(() => this.rotate(rawToken, client));
@@ -89,7 +89,12 @@ export class SessionService {
     const stored = await this.auth.lockRefreshToken(hashRefreshToken(rawToken));
     const verdict = judgeRefreshToken(stored);
 
-    if (stored === null || verdict === 'unknown' || verdict === 'expired') {
+    if (
+      stored === null ||
+      verdict === 'unknown' ||
+      verdict === 'revoked' ||
+      verdict === 'expired'
+    ) {
       return { kind: 'rejected', error: new InvalidRefreshTokenError() };
     }
     if (verdict === 'reused') {

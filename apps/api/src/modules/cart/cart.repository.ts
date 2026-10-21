@@ -54,18 +54,19 @@ export class CartRepository {
 
   /** Stamps the cart the first time it gets an item; conversion analytics count from it. */
   async markFirstItemAdded(cartId: string): Promise<void> {
-    await this.txHost.tx.cart.updateMany({
-      where: { id: cartId, firstItemAddedAt: null },
-      data: { firstItemAddedAt: new Date() },
-    });
+    await this.txHost.tx.$executeRaw`
+      UPDATE carts
+      SET first_item_added_at = now(), updated_at = now()
+      WHERE id = ${cartId}::uuid AND first_item_added_at IS NULL`;
   }
 
   /** Closes the cart for good; the next add starts a fresh ACTIVE one. */
   async markConverted(cartId: string, orderId: string): Promise<void> {
-    await this.txHost.tx.cart.update({
-      where: { id: cartId },
-      data: { status: 'CONVERTED', convertedAt: new Date(), convertedOrderId: orderId },
-    });
+    await this.txHost.tx.$executeRaw`
+      UPDATE carts
+      SET status = 'CONVERTED', converted_at = now(), converted_order_id = ${orderId}::uuid,
+          updated_at = now()
+      WHERE id = ${cartId}::uuid`;
   }
 
   async deleteItem(cartId: string, productId: string): Promise<boolean> {

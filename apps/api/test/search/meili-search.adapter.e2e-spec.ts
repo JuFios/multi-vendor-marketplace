@@ -1,7 +1,11 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Meilisearch } from 'meilisearch';
 
-import type { CatalogDocument, CatalogQuery } from '../../src/search/catalog';
+import {
+  CATALOG_SCHEMA_VERSION,
+  type CatalogDocument,
+  type CatalogQuery,
+} from '../../src/search/catalog';
 import { MEILI_CLIENT } from '../../src/search/meili.constants';
 import { SEARCH_PORT, type SearchPort } from '../../src/search/search.port';
 import { createTestApp } from '../utils/test-app';
@@ -34,6 +38,7 @@ const document = (id: string, overrides: Partial<CatalogDocument> = {}): Catalog
   auctionStatus: null,
   auctionEndsAt: null,
   version: 0,
+  schemaVersion: CATALOG_SCHEMA_VERSION,
   ...overrides,
 });
 
@@ -61,6 +66,14 @@ describe('MeiliSearchAdapter (e2e)', () => {
   it('can be set up repeatedly', async () => {
     await expect(search.ensureIndex()).resolves.toBeUndefined();
     await expect(search.countDocuments()).resolves.toBe(0);
+  });
+
+  it('counts the documents stored in an older layout', async () => {
+    await search.upsert([document('current'), document('stale', { schemaVersion: 1 })]);
+    const outdated = await search.countOutdated();
+    await search.remove(['current', 'stale']);
+
+    expect(outdated).toBe(1);
   });
 
   it('lifts the default limits on reachable hits and facet values', async () => {

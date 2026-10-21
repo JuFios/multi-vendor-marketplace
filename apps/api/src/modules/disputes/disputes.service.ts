@@ -166,6 +166,9 @@ export class DisputesService {
   ): Promise<ResolveDisputeResultDto> {
     assertValidResolution(resolution);
     const { response, outcomes, sellerOrderId } = await this.txHost.withTransaction(async () => {
+      // Order lock first, dispute lock second, exactly as in open(): a reverse order deadlocks.
+      const known = await this.requireDispute(id);
+      await this.lifecycle.lockAndLoad(known.sellerOrderId, {});
       const status = await this.disputes.lockStatus(id);
       if (status === null) {
         throw new DisputeNotFoundError();

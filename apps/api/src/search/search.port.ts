@@ -15,6 +15,8 @@ export interface SearchPort {
   /** Drops every document, for a full rebuild. */
   clear(): Promise<void>;
   countDocuments(): Promise<number>;
+  /** Documents stored in an older layout than the current one; they must be written again. */
+  countOutdated(): Promise<number>;
   /** False while the index cannot be written, so failed updates wait for it to return. */
   isAvailable(): Promise<boolean>;
 }

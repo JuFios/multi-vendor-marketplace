@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { isUUID } from 'class-validator';
-import type { Request, Response } from 'express';
+import type { Request } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { catchError, from, mergeMap, type Observable, of, throwError } from 'rxjs';
 
@@ -15,9 +15,9 @@ import { UnauthorizedError } from '../common/exceptions/app-error';
 import { resolveRouteTemplate } from '../common/utils/route-template';
 
 import type { IdempotencyContext } from './idempotency-context';
+import { IdempotencyReplay } from './idempotency-replay';
 import {
   IDEMPOTENCY_HEADER,
-  IDEMPOTENCY_REPLAY_HEADER,
   IDEMPOTENT_SCOPE_METADATA,
   type IdempotencyScope,
 } from './idempotency.constants';
@@ -49,9 +49,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
       IDEMPOTENT_SCOPE_METADATA,
       context.getHandler(),
     );
-    const http = context.switchToHttp();
-    const req = http.getRequest<Request>();
-    const res = http.getResponse<Response>();
+    const req = context.switchToHttp().getRequest<Request>();
 
     const key = req.header(IDEMPOTENCY_HEADER);
     if (key === undefined || !isUUID(key)) {
@@ -74,8 +72,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
       }),
     });
     if (acquired.kind === 'replay') {
-      res.setHeader(IDEMPOTENCY_REPLAY_HEADER, 'true');
-      return of(acquired.body);
+      throw new IdempotencyReplay(acquired.statusCode, acquired.body);
     }
 
     const state: IdempotencyContext = {

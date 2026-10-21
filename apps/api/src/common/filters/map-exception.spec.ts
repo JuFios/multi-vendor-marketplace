@@ -132,11 +132,18 @@ describe('mapException', () => {
   });
 
   describe('HTTP exceptions', () => {
-    it('maps throttling to 429 RATE_LIMITED', () => {
-      expect(mapException(new ThrottlerException())).toMatchObject({
+    it('maps throttling to a neutral 429 RATE_LIMITED, without the class name', () => {
+      expect(mapException(new ThrottlerException())).toEqual({
         status: 429,
         code: 'RATE_LIMITED',
+        message: 'Too many requests',
       });
+    });
+
+    it('replaces the body of any 429 with the same neutral message', () => {
+      expect(mapException(new HttpException('ThrottlerException: Too Many Requests', 429))).toEqual(
+        { status: 429, code: 'RATE_LIMITED', message: 'Too many requests' },
+      );
     });
 
     it('maps well-known statuses to their codes', () => {

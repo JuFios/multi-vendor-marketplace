@@ -423,6 +423,36 @@ describe('GET /api/catalog without the search index (e2e)', () => {
     expect(metrics).toMatch(/search_degraded_total [1-9]/);
   });
 
+  it('leaves products of stores that are not approved out of the fallback', async () => {
+    const approved = await createSeller(prisma, { storeName: 'Approved Shop' });
+    const pending = await createSeller(prisma, { status: 'PENDING' });
+    const rejected = await createSeller(prisma, { status: 'REJECTED' });
+    const category = await createCategory(prisma, { name: 'Phones' });
+    const visible = await createProduct(prisma, {
+      sellerId: approved.seller.id,
+      categoryId: category.id,
+      priceCents: 30_000,
+    });
+    await createProduct(prisma, {
+      sellerId: pending.seller.id,
+      categoryId: category.id,
+      priceCents: 1_000,
+    });
+    await createProduct(prisma, {
+      sellerId: rejected.seller.id,
+      categoryId: category.id,
+      priceCents: 2_000,
+    });
+
+    const body = (await http().get('/api/catalog?sort=price_asc').expect(200)).body as CatalogBody;
+
+    expect(body.degraded).toBe(true);
+    expect(body.items.map((item) => item.id)).toEqual([visible.id]);
+    expect(body.total).toBe(1);
+    expect(body.facets.categories).toEqual([{ id: category.id, name: 'Phones', count: 1 }]);
+    expect(body.priceRange).toEqual({ min: 30_000, max: 30_000 });
+  });
+
   it('prices a lot at its going bid and honours its availability in the fallback', async () => {
     const { seller } = await createSeller(prisma);
     const category = await createCategory(prisma);
