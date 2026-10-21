@@ -39,6 +39,9 @@ interface SocketData {
   /** Public rooms this connection follows, counted against `WS_MAX_SUBSCRIPTIONS`. */
   followed: Set<string>;
   userId?: string;
+  /** When the handshake token lapses; the connection must not outlive it. */
+  expiresAt?: Date;
+  expiryTimer?: NodeJS.Timeout;
 }
 
 const refusal = (
@@ -86,14 +89,22 @@ export class RealtimeGateway
 
   handleConnection(socket: Socket): void {
     this.connections.inc();
+    const data = this.dataOf(socket);
+    if (data.expiresAt !== undefined) {
+      this.closeWhenExpired(socket, data.expiresAt);
+    }
     this.logger.log({
       msg: 'ws.connected',
-      authenticated: this.dataOf(socket).userId !== undefined,
+      authenticated: data.userId !== undefined,
     });
   }
 
-  handleDisconnect(): void {
+  handleDisconnect(socket: Socket): void {
     this.connections.dec();
+    const timer = this.dataOf(socket).expiryTimer;
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
   }
 
   @SubscribeMessage(WS_CLIENT_MESSAGE.SUBSCRIBE)
@@ -158,15 +169,31 @@ export class RealtimeGateway
     if (token === undefined || token === null) {
       return;
     }
-    const user = typeof token === 'string' ? await this.tokens.verify(token) : null;
-    if (user === null) {
+    const verified = typeof token === 'string' ? await this.tokens.verify(token) : null;
+    if (verified === null) {
       throw Object.assign(new Error(WS_UNAUTHORIZED), { data: { code: WS_UNAUTHORIZED } });
     }
-    data.userId = user.userId;
-    await socket.join(userRoom(user.userId));
-    if (user.sellerId !== undefined) {
-      await socket.join(sellerRoom(user.sellerId));
+    data.userId = verified.user.userId;
+    data.expiresAt = verified.expiresAt;
+    await socket.join(userRoom(verified.user.userId));
+    if (verified.user.sellerId !== undefined) {
+      await socket.join(sellerRoom(verified.user.sellerId));
     }
+  }
+
+  /**
+   * The token is only checked at the handshake, so the connection is closed the moment it lapses:
+   * otherwise the socket would keep receiving private room events without a valid credential.
+   */
+  private closeWhenExpired(socket: Socket, expiresAt: Date): void {
+    const data = this.dataOf(socket);
+    data.expiryTimer = setTimeout(
+      () => {
+        this.logger.log({ msg: 'ws.token_expired', userId: data.userId });
+        socket.disconnect(true);
+      },
+      Math.max(0, expiresAt.getTime() - Date.now()),
+    );
   }
 
   private dataOf(socket: Socket): SocketData {

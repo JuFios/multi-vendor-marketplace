@@ -53,13 +53,13 @@ describe('AccessTokenService', () => {
   });
 
   describe('verify', () => {
-    it('returns the caller a valid token stands for', async () => {
+    it('returns the caller a valid token stands for and when it expires', async () => {
       const { token } = await service.issue({ sub: USER_ID, roles: ['SELLER'], sellerId: 's-1' });
+      const { exp } = jwt.decode<{ exp: number }>(token);
 
       expect(await service.verify(token)).toEqual({
-        userId: USER_ID,
-        roles: ['SELLER'],
-        sellerId: 's-1',
+        user: { userId: USER_ID, roles: ['SELLER'], sellerId: 's-1' },
+        expiresAt: new Date(exp * 1000),
       });
     });
 
@@ -82,6 +82,15 @@ describe('AccessTokenService', () => {
       const bare = await jwt.signAsync({}, { subject: USER_ID });
 
       expect(await service.verify(bare)).toBeNull();
+    });
+
+    it('returns null for a token without an expiry', async () => {
+      const endless = await new JwtService({
+        ...jwtOptions,
+        signOptions: { algorithm: ACCESS_TOKEN_ALGORITHM },
+      }).signAsync({ roles: ['CUSTOMER'] }, { subject: USER_ID });
+
+      expect(await service.verify(endless)).toBeNull();
     });
   });
 });

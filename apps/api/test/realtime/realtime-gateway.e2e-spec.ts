@@ -224,6 +224,22 @@ describe('Realtime gateway (e2e)', () => {
     }
   });
 
+  it('closes a signed-in socket when its access token expires', async () => {
+    const user = await createUser(prisma);
+    const token = await app
+      .get(JwtService, { strict: false })
+      .signAsync({ roles: ['CUSTOMER'] }, { subject: user.id, expiresIn: 2 });
+    const client = await connect(token);
+    const disconnected = new Promise<string>((resolve) => {
+      client.socket.once('disconnect', resolve);
+    });
+
+    emitTo(`user:${user.id}`, 'probe', 'while-valid');
+    await client.waitForEvent('probe');
+    await expect(disconnected).resolves.toBe('io server disconnect');
+    expect(client.socket.connected).toBe(false);
+  });
+
   it('resyncs after a reconnect: the snapshot shows the bids missed while offline', async () => {
     const auction = await createAuction(prisma);
     const bidder = await createUser(prisma);
