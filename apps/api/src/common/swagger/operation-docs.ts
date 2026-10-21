@@ -50,8 +50,9 @@ export const OPERATION_DOCS: Readonly<Record<string, OperationDoc>> = {
     description:
       'Sets or changes the password. With a password already set, `currentPassword` must match ' +
       'it (400 VALIDATION_FAILED otherwise). Without one (an account from Google, or one whose ' +
-      'password was cleared when Google was linked to it) the new password is set directly. ' +
-      'Rate limited like login.',
+      'password was cleared when Google was linked to it) the new password is set directly, ' +
+      'but only with a session opened after the Google link (403 FRESH_SIGN_IN_REQUIRED for an ' +
+      'older one). Rate limited like login.',
     requestExample: { currentPassword: 'S3cure-pass', newPassword: 'N3w-secure-pass' },
   },
   'POST /api/sellers/applications': {

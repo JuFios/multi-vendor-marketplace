@@ -9,6 +9,7 @@ import { EmailAlreadyRegisteredError } from '../users/users.errors';
 import { UsersService } from '../users/users.service';
 
 import {
+  FreshSignInRequiredError,
   GoogleAuthFailedError,
   GoogleEmailNotVerifiedError,
   InvalidCredentialsError,
@@ -33,6 +34,9 @@ export interface SetPasswordInput {
   readonly currentPassword?: string | undefined;
   readonly newPassword: string;
 }
+
+/** Leeway between the application clock (token `iat`) and the database clock (link time). */
+const CLOCK_SKEW_MS = 5000;
 
 @Injectable()
 export class AuthService {
@@ -79,13 +83,28 @@ export class AuthService {
   }
 
   /**
-   * Sets the password of the signed-in user. An account that has one must confirm it first; one
-   * without (created through Google, or cleared when Google was linked) sets it right away, since
-   * the user is signed in and Google has already proven the mailbox.
+   * Sets the password of the signed-in user. An account that has one must confirm it first. One
+   * without (created through Google, or cleared when Google was linked) sets it with a session
+   * opened after the Google link: an access token issued before it may belong to whoever
+   * pre-registered the address, and must not buy them a new password.
    */
-  async setPassword(userId: string, input: SetPasswordInput): Promise<void> {
+  async setPassword(
+    userId: string,
+    input: SetPasswordInput,
+    tokenIssuedAt: Date | undefined,
+  ): Promise<void> {
     const user = await this.users.getCredentialsById(userId);
-    if (user.passwordHash !== null) {
+    if (user.passwordHash === null) {
+      const linkedAt = await this.auth.lastGoogleLinkAt(userId);
+      if (
+        linkedAt !== null &&
+        (tokenIssuedAt === undefined ||
+          tokenIssuedAt.getTime() + CLOCK_SKEW_MS < linkedAt.getTime())
+      ) {
+        this.logger.warn({ msg: 'auth.password.set_refused_stale_session', userId });
+        throw new FreshSignInRequiredError();
+      }
+    } else {
       const confirmed =
         input.currentPassword !== undefined &&
         (await this.hasher.verify(user.passwordHash, input.currentPassword));

@@ -8,6 +8,8 @@ export interface AuthUser {
   readonly roles: readonly UserRole[];
   /** Present once the user has an approved store. */
   readonly sellerId?: string;
+  /** When the access token was issued (second precision), for checks that need a fresh sign-in. */
+  readonly issuedAt?: Date;
 }
 
 /** The caller a verified token stands for, or null when it lacks a subject or roles. */
@@ -19,5 +21,6 @@ export function authUserFromClaims(claims: Partial<AccessTokenClaims>): AuthUser
     userId: claims.sub,
     roles: claims.roles,
     ...(typeof claims.sellerId === 'string' ? { sellerId: claims.sellerId } : {}),
+    ...(typeof claims.iat === 'number' ? { issuedAt: new Date(claims.iat * 1000) } : {}),
   };
 }

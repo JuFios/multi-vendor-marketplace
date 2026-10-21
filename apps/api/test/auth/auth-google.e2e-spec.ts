@@ -231,6 +231,28 @@ describe('Google sign-in (e2e)', () => {
         .expect(200);
     });
 
+    it('does not let a session from before the link set the cleared password', async () => {
+      // Whoever pre-registered the address still holds an access token from before the link.
+      const registered = await register('olena@example.com').expect(201);
+      const stale = `Bearer ${(registered.body as SessionBody).accessToken}`;
+      // The link is at least a second younger than that token.
+      await new Promise((resolve) => setTimeout(resolve, 6_000));
+      await signInWithGoogle(profile());
+
+      const refused = await http()
+        .post('/api/users/me/password')
+        .set('Authorization', stale)
+        .send({ newPassword: 'squatter-pass-1' })
+        .expect(403);
+      expect((refused.body as { error: { code: string } }).error.code).toBe(
+        'FRESH_SIGN_IN_REQUIRED',
+      );
+      expect(
+        (await prisma.user.findUniqueOrThrow({ where: { email: 'olena@example.com' } }))
+          .passwordHash,
+      ).toBeNull();
+    }, 20_000);
+
     it('leaves the sessions of an already verified account alone', async () => {
       const registered = await register('olena@example.com').expect(201);
       const oldToken = cookieValue(refreshCookieOf(registered));

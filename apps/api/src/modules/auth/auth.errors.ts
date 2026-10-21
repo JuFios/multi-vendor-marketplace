@@ -1,4 +1,4 @@
-import { AppError, UnauthorizedError } from '../../common/exceptions/app-error';
+import { AppError, ForbiddenError, UnauthorizedError } from '../../common/exceptions/app-error';
 
 /** Deliberately the same for an unknown email and a wrong password. */
 export class InvalidCredentialsError extends UnauthorizedError {
@@ -17,6 +17,13 @@ export class InvalidRefreshTokenError extends UnauthorizedError {
 export class RefreshTokenReusedError extends UnauthorizedError {
   constructor() {
     super('The refresh token was already used; sign in again', 'REFRESH_TOKEN_REUSED');
+  }
+}
+
+/** Setting a first password needs a session opened after Google proved the mailbox. */
+export class FreshSignInRequiredError extends ForbiddenError {
+  constructor() {
+    super('Sign in with Google again to set a password', 'FRESH_SIGN_IN_REQUIRED');
   }
 }
 

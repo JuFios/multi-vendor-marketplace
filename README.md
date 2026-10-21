@@ -355,8 +355,9 @@ sessions. If the email was never verified, linking marks it verified, clears the
 revokes all of the account's refresh tokens, so whoever registered the address first loses access
 (see [Known limitations](#known-limitations-and-what-i-would-do-differently)). The owner, signed in
 through Google, can set a new password on the account page (`POST /api/users/me/password`, no
-current password needed while none is set; changing an existing one requires it, rate limited
-like login).
+current password needed while none is set, but only with a session opened after the Google
+link, so a token issued to whoever registered first cannot claim the account back; changing an
+existing password requires it; rate limited like login).
 
 **Authorization and IDOR.** Roles are checked by guards (`CUSTOMER`, `SELLER`, `ADMIN`; seller
 endpoints also require an approved store). Ownership is checked in the service or repository with the
@@ -711,7 +712,7 @@ Where the specification leaves room, these are the decisions taken.
   until the owner signs in with Google. Linking then clears the password and revokes all refresh
   tokens of that account, so the squatter is locked out, but whatever they did before (orders,
   reviews, a seller application) stays on the owner's account, and an access token issued to them
-  before the link stays valid until it expires (15 minutes). Since no registration verifies its
+  before the link stays valid until it expires (15 minutes), though it cannot set a new password. Since no registration verifies its
   email, an honest user who links Google to their password account also loses their old password
   and has to set a new one on the account page. The real fix is to verify email ownership at
   registration; a password reset by e-mail would also need an e-mail service.

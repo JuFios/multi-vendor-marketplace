@@ -24,7 +24,7 @@ export class AccessTokenService {
     @Inject(authConfig.KEY) private readonly config: ConfigType<typeof authConfig>,
   ) {}
 
-  async issue(claims: AccessTokenClaims): Promise<IssuedAccessToken> {
+  async issue(claims: Omit<AccessTokenClaims, 'iat'>): Promise<IssuedAccessToken> {
     const payload = {
       roles: claims.roles,
       ...(claims.sellerId === undefined ? {} : { sellerId: claims.sellerId }),

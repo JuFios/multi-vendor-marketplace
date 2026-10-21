@@ -30,8 +30,8 @@ export class PasswordController {
   @ApiOperation({ summary: 'Set or change the password of the authenticated user.' })
   @ApiBody({ type: SetPasswordDto })
   @ApiNoContentResponse({ description: 'The password was set.' })
-  @ApiErrorResponses(400, 401, 404, 429)
+  @ApiErrorResponses(400, 401, 403, 404, 429)
   async setPassword(@CurrentUser() user: AuthUser, @Body() dto: SetPasswordDto): Promise<void> {
-    await this.auth.setPassword(user.userId, dto);
+    await this.auth.setPassword(user.userId, dto, user.issuedAt);
   }
 }

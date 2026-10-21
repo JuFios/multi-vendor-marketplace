@@ -58,6 +58,16 @@ export class AuthRepository {
     return row && { userId: row.userId };
   }
 
+  /** When a Google identity was last linked to the user; null when none is. */
+  async lastGoogleLinkAt(userId: string): Promise<Date | null> {
+    const row = await this.txHost.tx.authIdentity.findFirst({
+      where: { userId, provider: 'GOOGLE' },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    return row?.createdAt ?? null;
+  }
+
   /** A concurrent sign-in that linked the same Google account first makes this one fail; retrying works. */
   async createGoogleIdentity(identity: NewGoogleIdentity): Promise<void> {
     try {
