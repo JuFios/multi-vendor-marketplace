@@ -6,6 +6,7 @@ const LINKS = [
   { to: '/admin/products', label: 'Product moderation' },
   { to: '/admin/categories', label: 'Categories' },
   { to: '/admin/orders', label: 'Orders' },
+  { to: '/admin/ledger', label: 'Ledger' },
   { to: '/admin/disputes', label: 'Disputes' },
 ] as const;
 

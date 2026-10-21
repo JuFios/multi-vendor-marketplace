@@ -17,6 +17,10 @@ export function fetchSellerDashboard() {
   return unwrap(api.GET('/api/seller/dashboard'));
 }
 
+export function fetchSellerFinance(range: { from: string; to: string }) {
+  return unwrap(api.GET('/api/seller/finance', { params: { query: range } }));
+}
+
 export function fetchSellerProducts(filters: SellerProductFilters) {
   return unwrap(api.GET('/api/seller/products', { params: { query: { ...filters, limit: 10 } } }));
 }
@@ -54,6 +58,15 @@ export async function archiveProduct(id: string): Promise<void> {
   if (!response.ok) {
     throw parseApiError(response.status, error);
   }
+}
+
+/** The store's auction products: the auctions list carries no titles, so lots are named from here. */
+export function fetchAuctionProducts() {
+  return unwrap(
+    api.GET('/api/seller/products', {
+      params: { query: { type: 'AUCTION', page: 1, limit: 100 } },
+    }),
+  );
 }
 
 export function fetchSellerAuctions(page: number) {

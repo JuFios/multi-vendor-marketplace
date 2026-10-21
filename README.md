@@ -510,8 +510,10 @@ A manual checklist for a fresh `docker compose up --build`. Open http://localhos
       product is refused.
 - [ ] **Refund and finance.** As `seller1@example.com`, open the completed seller order and refund
       the item ("Refund items" previews the amounts). The commission is recomputed on what
-      remains and the dashboard shows the refund. The ledger entries are available in Swagger:
-      `GET /api/seller/finance` and `GET /api/admin/ledger`.
+      remains. The seller's "Finance" page shows gross sales, refunds, commission, net, payouts
+      and the balance for a period; as the admin, the "Ledger" page lists every ledger entry
+      (sale, commission, refund, commission reversal, cancellation, payout) and can be filtered by
+      store and period.
 - [ ] **Auction.** One seeded lot closes a few minutes after the stack starts. As a buyer, open
       it in two windows (the second one may be anonymous), place a bid (at least the "Minimum next
       bid"); the price, the bid count and the minimum change in the other window at once, and the
@@ -522,7 +524,7 @@ A manual checklist for a fresh `docker compose up --build`. Open http://localhos
       dispute and exchange messages with the store.
 - [ ] **Admin.** Sign in as `admin@example.com`: approve `seller-pending@example.com`'s
       application, create a category, take the dispute into review and resolve it, open the
-      analytics page (revenue, sales by store, top products, conversion, 30-day chart against the
+      ledger and the analytics page (revenue, sales by store, top products, conversion, 30-day chart against the
       previous period) and use "Export CSV" / "Export JSON". New products are published at once
       and wait in "Product moderation" (as the approved store, create one in the seller area,
       then approve or reject it as the admin).
