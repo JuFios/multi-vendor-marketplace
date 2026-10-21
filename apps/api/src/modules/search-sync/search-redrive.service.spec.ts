@@ -22,6 +22,7 @@ function setup({ failed, available }: { failed: number; available: boolean }) {
     indexPrefix: 'test_',
     timeoutMs: 1500,
     redriveIntervalMs: 1000,
+    catalogBumpWindowMs: 0,
   };
   const redrive = new SearchRedrive(
     settings,

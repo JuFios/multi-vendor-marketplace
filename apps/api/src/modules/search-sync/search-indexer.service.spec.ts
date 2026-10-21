@@ -53,7 +53,10 @@ function setup(reads: Product[][], lotReads: [string, LotListing][][] = []) {
     upsert: jest.fn().mockResolvedValue(undefined),
     remove: jest.fn().mockResolvedValue(undefined),
   };
-  const namespace = { bump: jest.fn().mockResolvedValue(undefined) };
+  const namespace = {
+    bump: jest.fn().mockResolvedValue(undefined),
+    bumpSoon: jest.fn().mockResolvedValue(undefined),
+  };
   const indexer = new SearchIndexer(
     search as unknown as SearchPort,
     { findPublishedByIds } as unknown as ProductsService,
@@ -76,7 +79,7 @@ describe('SearchIndexer.syncProducts', () => {
     await indexer.syncProducts(['p1']);
 
     expect(search.upsert).toHaveBeenCalledTimes(1);
-    expect(namespace.bump).toHaveBeenCalledTimes(1);
+    expect(namespace.bumpSoon).toHaveBeenCalledTimes(1);
   });
 
   it('writes the newer state again when another event changed the product meanwhile', async () => {
@@ -93,7 +96,7 @@ describe('SearchIndexer.syncProducts', () => {
     expect(search.upsert).toHaveBeenLastCalledWith([
       expect.objectContaining({ title: 'Title v2' }),
     ]);
-    expect(namespace.bump).toHaveBeenCalledTimes(1);
+    expect(namespace.bumpSoon).toHaveBeenCalledTimes(1);
   });
 
   it('gives up, so the queue retries, when the product never settles', async () => {

@@ -10,5 +10,6 @@ export const searchConfig = registerAs('search', () => {
     indexPrefix: env.MEILI_INDEX_PREFIX,
     timeoutMs: env.SEARCH_TIMEOUT_MS,
     redriveIntervalMs: env.SEARCH_REDRIVE_INTERVAL_MS,
+    catalogBumpWindowMs: env.CATALOG_CACHE_BUMP_WINDOW_MS,
   };
 });
