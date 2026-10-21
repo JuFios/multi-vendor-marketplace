@@ -28,6 +28,12 @@ const PUBLISH_TIMEOUT_MS = 5000;
 const BATCH_TRANSACTION_TIMEOUT_MS = 30_000;
 const MAX_BACKOFF_MS = 5000;
 const MAX_ERROR_LENGTH = 500;
+/**
+ * Failed publications after which an event goes to the back of every batch. A queue outage fails
+ * every event alike and keeps them in order; an event that fails on its own (a payload the queue
+ * refuses, say) must not hold up the ones behind it forever. It is still retried each batch.
+ */
+const STUCK_AFTER_ATTEMPTS = 5;
 
 interface OutboxRow {
   id: string;
@@ -38,6 +44,7 @@ interface OutboxRow {
   correlation_id: string | null;
   actor_id: string | null;
   occurred_at: Date;
+  attempts: number;
 }
 
 export interface RelayBatchResult {
@@ -99,10 +106,10 @@ export class OutboxRelay implements OnApplicationBootstrap, OnModuleDestroy {
       async (tx) => {
         const rows = await tx.$queryRaw<OutboxRow[]>`
           SELECT id, event_type, aggregate_type, aggregate_id, payload,
-                 correlation_id, actor_id, occurred_at
+                 correlation_id, actor_id, occurred_at, attempts
           FROM outbox_events
           WHERE published_at IS NULL AND event_type = ANY(${routedTypes}::text[])
-          ORDER BY occurred_at, id
+          ORDER BY attempts >= ${STUCK_AFTER_ATTEMPTS}, occurred_at, id
           LIMIT ${batchSize}
           FOR UPDATE SKIP LOCKED`;
 
@@ -120,7 +127,13 @@ export class OutboxRelay implements OnApplicationBootstrap, OnModuleDestroy {
               SET attempts = attempts + 1, last_error = ${message.slice(0, MAX_ERROR_LENGTH)}
               WHERE id = ${row.id}::uuid`;
             this.failures.inc();
-            this.logger.warn({ msg: 'outbox.publish_failed', eventId: row.id, error: message });
+            this.logger.warn({
+              msg: 'outbox.publish_failed',
+              eventId: row.id,
+              eventType: row.event_type,
+              attempts: row.attempts + 1,
+              error: message,
+            });
             // Queue trouble affects every event, and stopping keeps the order of the rest.
             failed = true;
             break;

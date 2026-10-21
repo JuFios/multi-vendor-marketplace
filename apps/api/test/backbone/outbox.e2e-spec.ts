@@ -22,10 +22,12 @@ import { waitUntil } from '../utils/wait-until';
 
 class RecordingPublisher implements QueuePublisherPort {
   failing = false;
+  /** Events the queue refuses on their own, while it takes every other one. */
+  readonly refused = new Set<string>();
   readonly published: { queue: QueueName; event: AnyDomainEvent }[] = [];
 
   publish(queue: QueueName, event: AnyDomainEvent): Promise<void> {
-    if (this.failing) {
+    if (this.failing || this.refused.has(event.id)) {
       return Promise.reject(new Error('queue unavailable'));
     }
     this.published.push({ queue, event });
@@ -78,6 +80,7 @@ describe('outbox (e2e)', () => {
 
   beforeEach(async () => {
     publisher.failing = false;
+    publisher.refused.clear();
     publisher.published.length = 0;
     await resetDb(prisma);
   });
@@ -198,6 +201,33 @@ describe('outbox (e2e)', () => {
       label: 'the event to be published after recovery',
     });
     expect(publisher.published).toHaveLength(2);
+  });
+
+  it('lets an event that keeps failing on its own fall behind the ones after it', async () => {
+    const stuck = productCreated();
+    const stuckId = newEventId();
+    publisher.refused.add(stuckId);
+    await prisma.outboxEvent.create({
+      data: {
+        id: stuckId,
+        eventType: stuck.type,
+        aggregateType: stuck.aggregateType,
+        aggregateId: stuck.aggregateId,
+        payload: stuck.payload,
+        occurredAt: new Date(Date.now() - 60_000),
+        attempts: 5,
+      },
+    });
+
+    const [id] = await addInTransaction(productCreated());
+
+    await waitUntil(async () => (await row(id ?? ''))?.publishedAt != null, {
+      label: 'the later event to be published past the stuck one',
+    });
+    await waitUntil(async () => ((await row(stuckId))?.attempts ?? 0) > 5, {
+      label: 'the stuck event to be retried',
+    });
+    expect((await row(stuckId))?.publishedAt).toBeNull();
   });
 
   it('republishes the same event when the relay died before marking it', async () => {
