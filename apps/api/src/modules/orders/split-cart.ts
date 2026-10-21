@@ -1,4 +1,7 @@
+import { fitsStoredMoney, MAX_STORED_MONEY_CENTS } from '../../common/money';
+
 import { computeSellerOrderFinancials } from './commission';
+import { OrderTotalLimitError } from './orders.errors';
 
 export interface SplittableItem {
   readonly sellerId: string;
@@ -37,4 +40,15 @@ export function splitCartBySeller<TItem extends SplittableItem>(
       ...computeSellerOrderFinancials(subtotalCents, 0, commissionBps),
     };
   });
+}
+
+/**
+ * Refuses a cart the money columns could not hold. Every seller order is a part of the total, so
+ * bounding the total bounds each of them as well.
+ */
+export function assertOrderTotalsStorable(groups: readonly { subtotalCents: number }[]): void {
+  const totalCents = groups.reduce((sum, group) => sum + group.subtotalCents, 0);
+  if (!fitsStoredMoney(totalCents)) {
+    throw new OrderTotalLimitError(MAX_STORED_MONEY_CENTS);
+  }
 }

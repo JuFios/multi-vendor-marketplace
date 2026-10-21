@@ -1,3 +1,5 @@
+import type { LotListing } from '../bidding/auction';
+
 export const PRODUCT_TYPES = ['FIXED_PRICE', 'AUCTION'] as const;
 export type ProductType = (typeof PRODUCT_TYPES)[number];
 
@@ -111,6 +113,29 @@ export interface ReservedProduct {
   /** The stock left and the version after the deduction. */
   readonly stock: number;
   readonly version: number;
+}
+
+/**
+ * How a buyer sees a product's price and availability. A fixed-price product is in stock while
+ * it has units; an auction lot is priced at its going bid and is available only while it takes
+ * bids, whatever its single unit of stock says.
+ */
+export interface PublicListing {
+  readonly priceCents: number | null;
+  readonly inStock: boolean;
+  readonly auction: LotListing | null;
+}
+
+export function publicListingOf(
+  product: Pick<Product, 'type' | 'priceCents' | 'stock'>,
+  lot: LotListing | undefined,
+): PublicListing {
+  if (product.type === 'AUCTION') {
+    return lot === undefined
+      ? { priceCents: null, inStock: false, auction: null }
+      : { priceCents: lot.priceCents, inStock: lot.open, auction: lot };
+  }
+  return { priceCents: product.priceCents, inStock: product.stock > 0, auction: null };
 }
 
 export interface CatalogMatches {

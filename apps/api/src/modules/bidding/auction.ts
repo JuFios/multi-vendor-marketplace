@@ -51,6 +51,35 @@ export function minNextBidCents(auction: BidFloor): number {
     : auction.currentPriceCents + auction.bidStepCents;
 }
 
+/** What a buyer browsing the catalog sees of a lot. */
+export interface LotListing {
+  readonly auctionId: string;
+  readonly status: AuctionStatus;
+  /** The leading bid, or the start price while nobody has bid. */
+  readonly priceCents: number;
+  readonly endsAt: Date;
+  /** Only a round that is still taking bids, on the database clock, is available. */
+  readonly open: boolean;
+  /** The auction's own version, so the indexer notices a lot that moved while it was writing. */
+  readonly version: number;
+}
+
+export function lotListingOf(
+  auction: Pick<
+    AuctionRecord,
+    'id' | 'status' | 'currentPriceCents' | 'startPriceCents' | 'endsAt' | 'dbNow' | 'version'
+  >,
+): LotListing {
+  return {
+    auctionId: auction.id,
+    status: auction.status,
+    priceCents: auction.currentPriceCents ?? auction.startPriceCents,
+    endsAt: auction.endsAt,
+    open: auction.status === 'ACTIVE' && auction.endsAt.getTime() > auction.dbNow.getTime(),
+    version: auction.version,
+  };
+}
+
 /** How other participants see a bidder (I-21): stable within one auction, not reversible. */
 export function maskBidder(bidderId: string, auctionId: string): string {
   const digest = createHash('sha256').update(`${auctionId}:${bidderId}`).digest('hex');

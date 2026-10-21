@@ -1,8 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import { IsInt, Max, Min, type ValidationOptions } from 'class-validator';
 
-/** Per-amount cap; keeps sums of many lines inside the 32-bit integer columns. */
-export const MAX_MONEY_CENTS = 100_000_000;
+import { MAX_MONEY_CENTS } from '../money';
 
 export interface IsMoneyCentsOptions extends ValidationOptions {
   max?: number;

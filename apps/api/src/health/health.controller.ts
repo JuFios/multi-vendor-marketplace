@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { HealthCheckService, type HealthCheckResult } from '@nestjs/terminus';
+import { SkipThrottle } from '@nestjs/throttler';
 
 import { Public } from '../common/decorators/public.decorator';
 import { ApiErrorResponses } from '../common/swagger/api-error-responses.decorator';
@@ -13,6 +14,7 @@ export interface HealthResponse {
 
 @ApiTags('health')
 @Public()
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
   constructor(
@@ -27,16 +29,19 @@ export class HealthController {
     return { status: 'ok' };
   }
 
-  /** Readiness probe; checks Postgres, Redis and Meilisearch. */
-  @ApiOperation({ summary: 'Readiness probe: Postgres, Redis and Meilisearch' })
-  @ApiOkResponse({ description: 'Every dependency is up.' })
+  /** Readiness gate: Postgres and Redis. The search index is reported but never gates readiness. */
+  @ApiOperation({ summary: 'Readiness probe: Postgres and Redis, search index reported' })
+  @ApiOkResponse({ description: 'Every gating dependency is up.' })
   @ApiErrorResponses(503)
   @Get('ready')
-  ready(): Promise<HealthCheckResult> {
-    return this.health.check([
-      () => this.dependencies.database(),
-      () => this.dependencies.redisConnection(),
-      () => this.dependencies.search(),
+  async ready(): Promise<HealthCheckResult> {
+    const [core, search] = await Promise.all([
+      this.health.check([
+        () => this.dependencies.database(),
+        () => this.dependencies.redisConnection(),
+      ]),
+      this.dependencies.search(),
     ]);
+    return { ...core, details: { ...core.details, ...search } };
   }
 }

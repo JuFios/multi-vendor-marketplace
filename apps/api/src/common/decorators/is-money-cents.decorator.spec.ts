@@ -1,6 +1,8 @@
 import { validate } from 'class-validator';
 
-import { IsMoneyCents, MAX_MONEY_CENTS } from './is-money-cents.decorator';
+import { MAX_MONEY_CENTS } from '../money';
+
+import { IsMoneyCents } from './is-money-cents.decorator';
 
 class Priced {
   @IsMoneyCents()

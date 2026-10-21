@@ -8,7 +8,7 @@ import { SearchIndexer } from '../../src/modules/search-sync/search-indexer.serv
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { MEILI_CLIENT } from '../../src/search/meili.constants';
 import { resetDb } from '../utils/db';
-import { createCategory, createProduct, createSeller } from '../utils/factories';
+import { createAuction, createCategory, createProduct, createSeller } from '../utils/factories';
 import { createTestApp } from '../utils/test-app';
 
 const INDEX = 'test_products';
@@ -18,6 +18,9 @@ interface ItemBody {
   title: string;
   priceCents: number | null;
   inStock: boolean;
+  auctionId: string | null;
+  auctionStatus: string | null;
+  auctionEndsAt: string | null;
   rating: { average: number; count: number };
   seller: { id: string; name: string };
   category: { id: string; name: string };
@@ -118,6 +121,36 @@ describe('GET /api/catalog (e2e)', () => {
     return { a, b, phones, kitchen, phone, cheapPhone, blender, kettle };
   };
 
+  interface LotOptions {
+    sellerId: string;
+    categoryId: string;
+    startPriceCents?: number;
+    currentPriceCents?: number;
+    status?: 'ACTIVE' | 'SOLD_TO_WINNER' | 'ORDERED' | 'NOT_SOLD';
+    endsAt?: Date;
+  }
+
+  /** A published auction product with its auction row, before or after a bid. */
+  const seedLot = async (options: LotOptions) => {
+    const product = await createProduct(prisma, {
+      sellerId: options.sellerId,
+      categoryId: options.categoryId,
+      type: 'AUCTION',
+      priceCents: null,
+      stock: 1,
+    });
+    const auction = await createAuction(prisma, {
+      productId: product.id,
+      startPriceCents: options.startPriceCents ?? 10_000,
+      ...(options.currentPriceCents === undefined
+        ? {}
+        : { currentPriceCents: options.currentPriceCents }),
+      ...(options.status === undefined ? {} : { status: options.status }),
+      ...(options.endsAt === undefined ? {} : { endsAt: options.endsAt }),
+    });
+    return { product, auction };
+  };
+
   it('lists only published products, with names, rating and stock state', async () => {
     const { phone } = await seedCatalog();
 
@@ -135,6 +168,9 @@ describe('GET /api/catalog (e2e)', () => {
       priceCents: 30_000,
       inStock: true,
       stock: 3,
+      auctionId: null,
+      auctionStatus: null,
+      auctionEndsAt: null,
       rating: { average: 4.5, count: 4 },
       seller: { id: phone.sellerId, name: 'Alpha Store' },
       category: { id: phone.categoryId, name: 'Phones' },
@@ -185,6 +221,74 @@ describe('GET /api/catalog (e2e)', () => {
       cheapPhone.id,
       phone.id,
     ]);
+  });
+
+  describe('auction lots', () => {
+    it('prices a lot at its start price, then at the leading bid, and finds it by price', async () => {
+      const store = await createSeller(prisma, { storeName: 'Auction House' });
+      const category = await createCategory(prisma, { name: 'Collectibles' });
+      const quiet = await seedLot({ sellerId: store.seller.id, categoryId: category.id });
+      const live = await seedLot({
+        sellerId: store.seller.id,
+        categoryId: category.id,
+        startPriceCents: 7_000,
+      });
+      await reindex();
+
+      const before = await get(`?categoryId=${category.id}&sort=price_asc`);
+
+      expect(before.items.map(({ id, priceCents }) => [id, priceCents])).toEqual([
+        [live.product.id, 7_000],
+        [quiet.product.id, 10_000],
+      ]);
+      expect(before.items[0]).toMatchObject({
+        type: 'AUCTION',
+        inStock: true,
+        auctionId: live.auction.id,
+        auctionStatus: 'ACTIVE',
+        auctionEndsAt: live.auction.endsAt.toISOString(),
+      });
+      expect(before.priceRange).toEqual({ min: 7_000, max: 10_000 });
+
+      await prisma.auction.update({
+        where: { id: live.auction.id },
+        data: { currentPriceCents: 8_000, bidCount: 1, version: 1 },
+      });
+      await reindex();
+
+      const raised = await get('?priceMin=7500&priceMax=9000&sort=price_asc');
+      expect(raised.items.map((item) => item.id)).toEqual([live.product.id]);
+      expect(raised.items[0]?.priceCents).toBe(8_000);
+      expect((await get('?priceMax=7500')).items).toEqual([]);
+    });
+
+    it('shows a lot that no longer takes bids as unavailable, whatever its status says', async () => {
+      const store = await createSeller(prisma);
+      const category = await createCategory(prisma);
+      const lot = (overrides: Partial<LotOptions> = {}) =>
+        seedLot({ sellerId: store.seller.id, categoryId: category.id, ...overrides });
+      const active = await lot();
+      const sold = await lot({ status: 'SOLD_TO_WINNER' });
+      const ordered = await lot({ status: 'ORDERED' });
+      const notSold = await lot({ status: 'NOT_SOLD' });
+      const expired = await lot({ endsAt: new Date(Date.now() - 60_000) });
+      await reindex();
+
+      const open = await get('?type=AUCTION&inStock=true');
+      expect(open.items.map((item) => item.id)).toEqual([active.product.id]);
+
+      const closed = await get('?type=AUCTION&inStock=false');
+      expect(closed.total).toBe(4);
+      expect(closed.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: sold.product.id, auctionStatus: 'SOLD_TO_WINNER' }),
+          expect.objectContaining({ id: ordered.product.id, auctionStatus: 'ORDERED' }),
+          expect.objectContaining({ id: notSold.product.id, auctionStatus: 'NOT_SOLD' }),
+          expect.objectContaining({ id: expired.product.id, auctionStatus: 'ACTIVE' }),
+        ]),
+      );
+      expect(closed.facets.inStock).toEqual(expect.arrayContaining([{ value: false, count: 4 }]));
+    });
   });
 
   it('counts facets with names, and reports the price range of all matches', async () => {
@@ -315,6 +419,42 @@ describe('GET /api/catalog without the search index (e2e)', () => {
     expect(body.priceRange).toEqual({ min: 30_000, max: 30_000 });
     const metrics = (await http().get('/metrics')).text;
     expect(metrics).toMatch(/search_degraded_total [1-9]/);
+  });
+
+  it('prices a lot at its going bid and honours its availability in the fallback', async () => {
+    const { seller } = await createSeller(prisma);
+    const category = await createCategory(prisma);
+    const product = await createProduct(prisma, {
+      sellerId: seller.id,
+      categoryId: category.id,
+      type: 'AUCTION',
+      priceCents: null,
+      stock: 1,
+      title: 'Vintage camera',
+    });
+    const auction = await createAuction(prisma, {
+      productId: product.id,
+      startPriceCents: 10_000,
+      currentPriceCents: 12_000,
+    });
+
+    const body = (await http().get('/api/catalog?sort=price_asc').expect(200)).body as CatalogBody;
+
+    expect(body.items[0]).toMatchObject({
+      id: product.id,
+      priceCents: 12_000,
+      inStock: true,
+      auctionId: auction.id,
+      auctionStatus: 'ACTIVE',
+      auctionEndsAt: auction.endsAt.toISOString(),
+    });
+    expect(body.priceRange).toEqual({ min: 12_000, max: 12_000 });
+
+    await prisma.auction.update({ where: { id: auction.id }, data: { status: 'ORDERED' } });
+
+    const closed = (await http().get('/api/catalog?inStock=true').expect(200)).body as CatalogBody;
+    expect(closed.items).toEqual([]);
+    expect(closed.total).toBe(0);
   });
 
   it('treats LIKE wildcards in the text literally', async () => {

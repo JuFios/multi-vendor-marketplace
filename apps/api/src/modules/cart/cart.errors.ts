@@ -34,3 +34,9 @@ export class CartQuantityLimitError extends AppError {
     super('CART_QUANTITY_LIMIT', 422, `A cart line holds at most ${limit} units`);
   }
 }
+
+export class CartLineTotalLimitError extends AppError {
+  constructor(limit: number) {
+    super('CART_LINE_TOTAL_LIMIT', 422, `A cart line cannot cost more than ${limit} cents`);
+  }
+}

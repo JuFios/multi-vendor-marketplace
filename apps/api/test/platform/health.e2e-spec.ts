@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
+import { REDIS_CLIENT } from '../../src/redis/redis.constants';
 import { MEILI_CLIENT } from '../../src/search/meili.constants';
 import { createTestApp } from '../utils/test-app';
 
@@ -22,7 +23,7 @@ describe('health (e2e)', () => {
     expect(response.body).toEqual({ status: 'ok' });
   });
 
-  it('GET /api/health/ready reports Postgres, Redis and Meilisearch up', async () => {
+  it('GET /api/health/ready reports Postgres and Redis up, with the search index in details', async () => {
     app = await createTestApp([], { worker: false });
 
     const response = await request(app.getHttpServer() as App)
@@ -31,16 +32,40 @@ describe('health (e2e)', () => {
 
     expect(response.body).toMatchObject({
       status: 'ok',
-      info: { database: { status: 'up' }, redis: { status: 'up' }, search: { status: 'up' } },
+      info: { database: { status: 'up' }, redis: { status: 'up' } },
+      details: { search: { status: 'up' } },
     });
   });
 
-  it('GET /api/health/ready answers 503 while a dependency is down', async () => {
+  it('GET /api/health/ready stays ready while the search index is down', async () => {
     app = await createTestApp(
       [
         {
           token: MEILI_CLIENT,
           useValue: { health: () => Promise.reject(new Error('unreachable')) },
+        },
+      ],
+      { worker: false },
+    );
+
+    const response = await request(app.getHttpServer() as App)
+      .get('/api/health/ready')
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      status: 'ok',
+      info: { database: { status: 'up' }, redis: { status: 'up' } },
+      details: { search: { status: 'down' } },
+    });
+  });
+
+  it('GET /api/health/ready answers 503 while Redis is down', async () => {
+    app = await createTestApp(
+      [
+        {
+          token: REDIS_CLIENT,
+          // `status` keeps the shutdown hook from quitting a connection that is not there.
+          useValue: { status: 'end', ping: () => Promise.reject(new Error('unreachable')) },
         },
       ],
       { worker: false },
@@ -54,8 +79,8 @@ describe('health (e2e)', () => {
       error: {
         code: 'DEPENDENCY_UNAVAILABLE',
         details: {
-          error: { search: { status: 'down' } },
-          info: { database: { status: 'up' }, redis: { status: 'up' } },
+          error: { redis: { status: 'down' } },
+          info: { database: { status: 'up' } },
         },
       },
     });

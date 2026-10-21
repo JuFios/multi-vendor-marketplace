@@ -82,10 +82,12 @@ describe('toCatalogDocument', () => {
     priceCents: 25_000,
     ratingAvg: 4.5,
     ratingCount: 2,
+    inStock: true,
     stock: 3,
     images: ['https://img.example/1.png', 'https://img.example/2.png'],
     createdAt: new Date('2026-01-02T03:04:05.000Z'),
     version: 7,
+    auction: null,
   };
 
   it('copies the searchable fields and derives the rest', () => {
@@ -106,13 +108,41 @@ describe('toCatalogDocument', () => {
       createdAt: Date.parse('2026-01-02T03:04:05.000Z'),
       imageUrl: 'https://img.example/1.png',
       version: 7,
+      auctionId: null,
+      auctionStatus: null,
+      auctionEndsAt: null,
     });
   });
 
-  it('marks a product without stock as out of stock and without an image as imageless', () => {
-    expect(toCatalogDocument({ ...product, stock: 0, images: [] })).toMatchObject({
+  it('keeps a product that can no longer be bought and that has no image', () => {
+    expect(toCatalogDocument({ ...product, inStock: false, images: [] })).toMatchObject({
       inStock: false,
       imageUrl: null,
+    });
+  });
+
+  it('carries the lot of an auction product', () => {
+    const lot = {
+      id: 'a1',
+      status: 'ACTIVE',
+      endsAt: new Date('2026-02-01T00:00:00.000Z'),
+    } as const;
+
+    expect(
+      toCatalogDocument({
+        ...product,
+        type: 'AUCTION',
+        priceCents: 5_000,
+        inStock: true,
+        auction: lot,
+      }),
+    ).toMatchObject({
+      type: 'AUCTION',
+      priceCents: 5_000,
+      inStock: true,
+      auctionId: 'a1',
+      auctionStatus: 'ACTIVE',
+      auctionEndsAt: Date.parse('2026-02-01T00:00:00.000Z'),
     });
   });
 });

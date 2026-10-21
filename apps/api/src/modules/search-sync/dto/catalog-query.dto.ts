@@ -13,7 +13,7 @@ import {
   Min,
 } from 'class-validator';
 
-import { MAX_MONEY_CENTS } from '../../../common/decorators/is-money-cents.decorator';
+import { MAX_MONEY_CENTS } from '../../../common/money';
 import {
   CATALOG_DEFAULT_LIMIT,
   CATALOG_MAX_LIMIT,

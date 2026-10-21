@@ -21,8 +21,10 @@ import { flushEvents, queueOf } from '../utils/flush-events';
 import { resetState } from '../utils/reset-state';
 import { createTestApp } from '../utils/test-app';
 
+/** Stands in for a provider that honours `sellerOrderId` as its idempotency key. */
 class FakePaymentGateway implements PaymentGatewayPort {
   readonly calls: CaptureRequest[] = [];
+  readonly charges = new Map<string, CaptureResult>();
   readonly declined = new Set<number>();
   gate: Promise<void> | null = null;
 
@@ -31,13 +33,20 @@ class FakePaymentGateway implements PaymentGatewayPort {
     if (this.gate) {
       await this.gate;
     }
-    return this.declined.has(captureRequest.amountCents)
+    const taken = this.charges.get(captureRequest.sellerOrderId);
+    if (taken !== undefined) {
+      return taken;
+    }
+    const result: CaptureResult = this.declined.has(captureRequest.amountCents)
       ? { ok: false, reason: 'DECLINED' }
       : { ok: true, providerRef: 'fake' };
+    this.charges.set(captureRequest.sellerOrderId, result);
+    return result;
   }
 
   reset(): void {
     this.calls.length = 0;
+    this.charges.clear();
     this.declined.clear();
     this.gate = null;
   }
@@ -226,7 +235,7 @@ describe('Payment saga (e2e)', () => {
     ).toBe(1);
   });
 
-  it('charges a seller order once when seller_order.created is delivered again', async () => {
+  it('takes the money and records it once when seller_order.created is delivered again', async () => {
     const { soOf } = await checkout();
     await flushEvents();
     const created = await prisma.outboxEvent.findFirstOrThrow({
@@ -237,8 +246,11 @@ describe('Payment saga (e2e)', () => {
     await app.get<QueuePublisherPort>(QUEUE_PUBLISHER).publish(QUEUE.PAYMENTS, toEvent(created));
     await flushEvents();
 
-    expect(gateway.calls).toHaveLength(3);
+    // The capture sits outside the recording transaction, so a redelivery can reach the provider
+    // once more; the key it carries is what keeps that from taking the money twice.
+    expect(gateway.charges.size).toBe(3);
     expect(await prisma.paymentAttempt.count()).toBe(3);
+    expect(await prisma.outboxEvent.count({ where: { eventType: 'payment.captured' } })).toBe(3);
   });
 
   it('refunds a payment that is captured after the seller order was cancelled', async () => {

@@ -34,6 +34,12 @@ export class CartItemsUnavailableError extends ConflictError {
   }
 }
 
+export class OrderTotalLimitError extends AppError {
+  constructor(limit: number) {
+    super('ORDER_TOTAL_LIMIT', 422, `An order cannot cost more than ${limit} cents`);
+  }
+}
+
 export class OrderNotFoundError extends NotFoundError {
   constructor() {
     super('Order not found', 'ORDER_NOT_FOUND');

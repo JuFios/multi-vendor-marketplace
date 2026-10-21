@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
+import { fitsStoredMoney, MAX_STORED_MONEY_CENTS } from '../../common/money';
 import type { AppTransactionHost } from '../../prisma/transaction';
 import type { AuctionRecord } from '../bidding/auction';
 import { AuctionsService } from '../bidding/auctions.service';
@@ -13,12 +14,14 @@ import {
   CART_MAX_QUANTITY,
   type CartLineSource,
   type CheckoutLine,
+  lineTotalCents,
 } from './cart';
 import {
   CannotBuyOwnProductError,
   AuctionNotWonError,
   CartInsufficientStockError,
   CartItemNotFoundError,
+  CartLineTotalLimitError,
   CartQuantityLimitError,
 } from './cart.errors';
 import { CartRepository } from './cart.repository';
@@ -66,6 +69,9 @@ export class CartService {
       if (next > product.stock) {
         throw new CartInsufficientStockError(product.stock);
       }
+      if (!fitsStoredMoney(lineTotalCents(product.priceCents, next))) {
+        throw new CartLineTotalLimitError(MAX_STORED_MONEY_CENTS);
+      }
       await this.cart.setQuantity(cartId, productId, next);
       await this.cart.markFirstItemAdded(cartId);
     });
@@ -101,6 +107,9 @@ export class CartService {
         const product = await this.products.getPublicStock(productId);
         if (quantity > product.stock) {
           throw new CartInsufficientStockError(product.stock);
+        }
+        if (!fitsStoredMoney(lineTotalCents(product.priceCents, quantity))) {
+          throw new CartLineTotalLimitError(MAX_STORED_MONEY_CENTS);
         }
       }
       await this.cart.setQuantity(cartId, productId, quantity);

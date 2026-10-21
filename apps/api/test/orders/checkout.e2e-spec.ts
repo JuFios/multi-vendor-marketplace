@@ -164,6 +164,22 @@ describe('POST /api/orders/checkout (e2e)', () => {
     expect(body.totalCents).toBe(3_000);
   });
 
+  it('answers 422 ORDER_TOTAL_LIMIT when a price rise pushes the total past the money columns', async () => {
+    const buyer = await createUser(prisma);
+    const product = await createProduct(prisma, { priceCents: 21_000_000, stock: 99 });
+    // Valid when added (21 000 000 × 99 fits int32); the seller raises the price before checkout.
+    await fillCart(buyer.id, [{ productId: product.id, quantity: 99 }]);
+    await prisma.product.update({ where: { id: product.id }, data: { priceCents: 21_700_000 } });
+
+    const response = await checkout(buyer);
+
+    expect(response.status).toBe(422);
+    expect((response.body as ErrorBody).error.code).toBe('ORDER_TOTAL_LIMIT');
+    expect(await prisma.order.count()).toBe(0);
+    expect(await stockOf(product.id)).toBe(99);
+    expect((await prisma.cart.findFirstOrThrow()).status).toBe('ACTIVE');
+  });
+
   it('answers 400 CART_EMPTY without a cart and after the cart was already turned into an order', async () => {
     const buyer = await createUser(prisma);
     const product = await createProduct(prisma);

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { TransactionHost } from '@nestjs-cls/transactional';
 import type { Redis } from 'ioredis';
@@ -131,6 +133,47 @@ describe('search index synchronization (e2e)', () => {
     expect(await indexed()).toEqual([]);
   });
 
+  it('prices a lot from its auction when it starts and after a bid', async () => {
+    const { auth } = await sellerAuth();
+    const category = await createCategory(prisma, { name: 'Collectibles' });
+
+    const response = await http()
+      .post('/api/seller/products')
+      .set('Authorization', auth)
+      .send({
+        type: 'AUCTION',
+        categoryId: category.id,
+        title: 'Vintage camera',
+        description: 'Works',
+        startPriceCents: 10_000,
+        bidStepCents: 500,
+        endsAt: new Date(Date.now() + 3_600_000).toISOString(),
+      })
+      .expect(201);
+    const lot = response.body as { id: string; auctionId: string };
+    await flushEvents();
+
+    expect((await indexed())[0]).toMatchObject({
+      id: lot.id,
+      type: 'AUCTION',
+      priceCents: 10_000,
+      inStock: true,
+      auctionId: lot.auctionId,
+      auctionStatus: 'ACTIVE',
+    });
+
+    const bidder = await createUser(prisma);
+    await http()
+      .post(`/api/auctions/${lot.auctionId}/bids`)
+      .set('Authorization', await bearerFor(app, { id: bidder.id }))
+      .set('Idempotency-Key', randomUUID())
+      .send({ amountCents: 10_500 })
+      .expect(201);
+    await flushEvents();
+
+    expect((await indexed())[0]).toMatchObject({ priceCents: 10_500, inStock: true });
+  });
+
   it('removes a product that an admin rejects', async () => {
     const { seller } = await sellerAuth();
     const product = await createProduct(prisma, {
@@ -221,6 +264,9 @@ describe('search index synchronization (e2e)', () => {
           stock: 1,
           createdAt: 0,
           imageUrl: null,
+          auctionId: null,
+          auctionStatus: null,
+          auctionEndsAt: null,
           version: 0,
         },
       ]);

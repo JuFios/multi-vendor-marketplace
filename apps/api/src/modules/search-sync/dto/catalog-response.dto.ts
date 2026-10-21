@@ -1,6 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { CATALOG_PRODUCT_TYPES, type CatalogProductType } from '../../../search/catalog';
+import {
+  CATALOG_AUCTION_STATUSES,
+  CATALOG_PRODUCT_TYPES,
+  type CatalogAuctionStatus,
+  type CatalogProductType,
+} from '../../../search/catalog';
 import type { CatalogPage } from '../catalog-page';
 
 class RatingDto {
@@ -92,6 +97,29 @@ export class CatalogItemDto {
 
   @ApiProperty({ type: IdNameDto })
   category: IdNameDto;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    format: 'uuid',
+    description: 'The lot to bid on; null for a fixed-price product.',
+  })
+  auctionId: string | null;
+
+  @ApiProperty({
+    enum: CATALOG_AUCTION_STATUSES,
+    nullable: true,
+    description: 'Where the lot stands; null for a fixed-price product.',
+  })
+  auctionStatus: CatalogAuctionStatus | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    format: 'date-time',
+    description: "When bidding closes; null for a fixed-price product or after the lot's round.",
+  })
+  auctionEndsAt: string | null;
 }
 
 export class CatalogPageDto {
@@ -129,6 +157,9 @@ export class CatalogPageDto {
         rating: { average: item.ratingAvg, count: item.ratingCount },
         seller: { id: item.sellerId, name: item.sellerName },
         category: { id: item.categoryId, name: item.categoryName },
+        auctionId: item.auctionId,
+        auctionStatus: item.auctionStatus,
+        auctionEndsAt: item.auctionEndsAt,
       })),
       total: page.total,
       page: page.page,

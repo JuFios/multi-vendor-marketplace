@@ -131,6 +131,17 @@ describe('Cart mutations (e2e)', () => {
       expect((response.body as ErrorBody).error.code).toBe('CART_QUANTITY_LIMIT');
     });
 
+    it('rejects a line whose total would not fit the money columns', async () => {
+      const buyer = await createUser(prisma);
+      const pricey = await createProduct(prisma, { priceCents: 100_000_000, stock: 30 });
+
+      const response = await call('post', '/items', buyer, { productId: pricey.id, quantity: 22 });
+
+      expect(response.status).toBe(422);
+      expect((response.body as ErrorBody).error.code).toBe('CART_LINE_TOTAL_LIMIT');
+      expect(await prisma.cartItem.count()).toBe(0);
+    });
+
     it('answers 404 for an unknown, archived or unpublished product', async () => {
       const buyer = await createUser(prisma);
       const archived = await createProduct(prisma, { archivedAt: new Date(), isPublished: false });
@@ -226,6 +237,18 @@ describe('Cart mutations (e2e)', () => {
 
       expect(response.status).toBe(200);
       expect(quantities(response.body as CartBody)).toEqual({ [product.id]: 2 });
+    });
+
+    it('refuses a quantity that would overflow the line total', async () => {
+      const buyer = await createUser(prisma);
+      const pricey = await createProduct(prisma, { priceCents: 100_000_000, stock: 30 });
+      await call('post', '/items', buyer, { productId: pricey.id, quantity: 1 });
+
+      const response = await call('patch', `/items/${pricey.id}`, buyer, { quantity: 22 });
+
+      expect(response.status).toBe(422);
+      expect((response.body as ErrorBody).error.code).toBe('CART_LINE_TOTAL_LIMIT');
+      expect((await prisma.cartItem.findFirstOrThrow()).quantity).toBe(1);
     });
 
     it.each([0, 100])('rejects quantity %p', async (quantity) => {

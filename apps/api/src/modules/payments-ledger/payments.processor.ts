@@ -23,6 +23,9 @@ export class PaymentsProcessor extends IdempotentProcessor {
       return;
     }
     const { sellerOrderId, amountCents } = event.payload;
-    await this.runIdempotent(event.id, () => this.payments.charge(sellerOrderId, amountCents));
+    const result = await this.payments.capture(sellerOrderId, amountCents);
+    await this.runIdempotent(event.id, () =>
+      this.payments.record(sellerOrderId, amountCents, result),
+    );
   }
 }

@@ -21,6 +21,7 @@ export const QUEUE_WAITING_JOBS = 'queue_waiting_jobs';
 export const WS_CONNECTIONS = 'ws_connections';
 export const WS_EVENTS_EMITTED_TOTAL = 'ws_events_emitted_total';
 export const SEARCH_DEGRADED_TOTAL = 'search_degraded_total';
+export const THROTTLE_STORAGE_FAILURES_TOTAL = 'throttle_storage_failures_total';
 export const CACHE_HITS_TOTAL = 'cache_hits_total';
 export const CACHE_MISSES_TOTAL = 'cache_misses_total';
 
