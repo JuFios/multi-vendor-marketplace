@@ -45,4 +45,6 @@ const authorized = createAuthorizedFetch({
 });
 
 export const api = createApiClient(authorized.fetch);
+/** For responses that are not JSON, e.g. file downloads. */
+export const authorizedFetch = authorized.fetch;
 export { unwrap };

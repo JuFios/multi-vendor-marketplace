@@ -1,7 +1,9 @@
-import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
+import { createBrowserRouter, type RouteObject } from 'react-router';
 
+import { AnalyticsPage } from '../features/admin/analytics-page';
 import { ApplicationsPage } from '../features/admin/applications-page';
 import { CategoriesPage } from '../features/admin/categories-page';
+import { AdminDisputeDetailsPage, AdminDisputesPage } from '../features/admin/disputes-pages';
 import { ProductModerationPage } from '../features/admin/moderation-page';
 import { AdminOrderDetailsPage } from '../features/admin/order-details-page';
 import { AdminOrdersPage } from '../features/admin/orders-page';
@@ -92,12 +94,14 @@ export const routes: RouteObject[] = [
             path: 'admin',
             element: <AdminLayout />,
             children: [
-              { index: true, element: <Navigate to="applications" replace /> },
+              { index: true, element: <AnalyticsPage /> },
               { path: 'applications', element: <ApplicationsPage /> },
               { path: 'products', element: <ProductModerationPage /> },
               { path: 'categories', element: <CategoriesPage /> },
               { path: 'orders', element: <AdminOrdersPage /> },
               { path: 'orders/:id', element: <AdminOrderDetailsPage /> },
+              { path: 'disputes', element: <AdminDisputesPage /> },
+              { path: 'disputes/:id', element: <AdminDisputeDetailsPage /> },
             ],
           },
         ],

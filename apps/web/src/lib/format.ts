@@ -6,3 +6,11 @@ export function formatDateTime(iso: string): string {
     minute: '2-digit',
   });
 }
+
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}

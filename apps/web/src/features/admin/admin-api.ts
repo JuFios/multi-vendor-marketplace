@@ -1,4 +1,4 @@
-import { api, unwrap } from '../../lib/api/api';
+import { api, authorizedFetch, unwrap } from '../../lib/api/api';
 import { parseApiError } from '../../lib/api/errors';
 import type { components } from '../../lib/api/schema';
 
@@ -93,4 +93,50 @@ export function adminCompleteSellerOrder(id: string) {
       body: { status: 'COMPLETED' },
     }),
   );
+}
+
+export type Dispute = components['schemas']['DisputeDto'];
+export type DisputeStatus = Dispute['status'];
+export type ResolveBody = components['schemas']['ResolveDisputeDto'];
+export type SalesChart = components['schemas']['SalesChartDto'];
+export type AnalyticsSummary = components['schemas']['AnalyticsSummaryDto'];
+
+export function fetchAdminDisputes(input: { page: number; status?: DisputeStatus }) {
+  return unwrap(api.GET('/api/admin/disputes', { params: { query: { ...input, limit: 10 } } }));
+}
+
+export function reviewDispute(id: string) {
+  return unwrap(api.POST('/api/admin/disputes/{id}/review', { params: { path: { id } } }));
+}
+
+export function resolveDispute(input: { id: string; key: string; body: ResolveBody }) {
+  return unwrap(
+    api.POST('/api/admin/disputes/{id}/resolve', {
+      params: { path: { id: input.id }, header: { 'Idempotency-Key': input.key } },
+      body: input.body,
+    }),
+  );
+}
+
+export function fetchAnalyticsSummary(input: { from: string; to: string }) {
+  return unwrap(api.GET('/api/admin/analytics/summary', { params: { query: input } }));
+}
+
+export function fetchSalesChart(days: number) {
+  return unwrap(api.GET('/api/admin/analytics/sales-chart', { params: { query: { days } } }));
+}
+
+export type ReportFormat = 'csv' | 'json';
+
+/** Downloads the report as a file; the server picks the content by `format`. */
+export async function downloadReport(input: { from: string; to: string; format: ReportFormat }) {
+  const query = new URLSearchParams(input);
+  const response = await authorizedFetch(`/api/admin/analytics/report?${query.toString()}`);
+  if (!response.ok) {
+    throw parseApiError(response.status, await response.json().catch(() => null));
+  }
+  return {
+    blob: await response.blob(),
+    filename: `analytics-report_${input.from}_${input.to}.${input.format}`,
+  };
 }
