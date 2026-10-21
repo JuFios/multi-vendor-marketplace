@@ -40,7 +40,13 @@ describe('RealtimeProvider', () => {
     sessionStore.setSession(null);
   });
 
-  it('refetches the order when its status changes live', async () => {
+  it.each([
+    [WS_EVENT.ORDER_STATUS, { orderId: 'o1', status: 'SHIPPED', version: 2 }],
+    [
+      WS_EVENT.SELLER_ORDER_STATUS,
+      { sellerOrderId: 'so1', orderId: 'o1', status: 'PROCESSING', version: 1 },
+    ],
+  ])('refetches the order on a live %s push', async (wsEvent, payload) => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <ToastProvider>
@@ -53,7 +59,7 @@ describe('RealtimeProvider', () => {
     expect(await screen.findByText('fetches: 1')).toBeInTheDocument();
 
     act(() => {
-      emit(WS_EVENT.ORDER_STATUS, { orderId: 'o1', status: 'SHIPPED', version: 2 });
+      emit(wsEvent, payload);
     });
 
     expect(await screen.findByText('fetches: 2')).toBeInTheDocument();

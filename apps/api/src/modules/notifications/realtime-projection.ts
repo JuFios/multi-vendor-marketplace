@@ -63,20 +63,19 @@ export function projectEvent(event: AnyDomainEvent): Push[] {
     }
     case EVENT_TYPE.SELLER_ORDER_STATUS_CHANGED: {
       // The order aggregate travels only with `order.status_changed`, at the order's version:
-      // two sources for one merged field let a stale push overwrite a newer one.
+      // two sources for one merged field let a stale push overwrite a newer one. The buyer still
+      // gets the seller order's own status, which the aggregate may not change at all.
       const p = event.payload;
+      const payload = {
+        sellerOrderId: p.sellerOrderId,
+        orderId: p.orderId,
+        status: p.to,
+        version: p.version,
+        correlationId,
+      };
       return [
-        {
-          room: sellerRoom(p.sellerId),
-          event: WS_EVENT.SELLER_ORDER_STATUS,
-          payload: {
-            sellerOrderId: p.sellerOrderId,
-            orderId: p.orderId,
-            status: p.to,
-            version: p.version,
-            correlationId,
-          },
-        },
+        { room: sellerRoom(p.sellerId), event: WS_EVENT.SELLER_ORDER_STATUS, payload },
+        { room: userRoom(p.customerId), event: WS_EVENT.SELLER_ORDER_STATUS, payload },
       ];
     }
     case EVENT_TYPE.SELLER_ORDER_PAYMENT_CHANGED: {
