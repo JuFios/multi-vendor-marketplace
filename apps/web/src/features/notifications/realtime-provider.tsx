@@ -77,6 +77,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         void queryClient.invalidateQueries({ queryKey: ['notifications'] });
         return;
       }
+      if (event === WS_EVENT.SELLER_ORDER_CREATED) {
+        toast.push('New order received', 'ok');
+      }
       void queryClient.invalidateQueries({ queryKey: ['orders'] });
       void queryClient.invalidateQueries({ queryKey: ['order'] });
       void queryClient.invalidateQueries({ queryKey: ['seller'] });

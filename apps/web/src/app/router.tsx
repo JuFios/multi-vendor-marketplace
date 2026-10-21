@@ -11,6 +11,8 @@ import { OrdersPage } from '../features/orders/orders-page';
 import { ProductPage } from '../features/product/product-page';
 import { SellerAuctionsPage } from '../features/seller/auctions-page';
 import { SellerDashboardPage } from '../features/seller/dashboard-page';
+import { SellerOrderDetailsPage } from '../features/seller/order-details-page';
+import { SellerOrdersPage } from '../features/seller/orders-page';
 import { EditProductPage, NewProductPage } from '../features/seller/product-form-page';
 import { SellerProductsPage } from '../features/seller/products-page';
 
@@ -23,6 +25,7 @@ import { LoginPage } from './routes/login-page';
 import { RegisterPage } from './routes/register-page';
 import { AccountHomePage } from './routes/section-pages';
 import { SellerApplicationPage } from './routes/seller-application-page';
+import { SellerDisputeDetailsPage, SellerDisputesPage } from './routes/seller-disputes';
 import { ForbiddenPage, NotFoundPage } from './routes/system-pages';
 
 export const routes: RouteObject[] = [
@@ -68,6 +71,10 @@ export const routes: RouteObject[] = [
               { path: 'products/new', element: <NewProductPage /> },
               { path: 'products/:id', element: <EditProductPage /> },
               { path: 'auctions', element: <SellerAuctionsPage /> },
+              { path: 'orders', element: <SellerOrdersPage /> },
+              { path: 'orders/:id', element: <SellerOrderDetailsPage /> },
+              { path: 'disputes', element: <SellerDisputesPage /> },
+              { path: 'disputes/:id', element: <SellerDisputeDetailsPage /> },
             ],
           },
         ],

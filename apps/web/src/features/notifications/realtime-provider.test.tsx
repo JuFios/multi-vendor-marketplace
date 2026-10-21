@@ -81,4 +81,28 @@ describe('RealtimeProvider', () => {
 
     expect(await screen.findByText('Seller order status changed')).toBeInTheDocument();
   });
+
+  it('announces a new order to the seller', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <RealtimeProvider>
+            <p>page</p>
+          </RealtimeProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+
+    act(() => {
+      emit(WS_EVENT.SELLER_ORDER_CREATED, {
+        sellerOrderId: 'so1',
+        orderId: 'o1',
+        status: 'NEW',
+        amountCents: 1000,
+        version: 1,
+      });
+    });
+
+    expect(await screen.findByText('New order received')).toBeInTheDocument();
+  });
 });

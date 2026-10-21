@@ -59,3 +59,45 @@ export async function archiveProduct(id: string): Promise<void> {
 export function fetchSellerAuctions(page: number) {
   return unwrap(api.GET('/api/seller/auctions', { params: { query: { page, limit: 10 } } }));
 }
+
+export type SellerOrderStatus = 'NEW' | 'PROCESSING' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED';
+
+export function fetchSellerOrders(input: { page: number; status?: SellerOrderStatus }) {
+  return unwrap(api.GET('/api/seller/orders', { params: { query: { ...input, limit: 10 } } }));
+}
+
+export function fetchSellerOrder(id: string) {
+  return unwrap(api.GET('/api/seller/orders/{id}', { params: { path: { id } } }));
+}
+
+export function changeSellerOrderStatus(input: { id: string; status: 'PROCESSING' | 'SHIPPED' }) {
+  return unwrap(
+    api.POST('/api/seller/orders/{id}/status', {
+      params: { path: { id: input.id } },
+      body: { status: input.status },
+    }),
+  );
+}
+
+export function cancelOwnSellerOrder(input: { id: string; reason: string }) {
+  return unwrap(
+    api.POST('/api/seller/orders/{id}/cancel', {
+      params: { path: { id: input.id } },
+      body: { reason: input.reason },
+    }),
+  );
+}
+
+export function refundSellerOrder(input: {
+  id: string;
+  key: string;
+  reason: string;
+  items: { sellerOrderItemId: string; quantity: number }[];
+}) {
+  return unwrap(
+    api.POST('/api/seller/orders/{id}/refunds', {
+      params: { path: { id: input.id }, header: { 'Idempotency-Key': input.key } },
+      body: { items: input.items, reason: input.reason },
+    }),
+  );
+}
