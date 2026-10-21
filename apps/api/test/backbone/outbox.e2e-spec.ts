@@ -155,6 +155,31 @@ describe('outbox (e2e)', () => {
     expect(publisher.published).toEqual([]);
   });
 
+  it('leaves events of an unknown type pending without holding up the ones behind them', async () => {
+    // More than one batch of rows a newer build wrote, all older than the routed event.
+    const unknown = Array.from({ length: 120 }, () => ({
+      id: newEventId(),
+      eventType: 'future.event_type',
+      aggregateType: 'Future',
+      aggregateId: newEventId(),
+      payload: {},
+      occurredAt: new Date(Date.now() - 60_000),
+    }));
+    await prisma.outboxEvent.createMany({ data: unknown });
+
+    const [id] = await addInTransaction(productCreated());
+
+    await waitUntil(async () => (await row(id ?? ''))?.publishedAt != null, {
+      label: 'the routed event to be published past the unknown ones',
+    });
+    expect(
+      await prisma.outboxEvent.count({
+        where: { eventType: 'future.event_type', publishedAt: null, attempts: 0 },
+      }),
+    ).toBe(unknown.length);
+    expect(publisher.published.every(({ event }) => event.id === id)).toBe(true);
+  });
+
   it('keeps events pending while the queue is down and publishes them after recovery', async () => {
     publisher.failing = true;
     const [id] = await addInTransaction(productCreated());

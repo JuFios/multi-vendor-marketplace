@@ -48,17 +48,14 @@ export interface RelayBatchResult {
   full: boolean;
 }
 
-/** An outbox row whose type has no route: a data problem, not a queue outage. */
-class UnroutableEventError extends Error {
-  constructor(type: string) {
-    super(`no route for event type "${type}"`);
-  }
-}
-
 /**
  * Moves committed outbox events to their consumer queues. Delivery is at-least-once: a crash
  * between enqueue and marking republishes the event, and the queue (jobId) and the consumers'
  * inbox absorb the duplicate. Several relays can run side by side thanks to SKIP LOCKED.
+ *
+ * Only event types this build has a route for are picked up. A row of a type it does not know
+ * (written by a newer build before a rollback) stays pending, counted by `outbox_pending_events`,
+ * and is relayed once a build that routes it runs again; it never holds up the events behind it.
  */
 @Injectable()
 export class OutboxRelay implements OnApplicationBootstrap, OnModuleDestroy {
@@ -97,13 +94,14 @@ export class OutboxRelay implements OnApplicationBootstrap, OnModuleDestroy {
   /** Publishes one batch; the transaction lives only as long as the batch takes. */
   async relayBatch(): Promise<RelayBatchResult> {
     const { batchSize } = this.config;
+    const routedTypes = Object.keys(this.routes);
     return this.prisma.$transaction(
       async (tx) => {
         const rows = await tx.$queryRaw<OutboxRow[]>`
           SELECT id, event_type, aggregate_type, aggregate_id, payload,
                  correlation_id, actor_id, occurred_at
           FROM outbox_events
-          WHERE published_at IS NULL
+          WHERE published_at IS NULL AND event_type = ANY(${routedTypes}::text[])
           ORDER BY occurred_at, id
           LIMIT ${batchSize}
           FOR UPDATE SKIP LOCKED`;
@@ -123,11 +121,9 @@ export class OutboxRelay implements OnApplicationBootstrap, OnModuleDestroy {
               WHERE id = ${row.id}::uuid`;
             this.failures.inc();
             this.logger.warn({ msg: 'outbox.publish_failed', eventId: row.id, error: message });
-            if (!(error instanceof UnroutableEventError)) {
-              // Queue trouble affects every event, and stopping keeps the order of the rest.
-              failed = true;
-              break;
-            }
+            // Queue trouble affects every event, and stopping keeps the order of the rest.
+            failed = true;
+            break;
           }
         }
         if (publishedIds.length > 0) {
@@ -142,10 +138,8 @@ export class OutboxRelay implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   private async publish(row: OutboxRow): Promise<void> {
-    const queues = this.routes[row.event_type as EventType] as EventRoutes[EventType] | undefined;
-    if (!queues) {
-      throw new UnroutableEventError(row.event_type);
-    }
+    // The batch query only selects routed types.
+    const queues = this.routes[row.event_type as EventType];
     const event = {
       id: row.id,
       type: row.event_type,
