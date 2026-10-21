@@ -1,5 +1,10 @@
-import { createBrowserRouter, type RouteObject } from 'react-router';
+import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 
+import { ApplicationsPage } from '../features/admin/applications-page';
+import { CategoriesPage } from '../features/admin/categories-page';
+import { ProductModerationPage } from '../features/admin/moderation-page';
+import { AdminOrderDetailsPage } from '../features/admin/order-details-page';
+import { AdminOrdersPage } from '../features/admin/orders-page';
 import { ProtectedRoute } from '../features/auth/protected-route';
 import { CartPage } from '../features/cart/cart-page';
 import { CatalogPage } from '../features/catalog/catalog-page';
@@ -17,6 +22,7 @@ import { EditProductPage, NewProductPage } from '../features/seller/product-form
 import { SellerProductsPage } from '../features/seller/products-page';
 
 import { AccountLayout } from './layouts/account-layout';
+import { AdminLayout } from './layouts/admin-layout';
 import { RootLayout } from './layouts/root-layout';
 import { SellerLayout } from './layouts/seller-layout';
 import { AccountDisputeDetailsPage, AccountDisputesPage } from './routes/account-disputes';
@@ -75,6 +81,23 @@ export const routes: RouteObject[] = [
               { path: 'orders/:id', element: <SellerOrderDetailsPage /> },
               { path: 'disputes', element: <SellerDisputesPage /> },
               { path: 'disputes/:id', element: <SellerDisputeDetailsPage /> },
+            ],
+          },
+        ],
+      },
+      {
+        element: <ProtectedRoute role="ADMIN" />,
+        children: [
+          {
+            path: 'admin',
+            element: <AdminLayout />,
+            children: [
+              { index: true, element: <Navigate to="applications" replace /> },
+              { path: 'applications', element: <ApplicationsPage /> },
+              { path: 'products', element: <ProductModerationPage /> },
+              { path: 'categories', element: <CategoriesPage /> },
+              { path: 'orders', element: <AdminOrdersPage /> },
+              { path: 'orders/:id', element: <AdminOrderDetailsPage /> },
             ],
           },
         ],

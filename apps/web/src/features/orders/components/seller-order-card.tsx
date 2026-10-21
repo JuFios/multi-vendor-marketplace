@@ -15,6 +15,8 @@ export interface SellerOrderCardProps {
   dispute?: { id: string; status: string } | undefined;
   disputeBasePath?: string;
   busy?: boolean;
+  /** Statuses in which the cancel action is offered; the buyer may cancel only new shipments. */
+  cancellableStatuses?: readonly string[];
   onCancel?: () => void;
   onConfirmReceipt?: () => void;
   onReview?: (item: OrderItem) => void;
@@ -28,6 +30,7 @@ export function SellerOrderCard({
   dispute,
   disputeBasePath = '/account/disputes',
   busy = false,
+  cancellableStatuses = ['NEW'],
   onCancel,
   onConfirmReceipt,
   onReview,
@@ -104,7 +107,7 @@ export function SellerOrderCard({
       </ol>
 
       <div className="flex flex-wrap gap-2">
-        {status === 'NEW' && onCancel !== undefined ? (
+        {cancellableStatuses.includes(status) && onCancel !== undefined ? (
           <Button variant="danger" disabled={busy} onClick={onCancel}>
             Cancel shipment
           </Button>
