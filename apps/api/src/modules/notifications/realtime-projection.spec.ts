@@ -53,7 +53,7 @@ describe('projectEvent', () => {
     });
   });
 
-  it('sends a seller order change to the store only; the aggregate travels with the order', () => {
+  it('sends a seller order change to both sides without the aggregate, which travels with the order', () => {
     const pushes = projectEvent(
       event('seller_order.status_changed', {
         sellerOrderId: 'so1',
@@ -69,18 +69,16 @@ describe('projectEvent', () => {
       }),
     );
 
+    const payload = {
+      sellerOrderId: 'so1',
+      orderId: 'o1',
+      status: 'SHIPPED',
+      version: 3,
+      correlationId: 'corr-1',
+    };
     expect(pushes).toEqual([
-      {
-        room: 'seller:s1',
-        event: 'sellerOrder.status',
-        payload: {
-          sellerOrderId: 'so1',
-          orderId: 'o1',
-          status: 'SHIPPED',
-          version: 3,
-          correlationId: 'corr-1',
-        },
-      },
+      { room: 'seller:s1', event: 'sellerOrder.status', payload },
+      { room: 'user:c1', event: 'sellerOrder.status', payload },
     ]);
   });
 

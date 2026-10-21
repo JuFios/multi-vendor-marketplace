@@ -21,14 +21,16 @@ export type GoogleLoginDecision =
   /** The identity is already linked: sign that user in. */
   | { readonly kind: 'sign_in'; readonly userId: string }
   /**
-   * Attach the identity to the existing account. The password is kept, so email and password
-   * stays a working way in. Without proof of the mailbox before, whoever registered the email
-   * first may not be its owner: their refresh tokens are revoked.
+   * Attach the identity to the existing account. A verified account keeps its password and
+   * sessions. Without proof of the mailbox before, whoever registered the email first may not be
+   * its owner: their password is cleared and their refresh tokens are revoked, so only Google
+   * gets in afterwards.
    */
   | {
       readonly kind: 'link';
       readonly userId: string;
       readonly markEmailVerified: boolean;
+      readonly clearPassword: boolean;
       readonly revokeRefreshTokens: boolean;
     }
   /** A new account without a password; Google has vouched for the email. */
@@ -64,6 +66,7 @@ export function resolveGoogleLogin(
       kind: 'link',
       userId: userByEmail.id,
       markEmailVerified: unproven,
+      clearPassword: unproven,
       revokeRefreshTokens: unproven,
     };
   }

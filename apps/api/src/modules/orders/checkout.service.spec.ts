@@ -214,4 +214,31 @@ describe('CheckoutService', () => {
     expect(inventory.invalidateDetails).toHaveBeenCalledWith(['a', 'b']);
     expect(created.inc).toHaveBeenCalledTimes(1);
   });
+
+  it('refuses to charge a total other than the one the buyer saw, and writes nothing', async () => {
+    cart.lockActiveLines.mockResolvedValue({
+      cartId: 'cart-1',
+      lines: [line('a', 's1'), line('b', 's2')],
+    });
+    inventory.reserve.mockResolvedValue([reserved('a', 's1'), reserved('b', 's2')]);
+
+    await expect(service.checkout('user-1', 3_500)).rejects.toMatchObject({
+      code: 'CHECKOUT_TOTAL_CHANGED',
+      details: { expectedTotalCents: 3_500, totalCents: 4_000 },
+    });
+
+    expectNothingWritten();
+    expect(failures.inc).toHaveBeenCalledWith({ reason: 'CHECKOUT_TOTAL_CHANGED' });
+  });
+
+  it('places the order when the expected total matches', async () => {
+    cart.lockActiveLines.mockResolvedValue({
+      cartId: 'cart-1',
+      lines: [line('a', 's1'), line('b', 's2')],
+    });
+    inventory.reserve.mockResolvedValue([reserved('a', 's1'), reserved('b', 's2')]);
+    orders.create.mockResolvedValue(order);
+
+    await expect(service.checkout('user-1', 4_000)).resolves.toMatchObject({ id: 'order-1' });
+  });
 });

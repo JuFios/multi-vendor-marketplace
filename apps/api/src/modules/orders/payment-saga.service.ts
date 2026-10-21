@@ -5,7 +5,10 @@ import { OutboxService } from '../../outbox/outbox.service';
 
 import type { SellerOrderRecord } from './order';
 import { OrdersRepository } from './orders.repository';
-import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
+import {
+  type LifecycleOutcome,
+  SellerOrderLifecycleService,
+} from './seller-order-lifecycle.service';
 import type { PaymentStatusValue } from './seller-order-state-machine';
 
 export const PAYMENT_FAILED_REASON = 'PAYMENT_FAILED';
@@ -39,22 +42,32 @@ export class PaymentSagaService {
     await this.changePayment(locked, to);
   }
 
-  /** Cancels this seller order only; the other sellers of the order keep going. */
-  async onPaymentFailed(sellerOrderId: string): Promise<void> {
+  /**
+   * Cancels this seller order only; the other sellers of the order keep going. Runs in the
+   * caller's transaction and returns the compensation, if any, for `reportCompensation` once
+   * that transaction has committed.
+   */
+  async onPaymentFailed(sellerOrderId: string): Promise<LifecycleOutcome | null> {
     const locked = await this.lockAndFind(sellerOrderId);
     if (locked === null) {
-      return;
+      return null;
     }
     await this.changePayment(locked, 'FAILED');
-    if (locked.sellerOrder.status === 'NEW') {
-      await this.lifecycle.cancel(
-        sellerOrderId,
-        PAYMENT_FAILED_REASON,
-        { type: 'SYSTEM', userId: null },
-        {},
-      );
-      this.logger.warn({ msg: 'saga.compensation.applied', sellerOrderId });
+    if (locked.sellerOrder.status !== 'NEW') {
+      return null;
     }
+    return this.lifecycle.applyCancellation(
+      sellerOrderId,
+      PAYMENT_FAILED_REASON,
+      { type: 'SYSTEM', userId: null },
+      {},
+    );
+  }
+
+  /** Logs and counts a compensation; only call it after the transaction that made it committed. */
+  reportCompensation(outcome: LifecycleOutcome): void {
+    this.lifecycle.report(outcome);
+    this.logger.warn({ msg: 'saga.compensation.applied', sellerOrderId: outcome.updated.id });
   }
 
   /** Applies the outcome once; the event lets the live views show the new payment status. */
@@ -62,7 +75,8 @@ export class PaymentSagaService {
     { sellerOrder, customerId }: LockedSellerOrder,
     to: PaymentStatusValue,
   ): Promise<void> {
-    if (!(await this.orders.changePaymentStatus(sellerOrder.id, 'PENDING', to))) {
+    const version = await this.orders.changePaymentStatus(sellerOrder.id, 'PENDING', to);
+    if (version === null) {
       return;
     }
     await this.outbox.add([
@@ -76,7 +90,7 @@ export class PaymentSagaService {
           sellerId: sellerOrder.sellerId,
           customerId,
           paymentStatus: to,
-          version: sellerOrder.version + 1,
+          version,
         },
         actorId: null,
       },

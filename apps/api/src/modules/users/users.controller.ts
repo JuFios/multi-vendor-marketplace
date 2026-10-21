@@ -21,7 +21,7 @@ export class UsersController {
   @ApiOkResponse({ type: UserResponseDto })
   @ApiErrorResponses(401, 404)
   async me(@CurrentUser() user: AuthUser): Promise<UserResponseDto> {
-    return UserResponseDto.from(await this.users.getById(user.userId));
+    return UserResponseDto.from(await this.users.getProfile(user.userId));
   }
 
   @Patch()

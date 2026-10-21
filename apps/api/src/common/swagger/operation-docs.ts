@@ -46,6 +46,15 @@ export const OPERATION_DOCS: Readonly<Record<string, OperationDoc>> = {
     description: 'Changes the display name. Markup in the name is stripped.',
     requestExample: { name: 'Alice Johnson' },
   },
+  'POST /api/users/me/password': {
+    description:
+      'Sets or changes the password. With a password already set, `currentPassword` must match ' +
+      'it (400 VALIDATION_FAILED otherwise). Without one (an account from Google, or one whose ' +
+      'password was cleared when Google was linked to it) the new password is set directly, ' +
+      'but only with a session opened after the Google link (403 FRESH_SIGN_IN_REQUIRED for an ' +
+      'older one). Rate limited like login.',
+    requestExample: { currentPassword: 'S3cure-pass', newPassword: 'N3w-secure-pass' },
+  },
   'POST /api/sellers/applications': {
     description:
       'Creates the seller application of the caller, or re-submits a rejected one. An admin must ' +
@@ -129,8 +138,11 @@ export const OPERATION_DOCS: Readonly<Record<string, OperationDoc>> = {
   },
   'PATCH /api/seller/products/{id}/stock': {
     description:
-      'SELLER only. Sets the stock to an absolute number; connected clients are notified.',
-    requestExample: { stock: 12 },
+      'SELLER only. Sets the stock to an absolute number; connected clients are notified. ' +
+      'Send the stock the new number was decided on as `expectedStock`: if a sale or a ' +
+      'cancellation changed it meanwhile, nothing is written and the answer is 409 ' +
+      'PRODUCT_STOCK_CONFLICT with the current `stock`.',
+    requestExample: { stock: 12, expectedStock: 10 },
   },
   'GET /api/products/{id}': {
     description:
@@ -218,8 +230,12 @@ export const OPERATION_DOCS: Readonly<Record<string, OperationDoc>> = {
       'Turns the cart into one order with one seller order per store, in a single database ' +
       'transaction: stock of every store is decremented with conditional updates, commission ' +
       'is computed per seller order and the ledger is written. Any unavailable line fails the ' +
-      'whole checkout with 409 and nothing changes. Payment is a mock and runs asynchronously. ' +
+      'whole checkout with 409 and nothing changes. With `expectedTotalCents` (the total the ' +
+      'buyer saw) a cart whose prices moved meanwhile is refused with 409 ' +
+      '`CHECKOUT_TOTAL_CHANGED` instead of being charged. Payment is a mock and runs ' +
+      'asynchronously. ' +
       IDEMPOTENT,
+    requestExample: { expectedTotalCents: 250_000 },
   },
   'GET /api/orders': {
     description: 'The caller’s own orders. Orders of other customers never appear.',

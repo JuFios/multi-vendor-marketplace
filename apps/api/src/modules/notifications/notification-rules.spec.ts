@@ -73,6 +73,15 @@ describe('recipientsOf', () => {
     ).toEqual([{ kind: 'seller', sellerId: 's1' }]);
   });
 
+  it('tells nobody when the seller closed the auction by archiving the lot', () => {
+    expect(
+      recipientsOf({
+        type: 'auction.closed',
+        payload: { sellerId: 's1', outcome: 'NOT_SOLD', closedBy: 'ARCHIVE' },
+      }),
+    ).toEqual([]);
+  });
+
   it('tells the previous winner and the seller that the checkout window ran out', () => {
     expect(
       recipientsOf({

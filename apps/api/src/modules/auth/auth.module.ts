@@ -18,12 +18,13 @@ import { GoogleCallbackGuard, GoogleEnabledGuard, GoogleLoginGuard } from './gua
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { PasswordHasher } from './password-hasher.service';
+import { PasswordController } from './password.controller';
 import { SessionService } from './session.service';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
-  controllers: [AuthController],
+  controllers: [AuthController, PasswordController],
   imports: [
     PassportModule,
     UsersModule,

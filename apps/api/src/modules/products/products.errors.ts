@@ -28,6 +28,17 @@ export class ProductNotPendingError extends ConflictError {
   }
 }
 
+/** The stock moved (a sale, a cancellation) since the value a stock change was decided on. */
+export class ProductStockConflictError extends ConflictError {
+  constructor(current: { stock: number }) {
+    super(
+      'The stock changed since you loaded it; check the current stock and try again',
+      'PRODUCT_STOCK_CONFLICT',
+      current,
+    );
+  }
+}
+
 export class InsufficientStockError extends ConflictError {
   constructor(items: readonly { productId: string; requested: number; available: number }[]) {
     super('Not enough stock for some of the products', 'INSUFFICIENT_STOCK', { items });

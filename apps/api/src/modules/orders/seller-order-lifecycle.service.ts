@@ -12,7 +12,7 @@ import { LedgerService } from '../payments-ledger/ledger.service';
 import { InventoryService } from '../products/inventory.service';
 import { SellersService } from '../sellers/sellers.service';
 
-import { planCancellation } from './cancellation';
+import { planCancellation, planGoodsReturn } from './cancellation';
 import { SellerOrderDto } from './dto/order-response.dto';
 import type { SellerOrderRecord } from './order';
 import { aggregateOrderStatus, type SellerOrderStatusValue } from './order-status';
@@ -141,19 +141,13 @@ export class SellerOrderLifecycleService {
 
     const goodsStillWithSeller =
       sellerOrder.status === 'NEW' || sellerOrder.status === 'PROCESSING';
-    const restocked = goodsStillWithSeller
-      ? sellerOrder.items
-          .filter((item) => item.auctionId === null)
-          .map((item) => ({ productId: item.productId, quantity: item.quantity }))
-      : [];
+    const goods = goodsStillWithSeller
+      ? planGoodsReturn(sellerOrder.items)
+      : { restock: [], lots: [] };
+    const restocked = [...goods.restock];
     await this.inventory.restock(restocked);
     // A cancelled auction lot is offered again as a new round (I-03).
-    const lots = goodsStillWithSeller
-      ? sellerOrder.items
-          .flatMap((item) => (item.auctionId === null ? [] : [item.auctionId]))
-          .sort()
-      : [];
-    for (const auctionId of lots) {
+    for (const auctionId of goods.lots) {
       await this.auctionLifecycle.restartIfOrdered(auctionId);
     }
 

@@ -263,6 +263,13 @@ export class EnvironmentVariables {
   @Min(1000)
   SEARCH_REDRIVE_INTERVAL_MS = 30_000;
 
+  // Index updates within this window retire the cached catalog pages once, at its end (0 = at once).
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(10_000)
+  CATALOG_CACHE_BUMP_WINDOW_MS = 500;
+
   // Prepended to every index name so profiles never share indexes.
   @Matches(/^[A-Za-z0-9_]*$/)
   MEILI_INDEX_PREFIX = '';

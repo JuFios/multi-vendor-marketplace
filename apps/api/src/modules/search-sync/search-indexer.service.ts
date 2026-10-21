@@ -64,7 +64,8 @@ export class SearchIndexer {
       const { indexed, removed } = await this.apply(published, lots, ids);
       const [current, currentLots] = await this.readState(ids);
       if (sameVersions(published, current) && sameLotVersions(lots, currentLots)) {
-        await this.namespace.bump();
+        // Bids and stock changes arrive in bursts; one retirement of the cached pages covers them.
+        await this.namespace.bumpSoon();
         this.logger.log({ msg: 'search.synced', requested: ids.length, indexed, removed });
         return;
       }

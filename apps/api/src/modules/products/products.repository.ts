@@ -209,10 +209,23 @@ export class ProductsRepository {
     return count === 0 ? null : this.findOwned(id, sellerId);
   }
 
-  /** Sets the absolute stock of an active product of the seller; null when there is none. */
-  async setStock(id: string, sellerId: string, stock: number): Promise<Product | null> {
+  /**
+   * Sets the absolute stock of an active product of the seller, only while it still holds
+   * `expectedStock` when given; null when no such row was updated.
+   */
+  async setStock(
+    id: string,
+    sellerId: string,
+    stock: number,
+    expectedStock?: number,
+  ): Promise<Product | null> {
     const { count } = await this.txHost.tx.product.updateMany({
-      where: { id, sellerId, archivedAt: null },
+      where: {
+        id,
+        sellerId,
+        archivedAt: null,
+        ...(expectedStock === undefined ? {} : { stock: expectedStock }),
+      },
       data: { stock, version: { increment: 1 } },
     });
     return count === 0 ? null : this.findOwned(id, sellerId);

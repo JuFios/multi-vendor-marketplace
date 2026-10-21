@@ -85,6 +85,23 @@ describe('Reviews (e2e)', () => {
     expect(eligibility.body).toEqual({ eligible: false, reason: 'NOT_PURCHASED' });
   });
 
+  it('refuses a buyer whose item was refunded in full, but not one who kept a unit', async () => {
+    const full = await purchase();
+    await prisma.sellerOrderItem.update({
+      where: { id: full.item.id },
+      data: { refundedQuantity: full.item.quantity, refundedCents: full.item.quantity * 10_000 },
+    });
+    const partial = await purchase();
+    await prisma.sellerOrderItem.update({
+      where: { id: partial.item.id },
+      data: { refundedQuantity: partial.item.quantity - 1, refundedCents: 10_000 },
+    });
+
+    const refused = await review(full.productId, full.auth, { rating: 1, text: 'No' }).expect(403);
+    expect((refused.body as ErrorBody).error.code).toBe('REVIEW_NOT_ALLOWED');
+    await review(partial.productId, partial.auth, { rating: 4, text: 'Kept one' }).expect(201);
+  });
+
   it('accepts a review after completion, updates the rating and the index', async () => {
     const { productId, auth } = await purchase();
 

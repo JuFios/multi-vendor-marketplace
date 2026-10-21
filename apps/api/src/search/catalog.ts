@@ -15,6 +15,7 @@ export const CATALOG_AUCTION_STATUSES = [
   'SOLD_TO_WINNER',
   'ORDERED',
   'NOT_SOLD',
+  'PENDING',
 ] as const;
 export type CatalogAuctionStatus = (typeof CATALOG_AUCTION_STATUSES)[number];
 

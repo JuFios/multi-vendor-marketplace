@@ -341,6 +341,91 @@
         ]
       }
     },
+    "/api/users/me/password": {
+      "post": {
+        "operationId": "PasswordController_setPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPasswordDto"
+              },
+              "example": {
+                "currentPassword": "S3cure-pass",
+                "newPassword": "N3w-secure-pass"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The password was set."
+          },
+          "400": {
+            "description": "Malformed or invalid request (VALIDATION_FAILED, BAD_REQUEST).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials (UNAUTHORIZED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found, or not visible to the caller (NOT_FOUND).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (RATE_LIMITED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set or change the password of the authenticated user.",
+        "tags": [
+          "users"
+        ],
+        "description": "Sets or changes the password. With a password already set, `currentPassword` must match it (400 VALIDATION_FAILED otherwise). Without one (an account from Google, or one whose password was cleared when Google was linked to it) the new password is set directly, but only with a session opened after the Google link (403 FRESH_SIGN_IN_REQUIRED for an older one). Rate limited like login."
+      }
+    },
     "/api/users/me": {
       "get": {
         "operationId": "UsersController_me",
@@ -1705,7 +1790,8 @@
                 "$ref": "#/components/schemas/UpdateStockDto"
               },
               "example": {
-                "stock": 12
+                "stock": 12,
+                "expectedStock": 10
               }
             }
           }
@@ -1760,6 +1846,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflicts with the current state (CONFLICT).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1771,7 +1867,7 @@
         "tags": [
           "seller-products"
         ],
-        "description": "SELLER only. Sets the stock to an absolute number; connected clients are notified."
+        "description": "SELLER only. Sets the stock to an absolute number; connected clients are notified. Send the stock the new number was decided on as `expectedStock`: if a sale or a cancellation changed it meanwhile, nothing is written and the answer is 409 PRODUCT_STOCK_CONFLICT with the current `stock`."
       }
     },
     "/api/products/{id}": {
@@ -3221,6 +3317,19 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutDto"
+              },
+              "example": {
+                "expectedTotalCents": 250000
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "",
@@ -3282,7 +3391,7 @@
         "tags": [
           "orders"
         ],
-        "description": "Turns the cart into one order with one seller order per store, in a single database transaction: stock of every store is decremented with conditional updates, commission is computed per seller order and the ledger is written. Any unavailable line fails the whole checkout with 409 and nothing changes. Payment is a mock and runs asynchronously. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422."
+        "description": "Turns the cart into one order with one seller order per store, in a single database transaction: stock of every store is decremented with conditional updates, commission is computed per seller order and the ledger is written. Any unavailable line fails the whole checkout with 409 and nothing changes. With `expectedTotalCents` (the total the buyer saw) a cart whose prices moved meanwhile is refused with 409 `CHECKOUT_TOTAL_CHANGED` instead of being charged. Payment is a mock and runs asynchronously. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422."
       }
     },
     "/api/orders": {
@@ -6025,6 +6134,24 @@
           "google"
         ]
       },
+      "SetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "maxLength": 128,
+            "description": "Required when the account already has a password."
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "newPassword"
+        ]
+      },
       "UserResponseDto": {
         "type": "object",
         "properties": {
@@ -6053,6 +6180,10 @@
           "emailVerified": {
             "type": "boolean"
           },
+          "hasPassword": {
+            "type": "boolean",
+            "description": "Whether email and password sign-in works. False for an account created through Google, or one whose password was cleared when Google was linked; `POST /api/users/me/password` sets one."
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -6064,6 +6195,7 @@
           "name",
           "roles",
           "emailVerified",
+          "hasPassword",
           "createdAt"
         ]
       },
@@ -6568,6 +6700,11 @@
             "minimum": 0,
             "maximum": 1000000,
             "description": "The new absolute stock."
+          },
+          "expectedStock": {
+            "type": "number",
+            "minimum": 0,
+            "description": "The stock the new value was decided on. When given and the stock has changed since (a sale, a cancellation), nothing is written and the answer is 409 PRODUCT_STOCK_CONFLICT with the current stock. Other edits of the product (a review, a new title) do not count."
           }
         },
         "required": [
@@ -6639,7 +6776,8 @@
               "ACTIVE",
               "SOLD_TO_WINNER",
               "ORDERED",
-              "NOT_SOLD"
+              "NOT_SOLD",
+              "PENDING"
             ]
           },
           "priceCents": {
@@ -6837,7 +6975,8 @@
               "ACTIVE",
               "SOLD_TO_WINNER",
               "ORDERED",
-              "NOT_SOLD"
+              "NOT_SOLD",
+              "PENDING"
             ]
           },
           "round": {
@@ -7093,7 +7232,8 @@
               "ACTIVE",
               "SOLD_TO_WINNER",
               "ORDERED",
-              "NOT_SOLD"
+              "NOT_SOLD",
+              "PENDING"
             ],
             "nullable": true,
             "description": "Where the lot stands; null for a fixed-price product."
@@ -7523,6 +7663,17 @@
           "page",
           "limit"
         ]
+      },
+      "CheckoutDto": {
+        "type": "object",
+        "properties": {
+          "expectedTotalCents": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "The total the buyer saw, in cents. When prices changed meanwhile the checkout is refused with 409 CHECKOUT_TOTAL_CHANGED instead of charging a different amount."
+          }
+        }
       },
       "SellerDto": {
         "type": "object",

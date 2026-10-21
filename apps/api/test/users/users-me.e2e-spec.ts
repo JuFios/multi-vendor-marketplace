@@ -166,6 +166,7 @@ describe('Authentication guards and /users/me (e2e)', () => {
         name: 'Olena',
         roles: ['CUSTOMER'],
         emailVerified: false,
+        hasPassword: true,
         createdAt: user.createdAt.toISOString(),
       });
     });

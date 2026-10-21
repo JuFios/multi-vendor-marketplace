@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 
-export const AUCTION_STATUSES = ['ACTIVE', 'SOLD_TO_WINNER', 'ORDERED', 'NOT_SOLD'] as const;
+export const AUCTION_STATUSES = [
+  'ACTIVE',
+  'SOLD_TO_WINNER',
+  'ORDERED',
+  'NOT_SOLD',
+  'PENDING',
+] as const;
 export type AuctionStatus = (typeof AUCTION_STATUSES)[number];
 
 /** An auction row; `dbNow` is the database clock at the moment the row was read. */

@@ -128,4 +128,32 @@ describe('CheckoutPage', () => {
     expect(keys).toHaveLength(2);
     expect(keys[0]).toBe(keys[1]);
   });
+
+  it('sends the total it shows and asks again when the prices changed', async () => {
+    const bodies: unknown[] = [];
+    server.use(
+      http.get('/api/cart', () => HttpResponse.json(cart)),
+      http.post('/api/orders/checkout', async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json(
+          {
+            error: {
+              code: 'CHECKOUT_TOTAL_CHANGED',
+              message: 'The cart total changed; review the cart and try again',
+              details: { expectedTotalCents: cart.totalCents, totalCents: cart.totalCents + 100 },
+            },
+          },
+          { status: 409 },
+        );
+      }),
+    );
+    renderCheckout();
+    await screen.findByText('Mouse');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Place order' }));
+
+    expect(await screen.findByText(/Prices changed since you opened the cart/)).toBeInTheDocument();
+    expect(bodies).toEqual([{ expectedTotalCents: cart.totalCents }]);
+    expect(screen.getByRole('button', { name: 'Place order' })).toBeEnabled();
+  });
 });

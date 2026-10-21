@@ -19,7 +19,11 @@ import { SellersService } from '../sellers/sellers.service';
 
 import { findCheckoutProblems } from './checkout-problems';
 import { OrderResponseDto } from './dto/order-response.dto';
-import { CartEmptyError, CartItemsUnavailableError } from './orders.errors';
+import {
+  CartEmptyError,
+  CartItemsUnavailableError,
+  CheckoutTotalChangedError,
+} from './orders.errors';
 import { type CheckoutItem } from './orders.repository';
 import { OrdersRepository } from './orders.repository';
 import { assertOrderTotalsStorable, splitCartBySeller } from './split-cart';
@@ -47,10 +51,10 @@ export class CheckoutService {
    * Turns the user's cart into one order with a seller order per seller. Stock, order, books,
    * cart and events commit together or not at all; any failure leaves everything untouched.
    */
-  async checkout(userId: string): Promise<OrderResponseDto> {
+  async checkout(userId: string, expectedTotalCents?: number): Promise<OrderResponseDto> {
     try {
       const { response, productIds } = await this.txHost.withTransaction(() =>
-        this.placeOrder(userId),
+        this.placeOrder(userId, expectedTotalCents),
       );
       await this.inventory.invalidateDetails(productIds);
       this.created.inc();
@@ -70,6 +74,7 @@ export class CheckoutService {
 
   private async placeOrder(
     userId: string,
+    expectedTotalCents: number | undefined,
   ): Promise<{ response: OrderResponseDto; productIds: string[] }> {
     const locked = await this.cart.lockActiveLines(userId);
     if (locked === null || locked.lines.length === 0) {
@@ -113,6 +118,11 @@ export class CheckoutService {
     ].sort((a, b) => (a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0));
     const groups = splitCartBySeller(items, this.settings.commissionBps);
     assertOrderTotalsStorable(groups);
+    // The prices are the ones the stock was taken at; a buyer who saw others is asked again.
+    const totalCents = groups.reduce((sum, group) => sum + group.subtotalCents, 0);
+    if (expectedTotalCents !== undefined && expectedTotalCents !== totalCents) {
+      throw new CheckoutTotalChangedError(expectedTotalCents, totalCents);
+    }
     const order = await this.orders.create(userId, groups, this.settings.commissionBps);
 
     for (const sellerOrder of order.sellerOrders) {

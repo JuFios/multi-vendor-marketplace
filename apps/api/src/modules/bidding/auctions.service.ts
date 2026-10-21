@@ -22,6 +22,11 @@ export interface NewLot {
   readonly startPriceCents: number;
   readonly bidStepCents: number;
   readonly endsAt: Date;
+  /**
+   * Whether the product is in the public catalog right away. A lot that waits for its approval
+   * starts PENDING: it takes no bids and its clock starts when the product is approved.
+   */
+  readonly published: boolean;
 }
 
 /** A lot handed to an order: the price is the winning bid. */
@@ -54,21 +59,44 @@ export class AuctionsService {
     if (!isAllowedDuration(durationSec)) {
       throw new AuctionEndsAtOutOfRangeError();
     }
-    const auction = await this.auctions.insert({ ...lot, durationSec });
-    await this.outbox.add([
-      {
-        type: EVENT_TYPE.AUCTION_STARTED,
-        aggregateType: 'Auction',
-        aggregateId: auction.id,
-        payload: {
-          auctionId: auction.id,
-          productId: auction.productId,
-          round: auction.round,
-          endsAt: auction.endsAt.toISOString(),
-        },
-      },
-    ]);
+    const { published, ...fields } = lot;
+    const auction = await this.auctions.insert({
+      ...fields,
+      durationSec,
+      status: published ? 'ACTIVE' : 'PENDING',
+    });
+    if (published) {
+      await this.outbox.add([startedEvent(auction)]);
+    }
     return auction;
+  }
+
+  /** Locks the product's lot, if it has one, for the rest of the caller's transaction. */
+  async lockLot(productId: string): Promise<void> {
+    await this.auctions.lockByProductId(productId);
+  }
+
+  /**
+   * Follows the moderation of the lot's product, in the caller's transaction. An approval starts
+   * the clock of a lot that waited for it. A rejection ends the lot as not sold, bids or not: a
+   * product the catalog no longer shows must not keep taking bids or go to a winner. A lot that
+   * is already part of an order is left to that order.
+   */
+  async onProductModerated(productId: string, approved: boolean): Promise<void> {
+    const auction = await this.auctions.lockByProductId(productId);
+    if (auction === null) {
+      return;
+    }
+    if (approved) {
+      const started = await this.auctions.activateIfPending(auction.id);
+      if (started !== null) {
+        await this.outbox.add([startedEvent(started)]);
+      }
+      return;
+    }
+    if (await this.auctions.markNotSold(auction.id)) {
+      await this.outbox.add([closedAsNotSoldEvent(auction, 'MODERATION')]);
+    }
   }
 
   async findById(id: string): Promise<AuctionRecord> {
@@ -154,7 +182,7 @@ export class AuctionsService {
   /**
    * Called when a product with an auction is archived (I-16), in the caller's transaction. A
    * lot with bids, or a winner who has not checked out yet, cannot go; one without bids is
-   * simply not sold.
+   * simply not sold, and closes like any other round so its timer and live views follow.
    */
   async prepareForArchive(productId: string): Promise<void> {
     const auction = await this.auctions.lockByProductId(productId);
@@ -167,8 +195,39 @@ export class AuctionsService {
     ) {
       throw new ProductHasActiveAuctionError();
     }
-    if (auction.status === 'ACTIVE') {
+    if (auction.status === 'ACTIVE' || auction.status === 'PENDING') {
       await this.auctions.markNotSold(auction.id);
+      await this.outbox.add([closedAsNotSoldEvent(auction, 'ARCHIVE')]);
     }
   }
+}
+
+function startedEvent(auction: AuctionRecord) {
+  return {
+    type: EVENT_TYPE.AUCTION_STARTED,
+    aggregateType: 'Auction',
+    aggregateId: auction.id,
+    payload: {
+      auctionId: auction.id,
+      productId: auction.productId,
+      round: auction.round,
+      endsAt: auction.endsAt.toISOString(),
+    },
+  } as const;
+}
+
+function closedAsNotSoldEvent(auction: AuctionRecord, closedBy: 'ARCHIVE' | 'MODERATION') {
+  return {
+    type: EVENT_TYPE.AUCTION_CLOSED,
+    aggregateType: 'Auction',
+    aggregateId: auction.id,
+    payload: {
+      auctionId: auction.id,
+      productId: auction.productId,
+      sellerId: auction.sellerId,
+      round: auction.round,
+      outcome: 'NOT_SOLD',
+      closedBy,
+    },
+  } as const;
 }

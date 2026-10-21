@@ -34,6 +34,7 @@ describe('AuthService', () => {
     findByEmail: jest.fn(),
     getById: jest.fn(),
     markEmailVerified: jest.fn(),
+    clearPassword: jest.fn(),
   };
   const auth = {
     findGoogleIdentity: jest.fn(),
@@ -194,7 +195,7 @@ describe('AuthService', () => {
       expect(sessions.start).toHaveBeenCalledWith(user, client);
     });
 
-    it('merges into an unverified account: keeps the password, verifies, revokes, then signs in', async () => {
+    it('merges into an unverified account: verifies, clears the password, revokes, then signs in', async () => {
       users.findByEmail.mockResolvedValue({ ...user, emailVerified: false });
 
       await service.loginWithGoogle(profile, client);
@@ -206,6 +207,7 @@ describe('AuthService', () => {
         email: 'buyer@example.com',
       });
       expect(users.markEmailVerified).toHaveBeenCalledWith(user.id);
+      expect(users.clearPassword).toHaveBeenCalledWith(user.id);
       expect(auth.revokeAllForUser).toHaveBeenCalledWith(user.id);
       // The new session must be created after the old ones are revoked, or it would be revoked too.
       expect(calls).toEqual(['revoke', 'start']);
@@ -213,20 +215,24 @@ describe('AuthService', () => {
       expect(log).toHaveBeenCalledWith({
         msg: 'auth.google.linked',
         userId: user.id,
+        passwordCleared: true,
         sessionsRevoked: true,
         ip: client.ip,
       });
     });
 
-    it('merges into a verified account without revoking its sessions', async () => {
+    it('merges into a verified account without touching its password or sessions', async () => {
       users.findByEmail.mockResolvedValue({ ...user, emailVerified: true });
 
       await service.loginWithGoogle(profile, client);
 
       expect(auth.createGoogleIdentity).toHaveBeenCalled();
       expect(users.markEmailVerified).not.toHaveBeenCalled();
+      expect(users.clearPassword).not.toHaveBeenCalled();
       expect(auth.revokeAllForUser).not.toHaveBeenCalled();
-      expect(log).toHaveBeenCalledWith(expect.objectContaining({ sessionsRevoked: false }));
+      expect(log).toHaveBeenCalledWith(
+        expect.objectContaining({ passwordCleared: false, sessionsRevoked: false }),
+      );
     });
 
     it('creates a verified account without a password for a new email', async () => {
@@ -254,6 +260,7 @@ describe('AuthService', () => {
 
       expect(auth.createGoogleIdentity).not.toHaveBeenCalled();
       expect(users.markEmailVerified).not.toHaveBeenCalled();
+      expect(users.clearPassword).not.toHaveBeenCalled();
       expect(auth.revokeAllForUser).not.toHaveBeenCalled();
       expect(sessions.start).not.toHaveBeenCalled();
     });

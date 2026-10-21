@@ -5,6 +5,8 @@ export interface AccessTokenClaims {
   readonly sub: string;
   readonly roles: readonly UserRole[];
   readonly sellerId?: string;
+  /** Issued-at, in seconds; set by the signer. */
+  readonly iat?: number;
 }
 
 /** The only algorithm access tokens are signed and accepted with. */

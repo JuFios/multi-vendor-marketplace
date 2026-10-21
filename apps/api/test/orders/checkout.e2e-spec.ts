@@ -58,11 +58,16 @@ describe('POST /api/orders/checkout (e2e)', () => {
     return cart;
   };
 
-  const checkout = async (user: { id: string }, key: string | null = randomUUID()) => {
+  const checkout = async (
+    user: { id: string },
+    key: string | null = randomUUID(),
+    body?: object,
+  ) => {
     const req = request(app.getHttpServer())
       .post('/api/orders/checkout')
       .set('Authorization', await bearerFor(app, user));
-    return key === null ? req : req.set('Idempotency-Key', key);
+    const keyed = key === null ? req : req.set('Idempotency-Key', key);
+    return body === undefined ? keyed : keyed.send(body);
   };
 
   const stockOf = async (id: string) =>
@@ -200,6 +205,29 @@ describe('POST /api/orders/checkout (e2e)', () => {
 
     expect(body.sellerOrders[0]?.items[0]).toMatchObject({ unitPriceCents: 1_500 });
     expect(body.totalCents).toBe(3_000);
+  });
+
+  it('answers 409 CHECKOUT_TOTAL_CHANGED when the buyer saw another total, and changes nothing', async () => {
+    const buyer = await createUser(prisma);
+    const product = await createProduct(prisma, { priceCents: 1_000 });
+    await fillCart(buyer.id, [{ productId: product.id, quantity: 2 }]);
+    await prisma.product.update({ where: { id: product.id }, data: { priceCents: 1_500 } });
+
+    const refused = await checkout(buyer, randomUUID(), { expectedTotalCents: 2_000 });
+
+    expect(refused.status).toBe(409);
+    expect(refused.body).toMatchObject({
+      error: {
+        code: 'CHECKOUT_TOTAL_CHANGED',
+        details: { expectedTotalCents: 2_000, totalCents: 3_000 },
+      },
+    });
+    expect(await prisma.order.count()).toBe(0);
+    expect(await stockOf(product.id)).toBe(10);
+    expect((await prisma.cart.findFirstOrThrow()).status).toBe('ACTIVE');
+
+    const placed = await checkout(buyer, randomUUID(), { expectedTotalCents: 3_000 });
+    expect(placed.status).toBe(201);
   });
 
   it('answers 422 ORDER_TOTAL_LIMIT when a price rise pushes the total past the money columns', async () => {

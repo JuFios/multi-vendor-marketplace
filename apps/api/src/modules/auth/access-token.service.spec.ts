@@ -55,10 +55,15 @@ describe('AccessTokenService', () => {
   describe('verify', () => {
     it('returns the caller a valid token stands for and when it expires', async () => {
       const { token } = await service.issue({ sub: USER_ID, roles: ['SELLER'], sellerId: 's-1' });
-      const { exp } = jwt.decode<{ exp: number }>(token);
+      const { exp, iat } = jwt.decode<{ exp: number; iat: number }>(token);
 
       expect(await service.verify(token)).toEqual({
-        user: { userId: USER_ID, roles: ['SELLER'], sellerId: 's-1' },
+        user: {
+          userId: USER_ID,
+          roles: ['SELLER'],
+          sellerId: 's-1',
+          issuedAt: new Date(iat * 1000),
+        },
         expiresAt: new Date(exp * 1000),
       });
     });

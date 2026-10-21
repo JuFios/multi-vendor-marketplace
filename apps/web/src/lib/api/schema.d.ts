@@ -144,6 +144,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set or change the password of the authenticated user.
+         * @description Sets or changes the password. With a password already set, `currentPassword` must match it (400 VALIDATION_FAILED otherwise). Without one (an account from Google, or one whose password was cleared when Google was linked to it) the new password is set directly, but only with a session opened after the Google link (403 FRESH_SIGN_IN_REQUIRED for an older one). Rate limited like login.
+         */
+        post: operations["PasswordController_setPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/me": {
         parameters: {
             query?: never;
@@ -459,7 +479,7 @@ export interface paths {
         head?: never;
         /**
          * Set the stock to an absolute value.
-         * @description SELLER only. Sets the stock to an absolute number; connected clients are notified.
+         * @description SELLER only. Sets the stock to an absolute number; connected clients are notified. Send the stock the new number was decided on as `expectedStock`: if a sale or a cancellation changed it meanwhile, nothing is written and the answer is 409 PRODUCT_STOCK_CONFLICT with the current `stock`.
          */
         patch: operations["SellerProductsController_setStock"];
         trace?: never;
@@ -787,7 +807,7 @@ export interface paths {
         put?: never;
         /**
          * Turns the cart into one order with a seller order per seller.
-         * @description Turns the cart into one order with one seller order per store, in a single database transaction: stock of every store is decremented with conditional updates, commission is computed per seller order and the ledger is written. Any unavailable line fails the whole checkout with 409 and nothing changes. Payment is a mock and runs asynchronously. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422.
+         * @description Turns the cart into one order with one seller order per store, in a single database transaction: stock of every store is decremented with conditional updates, commission is computed per seller order and the ledger is written. Any unavailable line fails the whole checkout with 409 and nothing changes. With `expectedTotalCents` (the total the buyer saw) a cart whose prices moved meanwhile is refused with 409 `CHECKOUT_TOTAL_CHANGED` instead of being charged. Payment is a mock and runs asynchronously. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422.
          */
         post: operations["OrdersController_create"];
         delete?: never;
@@ -1451,6 +1471,11 @@ export interface components {
             /** @description Whether the "Sign in with Google" button should be shown. */
             google: boolean;
         };
+        SetPasswordDto: {
+            /** @description Required when the account already has a password. */
+            currentPassword?: string;
+            newPassword: string;
+        };
         UserResponseDto: {
             /** Format: uuid */
             id: string;
@@ -1459,6 +1484,8 @@ export interface components {
             name: string;
             roles: ("CUSTOMER" | "SELLER" | "ADMIN")[];
             emailVerified: boolean;
+            /** @description Whether email and password sign-in works. False for an account created through Google, or one whose password was cleared when Google was linked; `POST /api/users/me/password` sets one. */
+            hasPassword: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -1616,6 +1643,8 @@ export interface components {
         UpdateStockDto: {
             /** @description The new absolute stock. */
             stock: number;
+            /** @description The stock the new value was decided on. When given and the stock has changed since (a sale, a cancellation), nothing is written and the answer is 409 PRODUCT_STOCK_CONFLICT with the current stock. Other edits of the product (a review, a new title) do not count. */
+            expectedStock?: number;
         };
         RatingDto: {
             /** @description Average rating, two decimals. */
@@ -1637,7 +1666,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            status: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD";
+            status: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD" | "PENDING";
             /** @description The leading bid, or the start price while nobody has bid. */
             priceCents: number;
             /** Format: date-time */
@@ -1691,7 +1720,7 @@ export interface components {
             /** Format: uuid */
             sellerId: string;
             /** @enum {string} */
-            status: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD";
+            status: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD" | "PENDING";
             /** @description Starts at 1; a new round begins when the lot is offered again. */
             round: number;
             startPriceCents: number;
@@ -1777,7 +1806,7 @@ export interface components {
              * @description Where the lot stands; null for a fixed-price product.
              * @enum {string|null}
              */
-            auctionStatus: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD" | null;
+            auctionStatus: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD" | "PENDING" | null;
             /**
              * Format: date-time
              * @description When bidding closes; null for a fixed-price product or after the lot's round.
@@ -1894,6 +1923,10 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+        };
+        CheckoutDto: {
+            /** @description The total the buyer saw, in cents. When prices changed meanwhile the checkout is refused with 409 CHECKOUT_TOTAL_CHANGED instead of charging a different amount. */
+            expectedTotalCents?: number;
         };
         SellerDto: {
             /** Format: uuid */
@@ -2587,6 +2620,79 @@ export interface operations {
             };
             /** @description A required dependency is unavailable (DEPENDENCY_UNAVAILABLE). */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    PasswordController_setPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "currentPassword": "S3cure-pass",
+                 *       "newPassword": "N3w-secure-pass"
+                 *     }
+                 */
+                "application/json": components["schemas"]["SetPasswordDto"];
+            };
+        };
+        responses: {
+            /** @description The password was set. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed or invalid request (VALIDATION_FAILED, BAD_REQUEST). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Missing or invalid credentials (UNAUTHORIZED). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Authenticated but not allowed (FORBIDDEN). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Resource not found, or not visible to the caller (NOT_FOUND). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Rate limit exceeded (RATE_LIMITED). */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3620,7 +3726,8 @@ export interface operations {
             content: {
                 /**
                  * @example {
-                 *       "stock": 12
+                 *       "stock": 12,
+                 *       "expectedStock": 10
                  *     }
                  */
                 "application/json": components["schemas"]["UpdateStockDto"];
@@ -3664,6 +3771,15 @@ export interface operations {
             };
             /** @description Resource not found, or not visible to the caller (NOT_FOUND). */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Conflicts with the current state (CONFLICT). */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4633,7 +4749,16 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "expectedTotalCents": 250000
+                 *     }
+                 */
+                "application/json": components["schemas"]["CheckoutDto"];
+            };
+        };
         responses: {
             201: {
                 headers: {

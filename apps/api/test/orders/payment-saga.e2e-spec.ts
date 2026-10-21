@@ -208,6 +208,38 @@ describe('Payment saga (e2e)', () => {
     );
   });
 
+  it('gives each payment outcome its own seller order version, below the next change', async () => {
+    gateway.declined.add(6_670);
+    const { sellerCallers, soOf } = await checkout();
+    await flushEvents();
+    const [captured, declined] = [soOf(0), soOf(1)];
+    const versionOf = async (sellerOrderId: string, eventType: string, to?: string) => {
+      const rows = await prisma.outboxEvent.findMany({
+        where: { aggregateId: sellerOrderId, eventType },
+      });
+      const row = rows.find((r) => to === undefined || (r.payload as { to?: string }).to === to);
+      return (row?.payload as { version: number }).version;
+    };
+
+    const capturedAt = await versionOf(captured, 'seller_order.payment_changed');
+    expect(capturedAt).toBe((await sellerOrder(captured)).version);
+    expect(
+      (await post(`/seller/orders/${captured}/status`, sellerCallers[0]!, { status: 'PROCESSING' }))
+        .status,
+    ).toBe(200);
+    await flushEvents();
+    expect(await versionOf(captured, 'seller_order.status_changed', 'PROCESSING')).toBe(
+      capturedAt + 1,
+    );
+
+    // The compensation that follows a decline is the next version, not the same one.
+    const failedAt = await versionOf(declined, 'seller_order.payment_changed');
+    expect(await versionOf(declined, 'seller_order.status_changed', 'CANCELLED')).toBe(
+      failedAt + 1,
+    );
+    expect((await sellerOrder(declined)).version).toBe(failedAt + 1);
+  });
+
   it('compensates exactly once when payment.failed is delivered again', async () => {
     gateway.declined.add(6_670);
     const { products, soOf } = await checkout();

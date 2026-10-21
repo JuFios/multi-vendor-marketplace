@@ -9,7 +9,7 @@ export type RuleEvent =
   | { type: 'refund.created'; payload: { customerId: string } }
   | {
       type: 'auction.closed';
-      payload: { sellerId: string; outcome: string; winnerId?: string };
+      payload: { sellerId: string; outcome: string; winnerId?: string; closedBy?: string };
     }
   | { type: 'auction.winner_expired'; payload: { sellerId: string; previousWinnerId: string } }
   | {
@@ -46,11 +46,14 @@ export function recipientsOf(event: RuleEvent): Recipient[] {
           : [{ kind: 'seller', sellerId: event.payload.sellerId } as const]),
       ];
     case 'auction.closed':
+      // A seller who archived the lot closed it themselves and needs no word about it.
       return [
         ...(event.payload.outcome === 'SOLD_TO_WINNER' && event.payload.winnerId !== undefined
           ? [{ kind: 'user', userId: event.payload.winnerId } as const]
           : []),
-        { kind: 'seller', sellerId: event.payload.sellerId },
+        ...(event.payload.closedBy === 'ARCHIVE'
+          ? []
+          : [{ kind: 'seller', sellerId: event.payload.sellerId } as const]),
       ];
     case 'auction.winner_expired':
       return [

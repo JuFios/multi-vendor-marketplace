@@ -168,7 +168,7 @@ describe('Google sign-in (e2e)', () => {
   });
 
   describe('merging into an existing account', () => {
-    it('keeps the password, verifies the email and revokes sessions opened before', async () => {
+    it('clears the password, verifies the email and revokes sessions opened before', async () => {
       const registered = await register('olena@example.com').expect(201);
       const oldToken = cookieValue(refreshCookieOf(registered));
       const before = await prisma.user.findUniqueOrThrow({ where: { email: 'olena@example.com' } });
@@ -178,7 +178,8 @@ describe('Google sign-in (e2e)', () => {
 
       expect(response.headers.location).toBe(WEB_CALLBACK);
       const after = await prisma.user.findUniqueOrThrow({ where: { email: 'olena@example.com' } });
-      expect(after.passwordHash).toBe(before.passwordHash);
+      expect(before.passwordHash).not.toBeNull();
+      expect(after.passwordHash).toBeNull();
       expect(after.emailVerified).toBe(true);
       expect(await prisma.user.count()).toBe(1);
       expect(await prisma.authIdentity.findMany()).toEqual([
@@ -189,10 +190,68 @@ describe('Google sign-in (e2e)', () => {
       await refresh(oldToken).expect(401);
       // ... the one Google just opened works ...
       await refresh(cookieValue(refreshCookieOf(response))).expect(200);
-      // ... and email and password keeps working afterwards, again and again.
-      await passwordLogin('olena@example.com').expect(200);
-      await passwordLogin('olena@example.com').expect(200);
+      // ... the password set by whoever registered first no longer does ...
+      await passwordLogin('olena@example.com').expect(401);
+      // ... and Google keeps signing the owner in.
+      await signInWithGoogle(profile()).then((r) => expect(r.headers.location).toBe(WEB_CALLBACK));
     });
+
+    it('lets the owner set a new password from the Google session, and only them', async () => {
+      await register('olena@example.com').expect(201);
+      const google = await signInWithGoogle(profile());
+      const session = await refresh(cookieValue(refreshCookieOf(google))).expect(200);
+      const bearer = `Bearer ${(session.body as SessionBody).accessToken}`;
+      const me = () => http().get('/api/users/me').set('Authorization', bearer);
+      const setPassword = (body: object) =>
+        http().post('/api/users/me/password').set('Authorization', bearer).send(body);
+
+      expect((await me().expect(200)).body).toMatchObject({ hasPassword: false });
+      await setPassword({ newPassword: 'owner-pass-2026' }).expect(204);
+
+      expect((await me().expect(200)).body).toMatchObject({ hasPassword: true });
+      await http()
+        .post('/api/auth/login')
+        .send({ email: 'olena@example.com', password: 'owner-pass-2026' })
+        .expect(200);
+      // The pre-registered password stays dead.
+      await passwordLogin('olena@example.com').expect(401);
+
+      // Once a password exists, changing it needs the current one.
+      await setPassword({ newPassword: 'another-pass-1' }).expect(400);
+      await setPassword({ currentPassword: 'wrong-pass-1', newPassword: 'another-pass-1' }).expect(
+        400,
+      );
+      await setPassword({
+        currentPassword: 'owner-pass-2026',
+        newPassword: 'another-pass-1',
+      }).expect(204);
+      await http()
+        .post('/api/auth/login')
+        .send({ email: 'olena@example.com', password: 'another-pass-1' })
+        .expect(200);
+    });
+
+    it('does not let a session from before the link set the cleared password', async () => {
+      // Whoever pre-registered the address still holds an access token from before the link.
+      const registered = await register('olena@example.com').expect(201);
+      const stale = `Bearer ${(registered.body as SessionBody).accessToken}`;
+      // The link is at least a second younger than that token.
+      await new Promise((resolve) => setTimeout(resolve, 6_000));
+      await signInWithGoogle(profile());
+
+      const refused = await http()
+        .post('/api/users/me/password')
+        .set('Authorization', stale)
+        .send({ newPassword: 'squatter-pass-1' })
+        .expect(403);
+      expect((refused.body as { error: { code: string } }).error.code).toBe(
+        'FRESH_SIGN_IN_REQUIRED',
+      );
+      expect(
+        (await prisma.user.findUniqueOrThrow({ where: { email: 'olena@example.com' } }))
+          .passwordHash,
+      ).toBeNull();
+    }, 20_000);
 
     it('leaves the sessions of an already verified account alone', async () => {
       const registered = await register('olena@example.com').expect(201);

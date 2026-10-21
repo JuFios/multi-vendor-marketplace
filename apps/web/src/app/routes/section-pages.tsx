@@ -1,11 +1,21 @@
 import { Link, Outlet } from 'react-router';
 
 import { Card } from '../../components/card';
+import { PasswordCard } from '../../features/auth/password-card';
 import { useSessionUser } from '../../features/auth/use-session';
 import { hasRole } from '../../lib/session';
 
 export function AccountHomePage() {
   const user = useSessionUser();
+  return (
+    <div className="space-y-4">
+      <ProfileCard user={user} />
+      <PasswordCard />
+    </div>
+  );
+}
+
+function ProfileCard({ user }: { user: ReturnType<typeof useSessionUser> }) {
   return (
     <Card className="max-w-lg">
       <h1 className="mb-2 text-xl font-semibold">My account</h1>

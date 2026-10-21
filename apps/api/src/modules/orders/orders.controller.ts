@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -18,6 +18,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 import { DEFAULT_CANCEL_REASONS } from './cancellation';
 import { CheckoutService } from './checkout.service';
+import { CheckoutDto } from './dto/checkout.dto';
 import { OrderPageDto, OrderResponseDto, SellerOrderDto } from './dto/order-response.dto';
 import { OrdersService } from './orders.service';
 import { SellerOrderLifecycleService } from './seller-order-lifecycle.service';
@@ -40,8 +41,8 @@ export class OrdersController {
   })
   @ApiCreatedResponse({ type: OrderResponseDto })
   @ApiErrorResponses(400, 401, 409, 422)
-  create(@CurrentUser() user: AuthUser): Promise<OrderResponseDto> {
-    return this.checkout.checkout(user.userId);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CheckoutDto): Promise<OrderResponseDto> {
+    return this.checkout.checkout(user.userId, dto.expectedTotalCents);
   }
 
   @Get()

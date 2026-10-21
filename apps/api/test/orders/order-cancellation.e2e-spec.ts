@@ -260,6 +260,36 @@ describe('Seller order cancellation (e2e)', () => {
     ).toBe(1);
   });
 
+  it('gives back only the units that were not refunded before', async () => {
+    const { buyer, sellerA, a } = await world();
+    const { soOf, capture } = await placeOrder(buyer, [a.id]);
+    await capture();
+    const soA = soOf(sellerA);
+    await post(`/seller/orders/${soA}/status`, sellerA, { status: 'PROCESSING' });
+    const item = await prisma.sellerOrderItem.findFirstOrThrow({ where: { sellerOrderId: soA } });
+    const refund = await request(app.getHttpServer())
+      .post(`/api/seller/orders/${soA}/refunds`)
+      .set('Authorization', await bearerFor(app, sellerA))
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        items: [{ sellerOrderItemId: item.id, quantity: 1 }],
+        reason: 'One unit was missing',
+      });
+    expect(refund.status).toBe(201);
+    expect(await stockOf(a.id)).toBe(8);
+
+    expect(
+      (await post(`/seller/orders/${soA}/cancel`, sellerA, { reason: 'Out of stock' })).status,
+    ).toBe(200);
+
+    // Two were sold and one refunded: one unit comes back, not two.
+    expect(await stockOf(a.id)).toBe(9);
+    const cancelled = await prisma.outboxEvent.findFirstOrThrow({
+      where: { aggregateId: soA, eventType: 'seller_order.cancelled' },
+    });
+    expect(cancelled.payload).toMatchObject({ restocked: [{ productId: a.id, quantity: 1 }] });
+  });
+
   it('hides other people’s seller orders and validates the reason', async () => {
     const { buyer, other, sellerA, sellerB, a, b } = await world();
     const { order, soOf } = await placeOrder(buyer, [a.id, b.id]);

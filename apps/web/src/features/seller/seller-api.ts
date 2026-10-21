@@ -1,5 +1,5 @@
 import { api, unwrap } from '../../lib/api/api';
-import { parseApiError } from '../../lib/api/errors';
+import { isApiError, parseApiError } from '../../lib/api/errors';
 import type { components } from '../../lib/api/schema';
 
 export type SellerProduct = components['schemas']['SellerProductResponseDto'];
@@ -42,13 +42,23 @@ export function updateProduct(input: { id: string; body: UpdateProductBody }) {
   );
 }
 
-export function setProductStock(input: { id: string; stock: number }) {
+/** Sets the stock decided on `expectedStock`; a sale since then is a PRODUCT_STOCK_CONFLICT. */
+export function setProductStock(input: { id: string; stock: number; expectedStock: number }) {
   return unwrap(
     api.PATCH('/api/seller/products/{id}/stock', {
       params: { path: { id: input.id } },
-      body: { stock: input.stock },
+      body: { stock: input.stock, expectedStock: input.expectedStock },
     }),
   );
+}
+
+/** The current stock a PRODUCT_STOCK_CONFLICT reports, if the error is one. */
+export function conflictingStock(error: unknown): number | null {
+  if (!isApiError(error) || error.code !== 'PRODUCT_STOCK_CONFLICT') {
+    return null;
+  }
+  const details = error.details as { stock?: unknown } | undefined;
+  return typeof details?.stock === 'number' ? details.stock : null;
 }
 
 export async function archiveProduct(id: string): Promise<void> {

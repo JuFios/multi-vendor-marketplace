@@ -31,4 +31,27 @@ describe('MockPaymentGateway', () => {
 
     expect(repeated).toEqual(first);
   });
+
+  it('answers the same on another worker and after a restart', async () => {
+    const ids = Array.from({ length: 50 }, (_, i) => `so${i}`);
+    const onFirst = await Promise.all(
+      ids.map((id) => new MockPaymentGateway({ mockFailureRate: 0.5 }).capture(request(id))),
+    );
+    const other = new MockPaymentGateway({ mockFailureRate: 0.5 });
+    const onSecond = await Promise.all(ids.map((id) => other.capture(request(id))));
+
+    expect(onSecond).toEqual(onFirst);
+  });
+
+  it('declines about the configured share', async () => {
+    const gateway = new MockPaymentGateway({ mockFailureRate: 0.3 });
+
+    const results = await Promise.all(
+      Array.from({ length: 2000 }, (_, i) => gateway.capture(request(`seller-order-${i}`))),
+    );
+    const declined = results.filter((result) => !result.ok).length / results.length;
+
+    expect(declined).toBeGreaterThan(0.25);
+    expect(declined).toBeLessThan(0.35);
+  });
 });

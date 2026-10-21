@@ -69,6 +69,18 @@ export class UsersRepository {
     await this.txHost.tx.user.updateMany({ where: { id }, data: { emailVerified: true } });
   }
 
+  async clearPassword(id: string): Promise<void> {
+    await this.txHost.tx.user.updateMany({ where: { id }, data: { passwordHash: null } });
+  }
+
+  async setPasswordHash(id: string, passwordHash: string): Promise<boolean> {
+    const { count } = await this.txHost.tx.user.updateMany({
+      where: { id },
+      data: { passwordHash },
+    });
+    return count > 0;
+  }
+
   /** Appends the role unless the user already holds it. */
   async addRole(id: string, role: UserRole): Promise<void> {
     await this.txHost.tx.user.updateMany({

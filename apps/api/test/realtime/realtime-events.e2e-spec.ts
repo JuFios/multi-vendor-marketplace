@@ -169,6 +169,10 @@ describe('Realtime pushes (e2e)', () => {
       await sellerSocket.waitForEvent<SellerOrderStatusPayload>('sellerOrder.status');
     expect(forStore).toMatchObject({ orderId: order.id, status: 'PROCESSING' });
     expect(forStore.version).toBeGreaterThan(created.version);
+    // The buyer also follows the seller order itself, which the aggregate may not reflect.
+    const sellerOrderForBuyer =
+      await buyerSocket.waitForEvent<SellerOrderStatusPayload>('sellerOrder.status');
+    expect(sellerOrderForBuyer).toEqual(forStore);
     await settle();
     expect(strangerSocket.received).toEqual([]);
     expect(buyerSocket.eventsOf('sellerOrder.created')).toEqual([]);

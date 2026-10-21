@@ -264,13 +264,18 @@ export class OrdersRepository {
   }
 
   /** An item of the product in one of the customer's completed seller orders, if any. */
+  /** An item of a completed seller order the customer kept: a fully refunded one does not count. */
   async findCompletedItemId(customerId: string, productId: string): Promise<string | null> {
-    const row = await this.txHost.tx.sellerOrderItem.findFirst({
-      where: { productId, sellerOrder: { status: 'COMPLETED', order: { customerId } } },
-      select: { id: true },
-      orderBy: { id: 'asc' },
-    });
-    return row?.id ?? null;
+    const rows = await this.txHost.tx.$queryRaw<{ id: string }[]>`
+      SELECT i.id
+      FROM seller_order_items AS i
+      JOIN seller_orders AS so ON so.id = i.seller_order_id
+      JOIN orders AS o ON o.id = so.order_id
+      WHERE i.product_id = ${productId}::uuid AND o.customer_id = ${customerId}::uuid
+        AND so.status = 'COMPLETED' AND i.refunded_quantity < i.quantity
+      ORDER BY i.id
+      LIMIT 1`;
+    return rows[0]?.id ?? null;
   }
 
   async findSellerOrder(id: string): Promise<SellerOrderRecord | null> {
@@ -520,16 +525,26 @@ export class OrdersRepository {
     );
   }
 
-  /** Moves the payment status from `from` to `to`; false when it was not in `from`. */
+  /**
+   * Moves the payment status from `from` to `to` and returns the seller order's new version;
+   * null when it was not in `from`.
+   */
   async changePaymentStatus(
     sellerOrderId: string,
     from: PaymentStatusValue,
     to: PaymentStatusValue,
-  ): Promise<boolean> {
+  ): Promise<number | null> {
     const { count } = await this.txHost.tx.sellerOrder.updateMany({
       where: { id: sellerOrderId, paymentStatus: from },
-      data: { paymentStatus: to },
+      data: { paymentStatus: to, version: { increment: 1 } },
     });
-    return count > 0;
+    if (count === 0) {
+      return null;
+    }
+    const row = await this.txHost.tx.sellerOrder.findUniqueOrThrow({
+      where: { id: sellerOrderId },
+      select: { version: true },
+    });
+    return row.version;
   }
 }

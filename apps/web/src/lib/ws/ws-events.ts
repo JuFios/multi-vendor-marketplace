@@ -35,7 +35,7 @@ export interface ProductStockPayload {
   readonly correlationId?: string | null;
 }
 
-export type AuctionStatus = 'ACTIVE' | 'SOLD_TO_WINNER' | 'ORDERED' | 'NOT_SOLD';
+export type AuctionStatus = 'ACTIVE' | 'SOLD_TO_WINNER' | 'ORDERED' | 'NOT_SOLD' | 'PENDING';
 
 export interface AuctionStatePayload {
   readonly auctionId: string;

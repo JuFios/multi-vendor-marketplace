@@ -25,6 +25,7 @@ import {
   type ProductFormValues,
 } from './product-schema';
 import {
+  conflictingStock,
   createProduct,
   fetchSellerProduct,
   setProductStock,
@@ -52,11 +53,22 @@ function StockControl({ product }: { product: SellerProduct }) {
   const valid =
     stock.trim() !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= 1_000_000;
   const save = useMutation({
-    mutationFn: () => setProductStock({ id: product.id, stock: parsed }),
+    mutationFn: () =>
+      setProductStock({ id: product.id, stock: parsed, expectedStock: product.stock }),
     onSuccess: (updated) => {
       toast.push('Stock updated', 'ok');
       queryClient.setQueryData(queryKeys.sellerProduct(product.id), updated);
       void queryClient.invalidateQueries({ queryKey: ['seller', 'products'] });
+    },
+    onError: (error) => {
+      // Units sold meanwhile: take the current stock into the cached product, so the next try
+      // is decided on it. Only `stock` changes, so the product form below keeps its edits.
+      const current = conflictingStock(error);
+      if (current !== null) {
+        queryClient.setQueryData<SellerProduct>(queryKeys.sellerProduct(product.id), (cached) =>
+          cached === undefined ? cached : { ...cached, stock: current },
+        );
+      }
     },
   });
   return (
@@ -89,6 +101,9 @@ function StockControl({ product }: { product: SellerProduct }) {
       {save.isError ? (
         <p role="alert" className="text-sm text-danger">
           {errorMessage(save.error)}
+          {conflictingStock(save.error) === null
+            ? null
+            : ` Now in stock: ${String(product.stock)}.`}
         </p>
       ) : null}
     </Card>
