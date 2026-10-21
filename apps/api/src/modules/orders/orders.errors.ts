@@ -34,6 +34,16 @@ export class CartItemsUnavailableError extends ConflictError {
   }
 }
 
+/** The prices moved since the buyer looked at the cart; nothing was bought. */
+export class CheckoutTotalChangedError extends ConflictError {
+  constructor(expectedTotalCents: number, totalCents: number) {
+    super('The cart total changed; review the cart and try again', 'CHECKOUT_TOTAL_CHANGED', {
+      expectedTotalCents,
+      totalCents,
+    });
+  }
+}
+
 export class OrderTotalLimitError extends AppError {
   constructor(limit: number) {
     super('ORDER_TOTAL_LIMIT', 422, `An order cannot cost more than ${limit} cents`);

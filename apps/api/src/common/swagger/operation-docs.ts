@@ -230,8 +230,12 @@ export const OPERATION_DOCS: Readonly<Record<string, OperationDoc>> = {
       'Turns the cart into one order with one seller order per store, in a single database ' +
       'transaction: stock of every store is decremented with conditional updates, commission ' +
       'is computed per seller order and the ledger is written. Any unavailable line fails the ' +
-      'whole checkout with 409 and nothing changes. Payment is a mock and runs asynchronously. ' +
+      'whole checkout with 409 and nothing changes. With `expectedTotalCents` (the total the ' +
+      'buyer saw) a cart whose prices moved meanwhile is refused with 409 ' +
+      '`CHECKOUT_TOTAL_CHANGED` instead of being charged. Payment is a mock and runs ' +
+      'asynchronously. ' +
       IDEMPOTENT,
+    requestExample: { expectedTotalCents: 250_000 },
   },
   'GET /api/orders': {
     description: 'The caller’s own orders. Orders of other customers never appear.',

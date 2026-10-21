@@ -28,7 +28,8 @@ export function CheckoutPage() {
 
   const place = useMutation({
     // A retry of the same attempt (network error, 5xx) reuses the key; any final answer ends it.
-    mutationFn: () => checkout(attempt.current.current()),
+    mutationFn: (expectedTotalCents: number) =>
+      checkout(attempt.current.current(), expectedTotalCents),
     onSuccess: (order) => {
       attempt.current.reset();
       void queryClient.invalidateQueries({ queryKey: queryKeys.cart });
@@ -38,6 +39,13 @@ export function CheckoutPage() {
     onError: (error) => {
       if (!isApiError(error) || error.status < 500) {
         attempt.current.reset();
+      }
+      if (isApiError(error) && error.code === 'CHECKOUT_TOTAL_CHANGED') {
+        setFailure(
+          'Prices changed since you opened the cart. Check the new total and place the order again.',
+        );
+        void queryClient.invalidateQueries({ queryKey: queryKeys.cart });
+        return;
       }
       if (isApiError(error) && error.status === 409) {
         const unavailable = checkoutUnavailableItems(error);
@@ -117,7 +125,7 @@ export function CheckoutPage() {
           disabled={hasProblems}
           onClick={() => {
             setFailure(null);
-            place.mutate();
+            place.mutate(totalCents);
           }}
         >
           Place order

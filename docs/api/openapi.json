@@ -3317,6 +3317,19 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutDto"
+              },
+              "example": {
+                "expectedTotalCents": 250000
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "",
@@ -3378,7 +3391,7 @@
         "tags": [
           "orders"
         ],
-        "description": "Turns the cart into one order with one seller order per store, in a single database transaction: stock of every store is decremented with conditional updates, commission is computed per seller order and the ledger is written. Any unavailable line fails the whole checkout with 409 and nothing changes. Payment is a mock and runs asynchronously. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422."
+        "description": "Turns the cart into one order with one seller order per store, in a single database transaction: stock of every store is decremented with conditional updates, commission is computed per seller order and the ledger is written. Any unavailable line fails the whole checkout with 409 and nothing changes. With `expectedTotalCents` (the total the buyer saw) a cart whose prices moved meanwhile is refused with 409 `CHECKOUT_TOTAL_CHANGED` instead of being charged. Payment is a mock and runs asynchronously. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422."
       }
     },
     "/api/orders": {
@@ -6763,7 +6776,8 @@
               "ACTIVE",
               "SOLD_TO_WINNER",
               "ORDERED",
-              "NOT_SOLD"
+              "NOT_SOLD",
+              "PENDING"
             ]
           },
           "priceCents": {
@@ -6961,7 +6975,8 @@
               "ACTIVE",
               "SOLD_TO_WINNER",
               "ORDERED",
-              "NOT_SOLD"
+              "NOT_SOLD",
+              "PENDING"
             ]
           },
           "round": {
@@ -7217,7 +7232,8 @@
               "ACTIVE",
               "SOLD_TO_WINNER",
               "ORDERED",
-              "NOT_SOLD"
+              "NOT_SOLD",
+              "PENDING"
             ],
             "nullable": true,
             "description": "Where the lot stands; null for a fixed-price product."
@@ -7647,6 +7663,17 @@
           "page",
           "limit"
         ]
+      },
+      "CheckoutDto": {
+        "type": "object",
+        "properties": {
+          "expectedTotalCents": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "The total the buyer saw, in cents. When prices changed meanwhile the checkout is refused with 409 CHECKOUT_TOTAL_CHANGED instead of charging a different amount."
+          }
+        }
       },
       "SellerDto": {
         "type": "object",

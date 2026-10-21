@@ -807,7 +807,7 @@ export interface paths {
         put?: never;
         /**
          * Turns the cart into one order with a seller order per seller.
-         * @description Turns the cart into one order with one seller order per store, in a single database transaction: stock of every store is decremented with conditional updates, commission is computed per seller order and the ledger is written. Any unavailable line fails the whole checkout with 409 and nothing changes. Payment is a mock and runs asynchronously. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422.
+         * @description Turns the cart into one order with one seller order per store, in a single database transaction: stock of every store is decremented with conditional updates, commission is computed per seller order and the ledger is written. Any unavailable line fails the whole checkout with 409 and nothing changes. With `expectedTotalCents` (the total the buyer saw) a cart whose prices moved meanwhile is refused with 409 `CHECKOUT_TOTAL_CHANGED` instead of being charged. Payment is a mock and runs asynchronously. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422.
          */
         post: operations["OrdersController_create"];
         delete?: never;
@@ -1666,7 +1666,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            status: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD";
+            status: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD" | "PENDING";
             /** @description The leading bid, or the start price while nobody has bid. */
             priceCents: number;
             /** Format: date-time */
@@ -1720,7 +1720,7 @@ export interface components {
             /** Format: uuid */
             sellerId: string;
             /** @enum {string} */
-            status: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD";
+            status: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD" | "PENDING";
             /** @description Starts at 1; a new round begins when the lot is offered again. */
             round: number;
             startPriceCents: number;
@@ -1806,7 +1806,7 @@ export interface components {
              * @description Where the lot stands; null for a fixed-price product.
              * @enum {string|null}
              */
-            auctionStatus: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD" | null;
+            auctionStatus: "ACTIVE" | "SOLD_TO_WINNER" | "ORDERED" | "NOT_SOLD" | "PENDING" | null;
             /**
              * Format: date-time
              * @description When bidding closes; null for a fixed-price product or after the lot's round.
@@ -1923,6 +1923,10 @@ export interface components {
             total: number;
             page: number;
             limit: number;
+        };
+        CheckoutDto: {
+            /** @description The total the buyer saw, in cents. When prices changed meanwhile the checkout is refused with 409 CHECKOUT_TOTAL_CHANGED instead of charging a different amount. */
+            expectedTotalCents?: number;
         };
         SellerDto: {
             /** Format: uuid */
@@ -4745,7 +4749,16 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "expectedTotalCents": 250000
+                 *     }
+                 */
+                "application/json": components["schemas"]["CheckoutDto"];
+            };
+        };
         responses: {
             201: {
                 headers: {
