@@ -41,3 +41,8 @@ every variable (development profile); `.env.test` is the test profile used by th
 ```bash
 npm run lint && npm run typecheck && npm test && npm run test:e2e -w apps/api && npm run build
 ```
+
+## Known limitations
+
+- `outbox_events`, `processed_events` and `idempotency_keys` are append-only: nothing prunes
+  them, so they grow with traffic. A long-running deployment needs a retention job.
