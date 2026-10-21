@@ -4,7 +4,7 @@ import { cn } from './cn';
 
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   label: string;
-  error?: string;
+  error?: string | undefined;
 };
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(

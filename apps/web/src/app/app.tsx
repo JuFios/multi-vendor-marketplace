@@ -1,7 +1,12 @@
+import { RouterProvider } from 'react-router/dom';
+
+import { Providers } from './providers';
+import { router } from './router';
+
 export function App() {
   return (
-    <main>
-      <h1>Multi-Vendor Marketplace</h1>
-    </main>
+    <Providers>
+      <RouterProvider router={router} />
+    </Providers>
   );
 }
