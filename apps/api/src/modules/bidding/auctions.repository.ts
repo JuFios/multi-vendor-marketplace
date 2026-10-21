@@ -56,6 +56,8 @@ export interface NewAuction {
   readonly bidStepCents: number;
   readonly durationSec: number;
   readonly endsAt: Date;
+  /** PENDING while the product waits for approval; its clock starts then. */
+  readonly status: 'ACTIVE' | 'PENDING';
 }
 
 /**
@@ -76,10 +78,10 @@ export class AuctionsRepository {
   async insert(auction: NewAuction): Promise<AuctionRecord> {
     const rows = await this.txHost.tx.$queryRaw<AuctionRow[]>`
       INSERT INTO auctions (id, product_id, seller_id, start_price_cents, bid_step_cents,
-                            duration_sec, ends_at, created_at, updated_at)
+                            duration_sec, status, ends_at, created_at, updated_at)
       VALUES (gen_random_uuid(), ${auction.productId}::uuid, ${auction.sellerId}::uuid,
               ${auction.startPriceCents}, ${auction.bidStepCents}, ${auction.durationSec},
-              ${auction.endsAt}, now(), now())
+              ${auction.status}::auction_status, ${auction.endsAt}, now(), now())
       RETURNING *, now() AS db_now`;
     return toAuction(rows[0]!);
   }
@@ -269,10 +271,29 @@ export class AuctionsRepository {
     return rows[0] ? toAuction(rows[0]) : null;
   }
 
-  async markNotSold(id: string): Promise<void> {
-    await this.txHost.tx.$executeRaw`
-      UPDATE auctions SET status = 'NOT_SOLD', version = version + 1, updated_at = now()
-      WHERE id = ${id}::uuid AND status = 'ACTIVE'`;
+  /**
+   * Ends a lot before its deadline: a round that still takes bids or waits for approval, or a
+   * winner's checkout window (the winner loses the lot). The version moves, so a bid read before
+   * this fails its version check. Null when the lot is in none of those states.
+   */
+  async markNotSold(id: string): Promise<AuctionRecord | null> {
+    const rows = await this.txHost.tx.$queryRaw<AuctionRow[]>`
+      UPDATE auctions
+      SET status = 'NOT_SOLD', winner_deadline_at = NULL, version = version + 1, updated_at = now()
+      WHERE id = ${id}::uuid AND status IN ('ACTIVE', 'PENDING', 'SOLD_TO_WINNER')
+      RETURNING *, now() AS db_now`;
+    return rows[0] ? toAuction(rows[0]) : null;
+  }
+
+  /** Starts the clock of a lot whose product was just approved: the round lasts its full length. */
+  async activateIfPending(id: string): Promise<AuctionRecord | null> {
+    const rows = await this.txHost.tx.$queryRaw<AuctionRow[]>`
+      UPDATE auctions
+      SET status = 'ACTIVE', ends_at = now() + make_interval(secs => duration_sec),
+          version = version + 1, updated_at = now()
+      WHERE id = ${id}::uuid AND status = 'PENDING'
+      RETURNING *, now() AS db_now`;
+    return rows[0] ? toAuction(rows[0]) : null;
   }
 
   /** The bids of one round, highest first (which is also newest first). */

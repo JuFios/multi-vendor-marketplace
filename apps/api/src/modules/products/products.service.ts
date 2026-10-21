@@ -101,6 +101,7 @@ export class ProductsService {
         startPriceCents: lot.startPriceCents,
         bidStepCents: lot.bidStepCents,
         endsAt: lot.endsAt,
+        published,
       });
       await this.outbox.add([
         {
@@ -322,13 +323,18 @@ export class ProductsService {
     return this.moderate(adminId, id, { status: 'REJECTED', reason });
   }
 
-  /** The decision, the new `isPublished` and `product.moderated` commit together. */
+  /**
+   * The decision, the new `isPublished`, the lot's auction and `product.moderated` commit
+   * together: a rejected lot stops taking bids, an approved one that waited starts its clock.
+   */
   private async moderate(
     adminId: string,
     id: string,
     decision: ModerationDecision,
   ): Promise<Product> {
     const product = await this.txHost.withTransaction(async () => {
+      // The lot first, then the product: the order archiving takes, so the two cannot deadlock.
+      await this.auctions.lockLot(id);
       const decided = await this.products.decide(
         id,
         decision,
@@ -342,6 +348,9 @@ export class ProductsService {
         throw existing !== null && existing.archivedAt === null
           ? new ProductNotPendingError()
           : new ProductNotFoundError();
+      }
+      if (decided.type === 'AUCTION') {
+        await this.auctions.onProductModerated(id, decision.status === 'APPROVED');
       }
       await this.outbox.add([
         {

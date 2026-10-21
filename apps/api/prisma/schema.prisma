@@ -212,6 +212,8 @@ enum AuctionStatus {
   SOLD_TO_WINNER
   ORDERED
   NOT_SOLD
+  // The lot waits for its product's approval (pre-moderation); its clock has not started.
+  PENDING
 
   @@map("auction_status")
 }

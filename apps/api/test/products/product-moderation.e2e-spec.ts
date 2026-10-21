@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
@@ -183,5 +185,106 @@ describe.each([
       .post(`/api/admin/products/${id}/approve`)
       .set('Authorization', sellerAuth)
       .expect(403);
+  });
+
+  describe('auction lots', () => {
+    const HOUR_MS = 3_600_000;
+
+    /** A lot submitted by a new store; the auction comes back with it. */
+    const submittedLot = async () => {
+      const { user, seller } = await createSeller(prisma);
+      const category = await createCategory(prisma);
+      const auth = await bearerFor(app, {
+        id: user.id,
+        roles: ['CUSTOMER', 'SELLER'],
+        sellerId: seller.id,
+      });
+      const response = await http()
+        .post('/api/seller/products')
+        .set('Authorization', auth)
+        .send({
+          type: 'AUCTION',
+          categoryId: category.id,
+          title: 'Vintage camera',
+          description: 'Works well',
+          startPriceCents: 10_000,
+          bidStepCents: 500,
+          endsAt: new Date(Date.now() + 2 * HOUR_MS).toISOString(),
+        })
+        .expect(201);
+      const id = (response.body as ProductBody).id;
+      return prisma.auction.findUniqueOrThrow({ where: { productId: id } });
+    };
+
+    const bid = async (auctionId: string, amountCents: number) => {
+      const buyer = await createUser(prisma);
+      return http()
+        .post(`/api/auctions/${auctionId}/bids`)
+        .set('Authorization', await bearerFor(app, { id: buyer.id }))
+        .set('Idempotency-Key', randomUUID())
+        .send({ amountCents });
+    };
+
+    const auctionEvents = (auctionId: string, eventType: string) =>
+      prisma.outboxEvent.findMany({ where: { aggregateId: auctionId, eventType } });
+
+    it('starts the clock only once the product is in the catalog', async () => {
+      const auction = await submittedLot();
+
+      expect(auction.status).toBe(premoderation ? 'PENDING' : 'ACTIVE');
+      expect(await auctionEvents(auction.id, 'auction.started')).toHaveLength(
+        premoderation ? 0 : 1,
+      );
+      const response = await bid(auction.id, 10_000);
+      if (premoderation) {
+        expect(response.status).toBe(422);
+        expect((response.body as ErrorBody).error.code).toBe('AUCTION_NOT_ACTIVE');
+      } else {
+        expect(response.status).toBe(201);
+      }
+    });
+
+    it('opens a waiting lot for its full length when the product is approved', async () => {
+      const auction = await submittedLot();
+
+      await http()
+        .post(`/api/admin/products/${auction.productId}/approve`)
+        .set('Authorization', admin)
+        .expect(200);
+
+      const after = await prisma.auction.findUniqueOrThrow({ where: { id: auction.id } });
+      expect(after.status).toBe('ACTIVE');
+      expect(await auctionEvents(auction.id, 'auction.started')).toHaveLength(1);
+      if (premoderation) {
+        const lastsMs = after.endsAt.getTime() - Date.now();
+        expect(lastsMs).toBeGreaterThan(after.durationSec * 1000 - 10_000);
+        expect(after.version).toBe(auction.version + 1);
+      } else {
+        expect(after).toMatchObject({ endsAt: auction.endsAt, version: auction.version });
+      }
+      expect((await bid(auction.id, 10_000)).status).toBe(201);
+    });
+
+    it('ends a rejected lot as not sold, even with bids, and refuses later bids', async () => {
+      const auction = await submittedLot();
+      if (!premoderation) {
+        expect((await bid(auction.id, 10_000)).status).toBe(201);
+      }
+
+      await http()
+        .post(`/api/admin/products/${auction.productId}/reject`)
+        .set('Authorization', admin)
+        .send({ reason: 'Counterfeit goods' })
+        .expect(200);
+
+      const after = await prisma.auction.findUniqueOrThrow({ where: { id: auction.id } });
+      expect(after.status).toBe('NOT_SOLD');
+      const closed = await auctionEvents(auction.id, 'auction.closed');
+      expect(closed).toHaveLength(1);
+      expect(closed[0]?.payload).toMatchObject({ outcome: 'NOT_SOLD', closedBy: 'MODERATION' });
+      const late = await bid(auction.id, 20_000);
+      expect(late.status).toBe(422);
+      expect((late.body as ErrorBody).error.code).toBe('AUCTION_NOT_ACTIVE');
+    });
   });
 });
