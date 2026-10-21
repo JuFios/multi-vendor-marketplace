@@ -9,9 +9,14 @@ import { CheckoutSuccessPage } from '../features/orders/checkout-success-page';
 import { OrderDetailsPage } from '../features/orders/order-details-page';
 import { OrdersPage } from '../features/orders/orders-page';
 import { ProductPage } from '../features/product/product-page';
+import { SellerAuctionsPage } from '../features/seller/auctions-page';
+import { SellerDashboardPage } from '../features/seller/dashboard-page';
+import { EditProductPage, NewProductPage } from '../features/seller/product-form-page';
+import { SellerProductsPage } from '../features/seller/products-page';
 
 import { AccountLayout } from './layouts/account-layout';
 import { RootLayout } from './layouts/root-layout';
+import { SellerLayout } from './layouts/seller-layout';
 import { AccountDisputeDetailsPage, AccountDisputesPage } from './routes/account-disputes';
 import { AuthCallbackPage } from './routes/auth-callback-page';
 import { LoginPage } from './routes/login-page';
@@ -47,6 +52,22 @@ export const routes: RouteObject[] = [
               { path: 'disputes/:id', element: <AccountDisputeDetailsPage /> },
               { path: 'notifications', element: <NotificationsPage /> },
               { path: 'seller-application', element: <SellerApplicationPage /> },
+            ],
+          },
+        ],
+      },
+      {
+        element: <ProtectedRoute role="SELLER" />,
+        children: [
+          {
+            path: 'seller',
+            element: <SellerLayout />,
+            children: [
+              { index: true, element: <SellerDashboardPage /> },
+              { path: 'products', element: <SellerProductsPage /> },
+              { path: 'products/new', element: <NewProductPage /> },
+              { path: 'products/:id', element: <EditProductPage /> },
+              { path: 'auctions', element: <SellerAuctionsPage /> },
             ],
           },
         ],
