@@ -204,6 +204,22 @@ describe('Idempotency-Key (e2e)', () => {
     expect(await keyRow()).toMatchObject({ status: 'COMPLETED', responseCode: 201 });
   });
 
+  it('replays the recorded status code instead of the route default', async () => {
+    const key = randomUUID();
+    const recorded = { orderId: randomUUID(), item: 'recorded later' };
+    await post('orders', key, { item: 'a' });
+    await prisma.idempotencyKey.updateMany({
+      data: { responseCode: 202, responseBody: recorded },
+    });
+
+    const replay = await post('orders', key, { item: 'a' });
+
+    expect(replay.status).toBe(202);
+    expect(replay.headers['idempotent-replayed']).toBe('true');
+    expect(replay.body).toEqual(recorded);
+    expect(await effects()).toBe(1);
+  });
+
   it('answers 422 when the key is reused with a different body', async () => {
     const key = randomUUID();
     await post('orders', key, { item: 'a' });
