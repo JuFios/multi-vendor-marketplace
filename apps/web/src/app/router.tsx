@@ -1,7 +1,10 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 
 import { ProtectedRoute } from '../features/auth/protected-route';
+import { CartPage } from '../features/cart/cart-page';
 import { CatalogPage } from '../features/catalog/catalog-page';
+import { CheckoutPage } from '../features/orders/checkout-page';
+import { CheckoutSuccessPage } from '../features/orders/checkout-success-page';
 import { ProductPage } from '../features/product/product-page';
 
 import { RootLayout } from './layouts/root-layout';
@@ -25,6 +28,9 @@ export const routes: RouteObject[] = [
       {
         element: <ProtectedRoute role="CUSTOMER" />,
         children: [
+          { path: 'cart', element: <CartPage /> },
+          { path: 'checkout', element: <CheckoutPage /> },
+          { path: 'checkout/success/:orderId', element: <CheckoutSuccessPage /> },
           { path: 'account', element: <AccountHomePage /> },
           { path: 'account/seller-application', element: <SellerApplicationPage /> },
         ],
