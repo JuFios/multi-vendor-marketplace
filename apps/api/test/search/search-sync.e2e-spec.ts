@@ -6,13 +6,14 @@ import type { Redis } from 'ioredis';
 import type { Meilisearch } from 'meilisearch';
 import request from 'supertest';
 
+import { SearchBootstrap } from '../../src/modules/search-sync/search-bootstrap.service';
 import { SearchIndexer } from '../../src/modules/search-sync/search-indexer.service';
 import { EVENT_TYPE } from '../../src/outbox/events/event-types';
 import { OutboxService } from '../../src/outbox/outbox.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import type { AppTransactionHost } from '../../src/prisma/transaction';
 import { REDIS_CLIENT } from '../../src/redis/redis.constants';
-import type { CatalogQuery } from '../../src/search/catalog';
+import { CATALOG_SCHEMA_VERSION, type CatalogQuery } from '../../src/search/catalog';
 import { MEILI_CLIENT } from '../../src/search/meili.constants';
 import { SEARCH_PORT, type SearchPort } from '../../src/search/search.port';
 import { bearerFor } from '../utils/auth';
@@ -268,6 +269,7 @@ describe('search index synchronization (e2e)', () => {
           auctionStatus: null,
           auctionEndsAt: null,
           version: 0,
+          schemaVersion: CATALOG_SCHEMA_VERSION,
         },
       ]);
 
@@ -275,6 +277,40 @@ describe('search index synchronization (e2e)', () => {
 
       expect(count).toBe(1);
       expect((await indexed()).map((item) => item.id)).toEqual([kept.id]);
+    });
+
+    it('rewrites documents stored in an older layout when the worker starts', async () => {
+      const product = await createProduct(prisma);
+      await search.upsert([
+        {
+          id: product.id,
+          title: 'Stale',
+          description: '',
+          categoryId: 'c',
+          categoryName: 'c',
+          sellerId: 's',
+          sellerName: 's',
+          type: 'FIXED_PRICE',
+          priceCents: 1,
+          ratingAvg: 0,
+          ratingCount: 0,
+          inStock: true,
+          stock: 1,
+          createdAt: 0,
+          imageUrl: null,
+          auctionId: null,
+          auctionStatus: null,
+          auctionEndsAt: null,
+          version: 0,
+          schemaVersion: 1,
+        },
+      ]);
+      expect(await search.countOutdated()).toBe(1);
+
+      await app.get(SearchBootstrap).onApplicationBootstrap();
+
+      expect(await search.countOutdated()).toBe(0);
+      expect((await indexed()).map((item) => item.title)).toEqual([product.title]);
     });
   });
 });

@@ -1,4 +1,5 @@
 import {
+  CATALOG_SCHEMA_VERSION,
   buildMeiliFilter,
   buildMeiliSort,
   type CatalogQuery,
@@ -108,6 +109,7 @@ describe('toCatalogDocument', () => {
       createdAt: Date.parse('2026-01-02T03:04:05.000Z'),
       imageUrl: 'https://img.example/1.png',
       version: 7,
+      schemaVersion: CATALOG_SCHEMA_VERSION,
       auctionId: null,
       auctionStatus: null,
       auctionEndsAt: null,

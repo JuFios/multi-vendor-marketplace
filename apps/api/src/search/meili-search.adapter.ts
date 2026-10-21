@@ -8,6 +8,7 @@ import { searchConfig } from '../config/search.config';
 import {
   buildMeiliFilter,
   buildMeiliSort,
+  CATALOG_SCHEMA_VERSION,
   type CatalogDocument,
   type CatalogFacets,
   type CatalogQuery,
@@ -27,7 +28,15 @@ const FACETED = ['categoryId', 'sellerId', 'type', 'inStock'] as const;
 
 const SETTINGS = {
   searchableAttributes: ['title', 'description', 'categoryName', 'sellerName'],
-  filterableAttributes: ['categoryId', 'sellerId', 'type', 'priceCents', 'ratingAvg', 'inStock'],
+  filterableAttributes: [
+    'categoryId',
+    'sellerId',
+    'type',
+    'priceCents',
+    'ratingAvg',
+    'inStock',
+    'schemaVersion',
+  ],
   sortableAttributes: ['priceCents', 'ratingAvg', 'createdAt'],
   // Meilisearch caps the reachable hits and the values per facet (defaults 1000 and 100); raised
   // so totals, deep pages and the seller facet stay exact for a catalog of this size.
@@ -118,6 +127,15 @@ export class MeiliSearchAdapter implements SearchPort {
   async countDocuments(): Promise<number> {
     await this.ensureIndex();
     return (await this.index().getStats()).numberOfDocuments;
+  }
+
+  async countOutdated(): Promise<number> {
+    await this.ensureIndex();
+    const response = await this.index().search('', {
+      filter: `NOT schemaVersion = ${CATALOG_SCHEMA_VERSION}`,
+      hitsPerPage: 1,
+    });
+    return response.totalHits;
   }
 
   isAvailable(): Promise<boolean> {

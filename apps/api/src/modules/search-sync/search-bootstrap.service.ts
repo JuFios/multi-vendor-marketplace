@@ -4,7 +4,10 @@ import { SEARCH_PORT, type SearchPort } from '../../search/search.port';
 
 import { SearchIndexer } from './search-indexer.service';
 
-/** At worker start: sets the index up, and fills it from the database when it is empty. */
+/**
+ * At worker start: sets the index up, and fills it from the database when it is empty or still
+ * holds documents of an older layout.
+ */
 @Injectable()
 export class SearchBootstrap implements OnApplicationBootstrap {
   private readonly logger = new Logger(SearchBootstrap.name);
@@ -17,7 +20,7 @@ export class SearchBootstrap implements OnApplicationBootstrap {
   async onApplicationBootstrap(): Promise<void> {
     try {
       await this.search.ensureIndex();
-      if ((await this.search.countDocuments()) === 0) {
+      if ((await this.search.countDocuments()) === 0 || (await this.search.countOutdated()) > 0) {
         await this.indexer.reindexAll({ clear: false });
       }
     } catch (error) {
