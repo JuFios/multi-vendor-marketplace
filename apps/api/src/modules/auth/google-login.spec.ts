@@ -30,33 +30,24 @@ describe('resolveGoogleLogin', () => {
   });
 
   describe('2. merge into an existing account with the same email', () => {
-    it('links an account whose email was never verified, verifies it and revokes its sessions', () => {
+    it('links an account whose email was never verified: verifies it, clears its password and revokes its sessions', () => {
       expect(resolveGoogleLogin(null, { id: 'user-1', emailVerified: false }, profile)).toEqual({
         kind: 'link',
         userId: 'user-1',
         markEmailVerified: true,
+        clearPassword: true,
         revokeRefreshTokens: true,
       });
     });
 
-    it('links an already verified account without touching its sessions', () => {
+    it('links an already verified account without touching its password or sessions', () => {
       expect(resolveGoogleLogin(null, { id: 'user-1', emailVerified: true }, profile)).toEqual({
         kind: 'link',
         userId: 'user-1',
         markEmailVerified: false,
+        clearPassword: false,
         revokeRefreshTokens: false,
       });
-    });
-
-    it('never asks to clear the password: the decision has no such field', () => {
-      const decision = resolveGoogleLogin(null, { id: 'user-1', emailVerified: false }, profile);
-
-      expect(Object.keys(decision).sort()).toEqual([
-        'kind',
-        'markEmailVerified',
-        'revokeRefreshTokens',
-        'userId',
-      ]);
     });
   });
 

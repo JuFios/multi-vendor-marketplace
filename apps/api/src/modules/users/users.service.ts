@@ -64,6 +64,11 @@ export class UsersService {
     return this.users.markEmailVerified(id);
   }
 
+  /** Email and password stops working for the user until a new password is set. */
+  clearPassword(id: string): Promise<void> {
+    return this.users.clearPassword(id);
+  }
+
   /** Idempotent. Takes effect in new access tokens, so the user must refresh. */
   grantRole(id: string, role: UserRole): Promise<void> {
     return this.users.addRole(id, role);

@@ -168,7 +168,7 @@ describe('Google sign-in (e2e)', () => {
   });
 
   describe('merging into an existing account', () => {
-    it('keeps the password, verifies the email and revokes sessions opened before', async () => {
+    it('clears the password, verifies the email and revokes sessions opened before', async () => {
       const registered = await register('olena@example.com').expect(201);
       const oldToken = cookieValue(refreshCookieOf(registered));
       const before = await prisma.user.findUniqueOrThrow({ where: { email: 'olena@example.com' } });
@@ -178,7 +178,8 @@ describe('Google sign-in (e2e)', () => {
 
       expect(response.headers.location).toBe(WEB_CALLBACK);
       const after = await prisma.user.findUniqueOrThrow({ where: { email: 'olena@example.com' } });
-      expect(after.passwordHash).toBe(before.passwordHash);
+      expect(before.passwordHash).not.toBeNull();
+      expect(after.passwordHash).toBeNull();
       expect(after.emailVerified).toBe(true);
       expect(await prisma.user.count()).toBe(1);
       expect(await prisma.authIdentity.findMany()).toEqual([
@@ -189,9 +190,10 @@ describe('Google sign-in (e2e)', () => {
       await refresh(oldToken).expect(401);
       // ... the one Google just opened works ...
       await refresh(cookieValue(refreshCookieOf(response))).expect(200);
-      // ... and email and password keeps working afterwards, again and again.
-      await passwordLogin('olena@example.com').expect(200);
-      await passwordLogin('olena@example.com').expect(200);
+      // ... the password set by whoever registered first no longer does ...
+      await passwordLogin('olena@example.com').expect(401);
+      // ... and Google keeps signing the owner in.
+      await signInWithGoogle(profile()).then((r) => expect(r.headers.location).toBe(WEB_CALLBACK));
     });
 
     it('leaves the sessions of an already verified account alone', async () => {

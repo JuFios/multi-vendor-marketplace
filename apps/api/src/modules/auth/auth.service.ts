@@ -74,7 +74,8 @@ export class AuthService {
 
   /**
    * Applies `resolveGoogleLogin`. When an existing account is linked without proof of its
-   * mailbox, its earlier sessions are revoked first, so the session started here survives.
+   * mailbox, its password is cleared and its earlier sessions are revoked first, so the session
+   * started here survives.
    */
   async loginWithGoogle(profile: GoogleProfile, client: ClientContext): Promise<AuthSession> {
     const googleProfile = { ...profile, email: normalizeEmail(profile.email) };
@@ -113,12 +114,16 @@ export class AuthService {
         if (decision.markEmailVerified) {
           await this.users.markEmailVerified(decision.userId);
         }
+        if (decision.clearPassword) {
+          await this.users.clearPassword(decision.userId);
+        }
         if (decision.revokeRefreshTokens) {
           await this.auth.revokeAllForUser(decision.userId);
         }
         this.logger.log({
           msg: 'auth.google.linked',
           userId: decision.userId,
+          passwordCleared: decision.clearPassword,
           sessionsRevoked: decision.revokeRefreshTokens,
           ip: client.ip,
         });
