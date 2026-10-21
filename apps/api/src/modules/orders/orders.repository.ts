@@ -264,13 +264,18 @@ export class OrdersRepository {
   }
 
   /** An item of the product in one of the customer's completed seller orders, if any. */
+  /** An item of a completed seller order the customer kept: a fully refunded one does not count. */
   async findCompletedItemId(customerId: string, productId: string): Promise<string | null> {
-    const row = await this.txHost.tx.sellerOrderItem.findFirst({
-      where: { productId, sellerOrder: { status: 'COMPLETED', order: { customerId } } },
-      select: { id: true },
-      orderBy: { id: 'asc' },
-    });
-    return row?.id ?? null;
+    const rows = await this.txHost.tx.$queryRaw<{ id: string }[]>`
+      SELECT i.id
+      FROM seller_order_items AS i
+      JOIN seller_orders AS so ON so.id = i.seller_order_id
+      JOIN orders AS o ON o.id = so.order_id
+      WHERE i.product_id = ${productId}::uuid AND o.customer_id = ${customerId}::uuid
+        AND so.status = 'COMPLETED' AND i.refunded_quantity < i.quantity
+      ORDER BY i.id
+      LIMIT 1`;
+    return rows[0]?.id ?? null;
   }
 
   async findSellerOrder(id: string): Promise<SellerOrderRecord | null> {
