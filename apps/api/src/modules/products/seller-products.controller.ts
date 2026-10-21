@@ -116,13 +116,15 @@ export class SellerProductsController {
   @Patch(':id/stock')
   @ApiOperation({ summary: 'Set the stock to an absolute value.' })
   @ApiOkResponse({ type: SellerProductResponseDto })
-  @ApiErrorResponses(400, 401, 403, 404)
+  @ApiErrorResponses(400, 401, 403, 404, 409)
   async setStock(
     @CurrentSellerId() sellerId: string,
     @Param('id', ParseUuidPipe) id: string,
     @Body() dto: UpdateStockDto,
   ): Promise<SellerProductResponseDto> {
-    return SellerProductResponseDto.from(await this.products.setStock(sellerId, id, dto.stock));
+    return SellerProductResponseDto.from(
+      await this.products.setStock(sellerId, id, dto.stock, dto.expectedVersion),
+    );
   }
 
   @Delete(':id')

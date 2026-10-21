@@ -42,11 +42,12 @@ export function updateProduct(input: { id: string; body: UpdateProductBody }) {
   );
 }
 
-export function setProductStock(input: { id: string; stock: number }) {
+/** Sets the stock decided on `expectedVersion`; a sale since then is a PRODUCT_VERSION_CONFLICT. */
+export function setProductStock(input: { id: string; stock: number; expectedVersion: number }) {
   return unwrap(
     api.PATCH('/api/seller/products/{id}/stock', {
       params: { path: { id: input.id } },
-      body: { stock: input.stock },
+      body: { stock: input.stock, expectedVersion: input.expectedVersion },
     }),
   );
 }

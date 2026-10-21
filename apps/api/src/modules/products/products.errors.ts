@@ -28,6 +28,17 @@ export class ProductNotPendingError extends ConflictError {
   }
 }
 
+/** The product moved on since the version the change was based on. */
+export class ProductVersionConflictError extends ConflictError {
+  constructor(current: { stock: number; version: number }) {
+    super(
+      'The product changed since you loaded it; check the current stock and try again',
+      'PRODUCT_VERSION_CONFLICT',
+      current,
+    );
+  }
+}
+
 export class InsufficientStockError extends ConflictError {
   constructor(items: readonly { productId: string; requested: number; available: number }[]) {
     super('Not enough stock for some of the products', 'INSUFFICIENT_STOCK', { items });

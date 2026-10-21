@@ -129,8 +129,11 @@ export const OPERATION_DOCS: Readonly<Record<string, OperationDoc>> = {
   },
   'PATCH /api/seller/products/{id}/stock': {
     description:
-      'SELLER only. Sets the stock to an absolute number; connected clients are notified.',
-    requestExample: { stock: 12 },
+      'SELLER only. Sets the stock to an absolute number; connected clients are notified. ' +
+      'Send the `version` the number was decided on as `expectedVersion`: if a sale or another ' +
+      'edit changed the product meanwhile, nothing is written and the answer is 409 ' +
+      'PRODUCT_VERSION_CONFLICT with the current `stock` and `version`.',
+    requestExample: { stock: 12, expectedVersion: 3 },
   },
   'GET /api/products/{id}': {
     description:

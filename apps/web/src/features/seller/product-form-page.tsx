@@ -14,6 +14,7 @@ import { StatusBadge } from '../../components/status-badge';
 import { Textarea } from '../../components/textarea';
 import { useToast } from '../../components/toast-context';
 import { errorMessage } from '../../lib/api/error-message';
+import { isApiError } from '../../lib/api/errors';
 import { queryKeys } from '../../lib/query-keys';
 import { fetchCategories } from '../catalog/catalog-api';
 
@@ -52,11 +53,18 @@ function StockControl({ product }: { product: SellerProduct }) {
   const valid =
     stock.trim() !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= 1_000_000;
   const save = useMutation({
-    mutationFn: () => setProductStock({ id: product.id, stock: parsed }),
+    mutationFn: () =>
+      setProductStock({ id: product.id, stock: parsed, expectedVersion: product.version }),
     onSuccess: (updated) => {
       toast.push('Stock updated', 'ok');
       queryClient.setQueryData(queryKeys.sellerProduct(product.id), updated);
       void queryClient.invalidateQueries({ queryKey: ['seller', 'products'] });
+    },
+    onError: (error) => {
+      // Units sold meanwhile: load the current stock and version, keep what the seller typed.
+      if (isApiError(error) && error.code === 'PRODUCT_VERSION_CONFLICT') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.sellerProduct(product.id) });
+      }
     },
   });
   return (
@@ -89,6 +97,9 @@ function StockControl({ product }: { product: SellerProduct }) {
       {save.isError ? (
         <p role="alert" className="text-sm text-danger">
           {errorMessage(save.error)}
+          {isApiError(save.error) && save.error.code === 'PRODUCT_VERSION_CONFLICT'
+            ? ` Now in stock: ${String(product.stock)}.`
+            : null}
         </p>
       ) : null}
     </Card>

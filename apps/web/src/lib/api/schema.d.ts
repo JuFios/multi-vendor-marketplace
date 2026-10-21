@@ -459,7 +459,7 @@ export interface paths {
         head?: never;
         /**
          * Set the stock to an absolute value.
-         * @description SELLER only. Sets the stock to an absolute number; connected clients are notified.
+         * @description SELLER only. Sets the stock to an absolute number; connected clients are notified. Send the `version` the number was decided on as `expectedVersion`: if a sale or another edit changed the product meanwhile, nothing is written and the answer is 409 PRODUCT_VERSION_CONFLICT with the current `stock` and `version`.
          */
         patch: operations["SellerProductsController_setStock"];
         trace?: never;
@@ -1616,6 +1616,8 @@ export interface components {
         UpdateStockDto: {
             /** @description The new absolute stock. */
             stock: number;
+            /** @description The product `version` the new stock was decided on. When given and the product has changed since (a sale, another edit), nothing is written and the answer is 409 PRODUCT_VERSION_CONFLICT with the current stock and version. */
+            expectedVersion?: number;
         };
         RatingDto: {
             /** @description Average rating, two decimals. */
@@ -3620,7 +3622,8 @@ export interface operations {
             content: {
                 /**
                  * @example {
-                 *       "stock": 12
+                 *       "stock": 12,
+                 *       "expectedVersion": 3
                  *     }
                  */
                 "application/json": components["schemas"]["UpdateStockDto"];
@@ -3664,6 +3667,15 @@ export interface operations {
             };
             /** @description Resource not found, or not visible to the caller (NOT_FOUND). */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Conflicts with the current state (CONFLICT). */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

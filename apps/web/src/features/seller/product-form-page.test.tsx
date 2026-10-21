@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { renderRoutes } from '../../test/render';
 import { server } from '../../test/server';
 
-import { NewProductPage } from './product-form-page';
+import { EditProductPage, NewProductPage } from './product-form-page';
 
 const CATEGORY = '0b6f6a1e-0000-4000-8000-000000000001';
 
@@ -104,5 +104,67 @@ describe('product form', () => {
     expect(screen.getByText('Choose a category')).toBeInTheDocument();
     expect(screen.getByText('Enter a price like 19.99')).toBeInTheDocument();
     expect(posted).toBe(false);
+  });
+});
+
+describe('stock control', () => {
+  const lamp = {
+    id: 'p1',
+    sellerId: 's1',
+    categoryId: CATEGORY,
+    type: 'FIXED_PRICE',
+    title: 'Desk lamp',
+    description: 'Warm light',
+    images: [],
+    priceCents: 1999,
+    stock: 10,
+    version: 4,
+    moderationStatus: 'APPROVED',
+    moderationReason: null,
+    isPublished: true,
+    archivedAt: null,
+    ratingAvg: 0,
+    ratingCount: 0,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  it('sends the version it was decided on and reloads the product on a conflict', async () => {
+    const bodies: unknown[] = [];
+    let current = lamp;
+    server.use(
+      http.get('/api/categories', () =>
+        HttpResponse.json([{ id: CATEGORY, name: 'Home', slug: 'home', parentId: null }]),
+      ),
+      http.get('/api/seller/products/p1', () => HttpResponse.json(current)),
+      http.patch('/api/seller/products/p1/stock', async ({ request }) => {
+        bodies.push(await request.json());
+        // Three units sold since the page was loaded.
+        current = { ...lamp, stock: 7, version: 5, updatedAt: '2026-01-02T00:00:00Z' };
+        return HttpResponse.json(
+          {
+            error: {
+              code: 'PRODUCT_VERSION_CONFLICT',
+              message: 'The product changed since you loaded it',
+              details: { stock: 7, version: 5 },
+            },
+          },
+          { status: 409 },
+        );
+      }),
+    );
+    renderRoutes(
+      [{ path: '/seller/products/:id', element: <EditProductPage /> }],
+      '/seller/products/p1',
+    );
+
+    const input = await screen.findByLabelText('Units in stock');
+    await userEvent.clear(input);
+    await userEvent.type(input, '15');
+    await userEvent.click(screen.getByRole('button', { name: 'Update stock' }));
+
+    expect(await screen.findByText(/Now in stock: 7\./)).toBeInTheDocument();
+    expect(bodies).toEqual([{ stock: 15, expectedVersion: 4 }]);
+    expect(screen.getByLabelText('Units in stock')).toHaveValue(15);
   });
 });

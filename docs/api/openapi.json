@@ -1705,7 +1705,8 @@
                 "$ref": "#/components/schemas/UpdateStockDto"
               },
               "example": {
-                "stock": 12
+                "stock": 12,
+                "expectedVersion": 3
               }
             }
           }
@@ -1760,6 +1761,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflicts with the current state (CONFLICT).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1771,7 +1782,7 @@
         "tags": [
           "seller-products"
         ],
-        "description": "SELLER only. Sets the stock to an absolute number; connected clients are notified."
+        "description": "SELLER only. Sets the stock to an absolute number; connected clients are notified. Send the `version` the number was decided on as `expectedVersion`: if a sale or another edit changed the product meanwhile, nothing is written and the answer is 409 PRODUCT_VERSION_CONFLICT with the current `stock` and `version`."
       }
     },
     "/api/products/{id}": {
@@ -6568,6 +6579,11 @@
             "minimum": 0,
             "maximum": 1000000,
             "description": "The new absolute stock."
+          },
+          "expectedVersion": {
+            "type": "number",
+            "minimum": 0,
+            "description": "The product `version` the new stock was decided on. When given and the product has changed since (a sale, another edit), nothing is written and the answer is 409 PRODUCT_VERSION_CONFLICT with the current stock and version."
           }
         },
         "required": [

@@ -323,6 +323,38 @@ describe('Seller products (e2e)', () => {
       expect(recorded[0]?.payload).toEqual({ productId: product.id, stock: 3, version: 1 });
     });
 
+    it('writes at the expected version and refuses once a sale moved the product on', async () => {
+      const { seller, auth } = await sellerAuth();
+      const product = await createProduct(prisma, { sellerId: seller.id, stock: 10 });
+      const setStock = (body: object) =>
+        http()
+          .patch(`/api/seller/products/${product.id}/stock`)
+          .set('Authorization', auth)
+          .send(body);
+
+      const first = await setStock({ stock: 12, expectedVersion: 0 }).expect(200);
+      expect(first.body).toMatchObject({ stock: 12, version: 1 });
+
+      // Three units sell while the seller still looks at version 1.
+      await prisma.product.update({
+        where: { id: product.id },
+        data: { stock: 9, version: { increment: 1 } },
+      });
+
+      const stale = await setStock({ stock: 17, expectedVersion: 1 }).expect(409);
+      expect((stale.body as ErrorBody).error).toMatchObject({
+        code: 'PRODUCT_VERSION_CONFLICT',
+        details: { stock: 9, version: 2 },
+      });
+      expect(await prisma.product.findUniqueOrThrow({ where: { id: product.id } })).toMatchObject({
+        stock: 9,
+        version: 2,
+      });
+      expect(
+        (await events(product.id)).filter((e) => e.eventType === 'product.stock_changed'),
+      ).toHaveLength(1);
+    });
+
     it('rejects a negative stock', async () => {
       const { seller, auth } = await sellerAuth();
       const product = await createProduct(prisma, { sellerId: seller.id });
