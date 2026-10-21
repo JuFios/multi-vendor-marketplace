@@ -520,16 +520,26 @@ export class OrdersRepository {
     );
   }
 
-  /** Moves the payment status from `from` to `to`; false when it was not in `from`. */
+  /**
+   * Moves the payment status from `from` to `to` and returns the seller order's new version;
+   * null when it was not in `from`.
+   */
   async changePaymentStatus(
     sellerOrderId: string,
     from: PaymentStatusValue,
     to: PaymentStatusValue,
-  ): Promise<boolean> {
+  ): Promise<number | null> {
     const { count } = await this.txHost.tx.sellerOrder.updateMany({
       where: { id: sellerOrderId, paymentStatus: from },
-      data: { paymentStatus: to },
+      data: { paymentStatus: to, version: { increment: 1 } },
     });
-    return count > 0;
+    if (count === 0) {
+      return null;
+    }
+    const row = await this.txHost.tx.sellerOrder.findUniqueOrThrow({
+      where: { id: sellerOrderId },
+      select: { version: true },
+    });
+    return row.version;
   }
 }

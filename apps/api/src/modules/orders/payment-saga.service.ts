@@ -62,7 +62,8 @@ export class PaymentSagaService {
     { sellerOrder, customerId }: LockedSellerOrder,
     to: PaymentStatusValue,
   ): Promise<void> {
-    if (!(await this.orders.changePaymentStatus(sellerOrder.id, 'PENDING', to))) {
+    const version = await this.orders.changePaymentStatus(sellerOrder.id, 'PENDING', to);
+    if (version === null) {
       return;
     }
     await this.outbox.add([
@@ -76,7 +77,7 @@ export class PaymentSagaService {
           sellerId: sellerOrder.sellerId,
           customerId,
           paymentStatus: to,
-          version: sellerOrder.version + 1,
+          version,
         },
         actorId: null,
       },
