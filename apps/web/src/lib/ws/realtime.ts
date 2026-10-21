@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 
+import { refreshSession } from '../api/api';
 import { sessionStore } from '../session';
 
 import {
@@ -13,6 +14,7 @@ import {
   WS_EVENT,
   WS_NAMESPACE,
   WS_UNAUTHORIZED,
+  type WsEventName,
 } from './ws-events';
 
 export type ConnectionStatus = 'connected' | 'connecting' | 'offline';
@@ -24,6 +26,17 @@ export interface ChannelHandlers {
 
 type StatusListener = (status: ConnectionStatus) => void;
 type ConnectListener = () => void;
+type UserEventListener = (event: WsEventName, payload: unknown) => void;
+
+const USER_EVENTS: readonly WsEventName[] = [
+  WS_EVENT.ORDER_STATUS,
+  WS_EVENT.SELLER_ORDER_CREATED,
+  WS_EVENT.SELLER_ORDER_STATUS,
+  WS_EVENT.SELLER_ORDER_PAYMENT,
+  WS_EVENT.SELLER_ORDER_CANCELLED,
+  WS_EVENT.REFUND_CREATED,
+  WS_EVENT.NOTIFICATION,
+];
 
 export class RealtimeClient {
   private socket: Socket | null = null;
@@ -34,6 +47,7 @@ export class RealtimeClient {
   >();
   private readonly statusListeners = new Set<StatusListener>();
   private readonly connectListeners = new Set<ConnectListener>();
+  private readonly userListeners = new Set<UserEventListener>();
 
   getStatus(): ConnectionStatus {
     return this.status;
@@ -52,6 +66,23 @@ export class RealtimeClient {
     return () => {
       this.connectListeners.delete(listener);
     };
+  }
+
+  /** Events of the caller's private `user:` and `seller:` rooms. */
+  onUserEvent(listener: UserEventListener): () => void {
+    this.userListeners.add(listener);
+    return () => {
+      this.userListeners.delete(listener);
+    };
+  }
+
+  /** The handshake token is read once per connection, so a new identity needs a new socket. */
+  reconnect(): void {
+    if (this.socket === null) {
+      return;
+    }
+    this.disconnect();
+    this.connect();
   }
 
   connect(): void {
@@ -79,8 +110,12 @@ export class RealtimeClient {
         listener();
       });
     });
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
       this.setStatus('offline');
+      // The server drops sockets whose access token expired and the client does not retry those.
+      if (reason === 'io server disconnect') {
+        this.reauthorize(socket);
+      }
     });
     socket.io.on('reconnect_attempt', () => {
       this.setStatus('connecting');
@@ -88,9 +123,16 @@ export class RealtimeClient {
     socket.on('connect_error', (error) => {
       this.setStatus('offline');
       if (error.message === WS_UNAUTHORIZED) {
-        sessionStore.setSession(null);
+        this.reauthorize(socket);
       }
     });
+    for (const event of USER_EVENTS) {
+      socket.on(event, (payload: unknown) => {
+        this.userListeners.forEach((listener) => {
+          listener(event, payload);
+        });
+      });
+    }
     socket.on(WS_EVENT.PRODUCT_STOCK, (payload: ProductStockPayload) => {
       this.dispatch('product', payload.productId, payload);
     });
@@ -123,6 +165,14 @@ export class RealtimeClient {
         }
       }
     };
+  }
+
+  private reauthorize(socket: Socket): void {
+    void refreshSession().then((token) => {
+      if (token !== null && this.socket === socket) {
+        socket.connect();
+      }
+    });
   }
 
   private async resubscribeAll(): Promise<void> {

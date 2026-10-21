@@ -4,7 +4,7 @@ import { cn } from './cn';
 
 type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
-  error?: string;
+  error?: string | undefined;
 };
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
