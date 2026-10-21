@@ -27,6 +27,16 @@ export async function logout(): Promise<void> {
   }
 }
 
+export type SetPasswordInput = components['schemas']['SetPasswordDto'];
+
+export function fetchMe() {
+  return unwrap(api.GET('/api/users/me'));
+}
+
+export async function setPassword(input: SetPasswordInput): Promise<void> {
+  await unwrap(api.POST('/api/users/me/password', { body: input }));
+}
+
 export function fetchProviders() {
   return unwrap(api.GET('/api/auth/providers'));
 }

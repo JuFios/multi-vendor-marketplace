@@ -16,6 +16,11 @@ export interface UserCredentials extends UserAccount {
   readonly passwordHash: string | null;
 }
 
+/** What the user sees of their own account: also whether a password is set. */
+export interface UserProfile extends UserAccount {
+  readonly hasPassword: boolean;
+}
+
 export interface NewUser {
   readonly email: string;
   readonly name: string;

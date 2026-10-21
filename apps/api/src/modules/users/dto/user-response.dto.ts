@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import type { UserAccount } from '../user-account';
+import type { UserProfile } from '../user-account';
 import { ROLES, type UserRole } from '../user-role';
 
 export class UserResponseDto {
@@ -19,16 +19,25 @@ export class UserResponseDto {
   @ApiProperty()
   emailVerified: boolean;
 
+  @ApiProperty({
+    description:
+      'Whether email and password sign-in works. False for an account created through Google, ' +
+      'or one whose password was cleared when Google was linked; `POST /api/users/me/password` ' +
+      'sets one.',
+  })
+  hasPassword: boolean;
+
   @ApiProperty({ format: 'date-time' })
   createdAt: string;
 
-  static from(user: UserAccount): UserResponseDto {
+  static from(user: UserProfile): UserResponseDto {
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       roles: [...user.roles],
       emailVerified: user.emailVerified,
+      hasPassword: user.hasPassword,
       createdAt: user.createdAt.toISOString(),
     };
   }

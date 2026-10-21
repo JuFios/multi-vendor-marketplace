@@ -196,6 +196,41 @@ describe('Google sign-in (e2e)', () => {
       await signInWithGoogle(profile()).then((r) => expect(r.headers.location).toBe(WEB_CALLBACK));
     });
 
+    it('lets the owner set a new password from the Google session, and only them', async () => {
+      await register('olena@example.com').expect(201);
+      const google = await signInWithGoogle(profile());
+      const session = await refresh(cookieValue(refreshCookieOf(google))).expect(200);
+      const bearer = `Bearer ${(session.body as SessionBody).accessToken}`;
+      const me = () => http().get('/api/users/me').set('Authorization', bearer);
+      const setPassword = (body: object) =>
+        http().post('/api/users/me/password').set('Authorization', bearer).send(body);
+
+      expect((await me().expect(200)).body).toMatchObject({ hasPassword: false });
+      await setPassword({ newPassword: 'owner-pass-2026' }).expect(204);
+
+      expect((await me().expect(200)).body).toMatchObject({ hasPassword: true });
+      await http()
+        .post('/api/auth/login')
+        .send({ email: 'olena@example.com', password: 'owner-pass-2026' })
+        .expect(200);
+      // The pre-registered password stays dead.
+      await passwordLogin('olena@example.com').expect(401);
+
+      // Once a password exists, changing it needs the current one.
+      await setPassword({ newPassword: 'another-pass-1' }).expect(400);
+      await setPassword({ currentPassword: 'wrong-pass-1', newPassword: 'another-pass-1' }).expect(
+        400,
+      );
+      await setPassword({
+        currentPassword: 'owner-pass-2026',
+        newPassword: 'another-pass-1',
+      }).expect(204);
+      await http()
+        .post('/api/auth/login')
+        .send({ email: 'olena@example.com', password: 'another-pass-1' })
+        .expect(200);
+    });
+
     it('leaves the sessions of an already verified account alone', async () => {
       const registered = await register('olena@example.com').expect(201);
       const oldToken = cookieValue(refreshCookieOf(registered));

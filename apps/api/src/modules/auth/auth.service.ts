@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { TransactionHost } from '@nestjs-cls/transactional';
 
+import { ValidationFailedError } from '../../common/exceptions/app-error';
 import type { AppTransactionHost } from '../../prisma/transaction';
 import { normalizeEmail } from '../users/email';
 import type { UserAccount } from '../users/user-account';
@@ -26,6 +27,11 @@ export interface RegisterInput {
 export interface LoginInput {
   readonly email: string;
   readonly password: string;
+}
+
+export interface SetPasswordInput {
+  readonly currentPassword?: string | undefined;
+  readonly newPassword: string;
 }
 
 @Injectable()
@@ -70,6 +76,32 @@ export class AuthService {
     }
     this.logger.log({ msg: 'auth.login.success', userId: user.id, ip: client.ip });
     return this.sessions.start(user, client);
+  }
+
+  /**
+   * Sets the password of the signed-in user. An account that has one must confirm it first; one
+   * without (created through Google, or cleared when Google was linked) sets it right away, since
+   * the user is signed in and Google has already proven the mailbox.
+   */
+  async setPassword(userId: string, input: SetPasswordInput): Promise<void> {
+    const user = await this.users.getCredentialsById(userId);
+    if (user.passwordHash !== null) {
+      const confirmed =
+        input.currentPassword !== undefined &&
+        (await this.hasher.verify(user.passwordHash, input.currentPassword));
+      if (!confirmed) {
+        this.logger.warn({ msg: 'auth.password.change_refused', userId });
+        throw new ValidationFailedError(
+          [{ field: 'currentPassword', message: 'The current password is not correct' }],
+          'The current password is not correct',
+        );
+      }
+    }
+    await this.users.setPasswordHash(userId, await this.hasher.hash(input.newPassword));
+    this.logger.log({
+      msg: user.passwordHash === null ? 'auth.password.set' : 'auth.password.changed',
+      userId,
+    });
   }
 
   /**

@@ -46,6 +46,14 @@ export const OPERATION_DOCS: Readonly<Record<string, OperationDoc>> = {
     description: 'Changes the display name. Markup in the name is stripped.',
     requestExample: { name: 'Alice Johnson' },
   },
+  'POST /api/users/me/password': {
+    description:
+      'Sets or changes the password. With a password already set, `currentPassword` must match ' +
+      'it (400 VALIDATION_FAILED otherwise). Without one (an account from Google, or one whose ' +
+      'password was cleared when Google was linked to it) the new password is set directly. ' +
+      'Rate limited like login.',
+    requestExample: { currentPassword: 'S3cure-pass', newPassword: 'N3w-secure-pass' },
+  },
   'POST /api/sellers/applications': {
     description:
       'Creates the seller application of the caller, or re-submits a rejected one. An admin must ' +
@@ -130,10 +138,10 @@ export const OPERATION_DOCS: Readonly<Record<string, OperationDoc>> = {
   'PATCH /api/seller/products/{id}/stock': {
     description:
       'SELLER only. Sets the stock to an absolute number; connected clients are notified. ' +
-      'Send the `version` the number was decided on as `expectedVersion`: if a sale or another ' +
-      'edit changed the product meanwhile, nothing is written and the answer is 409 ' +
-      'PRODUCT_VERSION_CONFLICT with the current `stock` and `version`.',
-    requestExample: { stock: 12, expectedVersion: 3 },
+      'Send the stock the new number was decided on as `expectedStock`: if a sale or a ' +
+      'cancellation changed it meanwhile, nothing is written and the answer is 409 ' +
+      'PRODUCT_STOCK_CONFLICT with the current `stock`.',
+    requestExample: { stock: 12, expectedStock: 10 },
   },
   'GET /api/products/{id}': {
     description:

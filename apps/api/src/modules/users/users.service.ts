@@ -1,13 +1,24 @@
 import { Injectable } from '@nestjs/common';
 
 import { normalizeEmail } from './email';
-import type { NewUser, ProfileChanges, UserAccount, UserCredentials } from './user-account';
+import type {
+  NewUser,
+  ProfileChanges,
+  UserAccount,
+  UserCredentials,
+  UserProfile,
+} from './user-account';
 import type { UserRole } from './user-role';
 import { EmailAlreadyRegisteredError, UserNotFoundError } from './users.errors';
 import { isEmailTaken, UsersRepository } from './users.repository';
 
 const toAccount = ({ passwordHash: _passwordHash, ...account }: UserCredentials): UserAccount =>
   account;
+
+const toProfile = (user: UserCredentials): UserProfile => ({
+  ...toAccount(user),
+  hasPassword: user.passwordHash !== null,
+});
 
 @Injectable()
 export class UsersService {
@@ -42,6 +53,23 @@ export class UsersService {
     return user;
   }
 
+  async getProfile(id: string): Promise<UserProfile> {
+    const user = await this.users.findById(id);
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+    return toProfile(user);
+  }
+
+  /** Includes the password hash; for credential checks only. */
+  async getCredentialsById(id: string): Promise<UserCredentials> {
+    const user = await this.users.findById(id);
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+    return user;
+  }
+
   async findByEmail(email: string): Promise<UserAccount | null> {
     const user = await this.users.findByEmail(normalizeEmail(email));
     return user && toAccount(user);
@@ -52,12 +80,12 @@ export class UsersService {
     return this.users.findByEmail(normalizeEmail(email));
   }
 
-  async updateProfile(id: string, changes: ProfileChanges): Promise<UserAccount> {
+  async updateProfile(id: string, changes: ProfileChanges): Promise<UserProfile> {
     const user = await this.users.updateProfile(id, changes);
     if (!user) {
       throw new UserNotFoundError();
     }
-    return toAccount(user);
+    return toProfile(user);
   }
 
   markEmailVerified(id: string): Promise<void> {
@@ -67,6 +95,12 @@ export class UsersService {
   /** Email and password stops working for the user until a new password is set. */
   clearPassword(id: string): Promise<void> {
     return this.users.clearPassword(id);
+  }
+
+  async setPasswordHash(id: string, passwordHash: string): Promise<void> {
+    if (!(await this.users.setPasswordHash(id, passwordHash))) {
+      throw new UserNotFoundError();
+    }
   }
 
   /** Idempotent. Takes effect in new access tokens, so the user must refresh. */
