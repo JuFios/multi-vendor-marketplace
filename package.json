@@ -11,9 +11,14 @@
   },
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present && eslint load",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc --noEmit -p load",
     "test": "npm run test --workspaces --if-present",
+    "load:up": "docker compose -f docker-compose.yml -f docker-compose.load.yml up --build -d",
+    "load:seed": "npm exec -w apps/api -- tsx ../../load/seed-load.ts",
+    "load:bids": "docker compose -f docker-compose.yml -f docker-compose.load.yml run --rm k6 run --quiet /load/bids.js",
+    "load:checkout": "docker compose -f docker-compose.yml -f docker-compose.load.yml run --rm k6 run --quiet /load/checkout.js",
+    "load:verify": "npm exec -w apps/api -- tsx ../../load/verify.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
