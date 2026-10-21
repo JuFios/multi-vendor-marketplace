@@ -35,7 +35,7 @@ import {
   ProductCategoryInvalidError,
   ProductNotFoundError,
   ProductNotPendingError,
-  ProductVersionConflictError,
+  ProductStockConflictError,
 } from './products.errors';
 import {
   type ModerationFilter,
@@ -170,26 +170,26 @@ export class ProductsService {
   }
 
   /**
-   * Replaces the stock with the given absolute value (not a delta). With `expectedVersion` the
-   * write only happens if nothing changed the product since, so units sold meanwhile are not
+   * Replaces the stock with the given absolute value (not a delta). With `expectedStock` the
+   * write only happens while the stock is still that value, so units sold meanwhile are not
    * silently counted again.
    */
   async setStock(
     sellerId: string,
     id: string,
     stock: number,
-    expectedVersion?: number,
+    expectedStock?: number,
   ): Promise<Product> {
     const current = await this.requireActive(sellerId, id);
     if (current.type !== 'FIXED_PRICE') {
       throw new FixedPriceOnlyError();
     }
     const updated = await this.txHost.withTransaction(async () => {
-      const row = await this.products.setStock(id, sellerId, stock, expectedVersion);
+      const row = await this.products.setStock(id, sellerId, stock, expectedStock);
       if (row === null) {
         const now = await this.products.findOwned(id, sellerId);
-        throw now !== null && now.archivedAt === null && expectedVersion !== undefined
-          ? new ProductVersionConflictError({ stock: now.stock, version: now.version })
+        throw now !== null && now.archivedAt === null && expectedStock !== undefined
+          ? new ProductStockConflictError({ stock: now.stock })
           : new ProductNotFoundError();
       }
       await this.outbox.add([

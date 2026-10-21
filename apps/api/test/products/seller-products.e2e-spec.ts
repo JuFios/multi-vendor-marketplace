@@ -323,7 +323,7 @@ describe('Seller products (e2e)', () => {
       expect(recorded[0]?.payload).toEqual({ productId: product.id, stock: 3, version: 1 });
     });
 
-    it('writes at the expected version and refuses once a sale moved the product on', async () => {
+    it('writes while the stock is the expected one and refuses once a sale moved it', async () => {
       const { seller, auth } = await sellerAuth();
       const product = await createProduct(prisma, { sellerId: seller.id, stock: 10 });
       const setStock = (body: object) =>
@@ -332,27 +332,34 @@ describe('Seller products (e2e)', () => {
           .set('Authorization', auth)
           .send(body);
 
-      const first = await setStock({ stock: 12, expectedVersion: 0 }).expect(200);
+      const first = await setStock({ stock: 12, expectedStock: 10 }).expect(200);
       expect(first.body).toMatchObject({ stock: 12, version: 1 });
 
-      // Three units sell while the seller still looks at version 1.
+      // A review moves the version but not the stock: no conflict.
+      await prisma.product.update({
+        where: { id: product.id },
+        data: { version: { increment: 1 } },
+      });
+      await setStock({ stock: 12, expectedStock: 12 }).expect(200);
+
+      // Three units sell while the seller still looks at 12.
       await prisma.product.update({
         where: { id: product.id },
         data: { stock: 9, version: { increment: 1 } },
       });
 
-      const stale = await setStock({ stock: 17, expectedVersion: 1 }).expect(409);
+      const stale = await setStock({ stock: 17, expectedStock: 12 }).expect(409);
       expect((stale.body as ErrorBody).error).toMatchObject({
-        code: 'PRODUCT_VERSION_CONFLICT',
-        details: { stock: 9, version: 2 },
+        code: 'PRODUCT_STOCK_CONFLICT',
+        details: { stock: 9 },
       });
       expect(await prisma.product.findUniqueOrThrow({ where: { id: product.id } })).toMatchObject({
         stock: 9,
-        version: 2,
+        version: 4,
       });
       expect(
         (await events(product.id)).filter((e) => e.eventType === 'product.stock_changed'),
-      ).toHaveLength(1);
+      ).toHaveLength(2);
     });
 
     it('rejects a negative stock', async () => {

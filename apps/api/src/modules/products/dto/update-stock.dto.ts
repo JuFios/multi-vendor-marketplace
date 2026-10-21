@@ -13,12 +13,12 @@ export class UpdateStockDto {
   @ApiPropertyOptional({
     minimum: 0,
     description:
-      'The product `version` the new stock was decided on. When given and the product has ' +
-      'changed since (a sale, another edit), nothing is written and the answer is ' +
-      '409 PRODUCT_VERSION_CONFLICT with the current stock and version.',
+      'The stock the new value was decided on. When given and the stock has changed since (a ' +
+      'sale, a cancellation), nothing is written and the answer is 409 PRODUCT_STOCK_CONFLICT ' +
+      'with the current stock. Other edits of the product (a review, a new title) do not count.',
   })
   @IsOptional()
   @IsInt()
   @Min(0)
-  expectedVersion?: number;
+  expectedStock?: number;
 }

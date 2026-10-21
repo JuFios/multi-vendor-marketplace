@@ -210,21 +210,21 @@ export class ProductsRepository {
   }
 
   /**
-   * Sets the absolute stock of an active product of the seller, only at `expectedVersion` when
-   * given; null when no such row was updated.
+   * Sets the absolute stock of an active product of the seller, only while it still holds
+   * `expectedStock` when given; null when no such row was updated.
    */
   async setStock(
     id: string,
     sellerId: string,
     stock: number,
-    expectedVersion?: number,
+    expectedStock?: number,
   ): Promise<Product | null> {
     const { count } = await this.txHost.tx.product.updateMany({
       where: {
         id,
         sellerId,
         archivedAt: null,
-        ...(expectedVersion === undefined ? {} : { version: expectedVersion }),
+        ...(expectedStock === undefined ? {} : { stock: expectedStock }),
       },
       data: { stock, version: { increment: 1 } },
     });

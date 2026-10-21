@@ -129,7 +129,7 @@ describe('stock control', () => {
     updatedAt: '2026-01-01T00:00:00Z',
   };
 
-  it('sends the version it was decided on and reloads the product on a conflict', async () => {
+  it('sends the stock it was decided on and keeps the form on a conflict', async () => {
     const bodies: unknown[] = [];
     let current = lamp;
     server.use(
@@ -144,9 +144,9 @@ describe('stock control', () => {
         return HttpResponse.json(
           {
             error: {
-              code: 'PRODUCT_VERSION_CONFLICT',
-              message: 'The product changed since you loaded it',
-              details: { stock: 7, version: 5 },
+              code: 'PRODUCT_STOCK_CONFLICT',
+              message: 'The stock changed since you loaded it',
+              details: { stock: 7 },
             },
           },
           { status: 409 },
@@ -158,13 +158,17 @@ describe('stock control', () => {
       '/seller/products/p1',
     );
 
-    const input = await screen.findByLabelText('Units in stock');
+    const title = await screen.findByLabelText('Title');
+    await userEvent.type(title, ' XL');
+    const input = screen.getByLabelText('Units in stock');
     await userEvent.clear(input);
     await userEvent.type(input, '15');
     await userEvent.click(screen.getByRole('button', { name: 'Update stock' }));
 
     expect(await screen.findByText(/Now in stock: 7\./)).toBeInTheDocument();
-    expect(bodies).toEqual([{ stock: 15, expectedVersion: 4 }]);
+    expect(bodies).toEqual([{ stock: 15, expectedStock: 10 }]);
     expect(screen.getByLabelText('Units in stock')).toHaveValue(15);
+    // The unsaved title edit survives the conflict.
+    expect(screen.getByLabelText('Title')).toHaveValue('Desk lamp XL');
   });
 });

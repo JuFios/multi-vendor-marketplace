@@ -123,7 +123,7 @@ export class SellerProductsController {
     @Body() dto: UpdateStockDto,
   ): Promise<SellerProductResponseDto> {
     return SellerProductResponseDto.from(
-      await this.products.setStock(sellerId, id, dto.stock, dto.expectedVersion),
+      await this.products.setStock(sellerId, id, dto.stock, dto.expectedStock),
     );
   }
 

@@ -28,12 +28,12 @@ export class ProductNotPendingError extends ConflictError {
   }
 }
 
-/** The product moved on since the version the change was based on. */
-export class ProductVersionConflictError extends ConflictError {
-  constructor(current: { stock: number; version: number }) {
+/** The stock moved (a sale, a cancellation) since the value a stock change was decided on. */
+export class ProductStockConflictError extends ConflictError {
+  constructor(current: { stock: number }) {
     super(
-      'The product changed since you loaded it; check the current stock and try again',
-      'PRODUCT_VERSION_CONFLICT',
+      'The stock changed since you loaded it; check the current stock and try again',
+      'PRODUCT_STOCK_CONFLICT',
       current,
     );
   }
