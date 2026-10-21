@@ -117,10 +117,13 @@ describe('Error responses (e2e)', () => {
     expect(response.body).toMatchObject({ error: { code: 'NOT_FOUND' } });
   });
 
-  it('maps throttling to 429 RATE_LIMITED', async () => {
+  it('maps throttling to 429 RATE_LIMITED with a neutral message', async () => {
     const response = await get('/api/probe/throttled').expect(429);
 
-    expect(response.body).toMatchObject({ error: { code: 'RATE_LIMITED' } });
+    expect(response.body).toMatchObject({
+      error: { code: 'RATE_LIMITED', message: 'Too many requests' },
+    });
+    expect(JSON.stringify(response.body)).not.toContain('ThrottlerException');
   });
 
   it('maps a dependency connection failure to 503 without leaking its message', async () => {
