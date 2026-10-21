@@ -6,6 +6,7 @@ import { IdempotentProcessor } from '../../outbox/idempotent.processor';
 import { QUEUE } from '../../queue/queue-names';
 
 import { PaymentSagaService } from './payment-saga.service';
+import type { LifecycleOutcome } from './seller-order-lifecycle.service';
 
 /** Step two of the saga: applies the payment outcome to the seller order. */
 @Processor(QUEUE.ORDERS_SAGA)
@@ -24,9 +25,14 @@ export class OrdersSagaProcessor extends IdempotentProcessor {
         this.saga.onPaymentCaptured(event.payload.sellerOrderId),
       );
     } else if (event.type === EVENT_TYPE.PAYMENT_FAILED) {
-      await this.runIdempotent(event.id, () =>
-        this.saga.onPaymentFailed(event.payload.sellerOrderId),
-      );
+      let compensation: LifecycleOutcome | null = null;
+      await this.runIdempotent(event.id, async () => {
+        compensation = await this.saga.onPaymentFailed(event.payload.sellerOrderId);
+      });
+      // Reported only now that the inbox row and the cancellation have committed together.
+      if (compensation !== null) {
+        this.saga.reportCompensation(compensation);
+      }
     }
   }
 }
