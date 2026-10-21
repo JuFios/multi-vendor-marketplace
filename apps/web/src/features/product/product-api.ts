@@ -39,3 +39,18 @@ export function placeBid(input: { auctionId: string; amountCents: number; key: s
 export function addToCart(input: { productId: string; quantity: number }) {
   return unwrap(api.POST('/api/cart/items', { body: input }));
 }
+
+export function fetchReviewEligibility(productId: string) {
+  return unwrap(
+    api.GET('/api/products/{id}/reviews/eligibility', { params: { path: { id: productId } } }),
+  );
+}
+
+export function createReview(input: { productId: string; rating: number; text: string }) {
+  return unwrap(
+    api.POST('/api/products/{id}/reviews', {
+      params: { path: { id: input.productId } },
+      body: { rating: input.rating, text: input.text },
+    }),
+  );
+}

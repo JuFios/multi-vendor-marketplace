@@ -1,15 +1,39 @@
 import { createBrowserRouter, type RouteObject } from 'react-router';
 
+import { AnalyticsPage } from '../features/admin/analytics-page';
+import { ApplicationsPage } from '../features/admin/applications-page';
+import { CategoriesPage } from '../features/admin/categories-page';
+import { AdminDisputeDetailsPage, AdminDisputesPage } from '../features/admin/disputes-pages';
+import { ProductModerationPage } from '../features/admin/moderation-page';
+import { AdminOrderDetailsPage } from '../features/admin/order-details-page';
+import { AdminOrdersPage } from '../features/admin/orders-page';
 import { ProtectedRoute } from '../features/auth/protected-route';
+import { CartPage } from '../features/cart/cart-page';
 import { CatalogPage } from '../features/catalog/catalog-page';
+import { NotificationsPage } from '../features/notifications/notifications-page';
+import { CheckoutPage } from '../features/orders/checkout-page';
+import { CheckoutSuccessPage } from '../features/orders/checkout-success-page';
+import { OrderDetailsPage } from '../features/orders/order-details-page';
+import { OrdersPage } from '../features/orders/orders-page';
 import { ProductPage } from '../features/product/product-page';
+import { SellerAuctionsPage } from '../features/seller/auctions-page';
+import { SellerDashboardPage } from '../features/seller/dashboard-page';
+import { SellerOrderDetailsPage } from '../features/seller/order-details-page';
+import { SellerOrdersPage } from '../features/seller/orders-page';
+import { EditProductPage, NewProductPage } from '../features/seller/product-form-page';
+import { SellerProductsPage } from '../features/seller/products-page';
 
+import { AccountLayout } from './layouts/account-layout';
+import { AdminLayout } from './layouts/admin-layout';
 import { RootLayout } from './layouts/root-layout';
+import { SellerLayout } from './layouts/seller-layout';
+import { AccountDisputeDetailsPage, AccountDisputesPage } from './routes/account-disputes';
 import { AuthCallbackPage } from './routes/auth-callback-page';
 import { LoginPage } from './routes/login-page';
 import { RegisterPage } from './routes/register-page';
 import { AccountHomePage } from './routes/section-pages';
 import { SellerApplicationPage } from './routes/seller-application-page';
+import { SellerDisputeDetailsPage, SellerDisputesPage } from './routes/seller-disputes';
 import { ForbiddenPage, NotFoundPage } from './routes/system-pages';
 
 export const routes: RouteObject[] = [
@@ -25,8 +49,61 @@ export const routes: RouteObject[] = [
       {
         element: <ProtectedRoute role="CUSTOMER" />,
         children: [
-          { path: 'account', element: <AccountHomePage /> },
-          { path: 'account/seller-application', element: <SellerApplicationPage /> },
+          { path: 'cart', element: <CartPage /> },
+          { path: 'checkout', element: <CheckoutPage /> },
+          { path: 'checkout/success/:orderId', element: <CheckoutSuccessPage /> },
+          {
+            path: 'account',
+            element: <AccountLayout />,
+            children: [
+              { index: true, element: <AccountHomePage /> },
+              { path: 'orders', element: <OrdersPage /> },
+              { path: 'orders/:id', element: <OrderDetailsPage /> },
+              { path: 'disputes', element: <AccountDisputesPage /> },
+              { path: 'disputes/:id', element: <AccountDisputeDetailsPage /> },
+              { path: 'notifications', element: <NotificationsPage /> },
+              { path: 'seller-application', element: <SellerApplicationPage /> },
+            ],
+          },
+        ],
+      },
+      {
+        element: <ProtectedRoute role="SELLER" />,
+        children: [
+          {
+            path: 'seller',
+            element: <SellerLayout />,
+            children: [
+              { index: true, element: <SellerDashboardPage /> },
+              { path: 'products', element: <SellerProductsPage /> },
+              { path: 'products/new', element: <NewProductPage /> },
+              { path: 'products/:id', element: <EditProductPage /> },
+              { path: 'auctions', element: <SellerAuctionsPage /> },
+              { path: 'orders', element: <SellerOrdersPage /> },
+              { path: 'orders/:id', element: <SellerOrderDetailsPage /> },
+              { path: 'disputes', element: <SellerDisputesPage /> },
+              { path: 'disputes/:id', element: <SellerDisputeDetailsPage /> },
+            ],
+          },
+        ],
+      },
+      {
+        element: <ProtectedRoute role="ADMIN" />,
+        children: [
+          {
+            path: 'admin',
+            element: <AdminLayout />,
+            children: [
+              { index: true, element: <AnalyticsPage /> },
+              { path: 'applications', element: <ApplicationsPage /> },
+              { path: 'products', element: <ProductModerationPage /> },
+              { path: 'categories', element: <CategoriesPage /> },
+              { path: 'orders', element: <AdminOrdersPage /> },
+              { path: 'orders/:id', element: <AdminOrderDetailsPage /> },
+              { path: 'disputes', element: <AdminDisputesPage /> },
+              { path: 'disputes/:id', element: <AdminDisputeDetailsPage /> },
+            ],
+          },
         ],
       },
       { path: '*', element: <NotFoundPage /> },
