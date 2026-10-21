@@ -487,38 +487,51 @@ npm run dev -w apps/web          # Vite on http://localhost:5173
 
 A manual checklist for a fresh `docker compose up --build`. Open http://localhost:8080.
 
-- [ ] **Catalog.** The home page lists seeded products; search for a product name (with a typo),
-      narrow by category, price range and availability; facets update with the filters.
+- [ ] **Catalog.** The home page lists seeded products. Search with a typo (for example
+      `fitnes` finds "Smart Fitness Band"), narrow by category, seller, type, price range and
+      availability; the facet counts follow the filters.
 - [ ] **Sign in** as `buyer1@example.com`. Sign out and register a new account to see both flows.
-- [ ] **Live stock.** Open a product page in two browser windows. Buy units of the product in
-      one window until few are left; the other window's stock indicator ("In stock" / "Only N
-      left") changes without a reload.
-- [ ] **Multi-vendor checkout.** Add products of two different stores to the cart; the cart is
-      grouped by store. Check out. The order page shows one order with two seller orders, each with
-      its own status.
-- [ ] **Seller side.** In another window sign in as the seller of one of the products. The seller
-      dashboard shows the new seller order; move it to Processing, then Shipped. As the buyer, the
-      order status updates live and reads `PARTIALLY_SHIPPED` while the other part is still new.
-      Confirm receipt as the buyer to complete the first part.
-- [ ] **Partial cancellation.** As the second seller, cancel the other seller order. The buyer's
-      order shows the cancelled part and the first part is unaffected; the product's stock is back.
-- [ ] **Refund and finance.** As the seller of a paid seller order, refund one item. The
-      commission is recomputed on what remains; the seller finance page and the admin ledger show
-      the refund and the commission reversal.
-- [ ] **Auction.** Open a running auction in two windows as two different buyers. Place a bid in
-      one; the price and the next minimum bid change in the other at once. Try a lower bid and
-      see the rejection. Stop the `api` container (`docker compose stop api`) for a few seconds
-      while bidding, start it again and watch the page resynchronise.
-- [ ] **Review and dispute.** After a seller order is completed, leave a review as the buyer (a
-      buyer who did not receive the product is refused). Open a dispute on another seller order and
-      exchange messages with the seller.
+- [ ] **Live stock.** "Wireless Earbuds" (Tech Hub) has a single unit. Open its page in two
+      browser windows; buy it in one (next step); the other window changes from "Only 1 left" to
+      "Out of stock" without a reload.
+- [ ] **Multi-vendor checkout.** As the buyer, add "Wireless Earbuds" (Tech Hub) and "Smart
+      Fitness Band" (Urban Style) to the cart; the cart is grouped by store. Place the order. The
+      order page shows one order with two seller orders, each with its own status.
+- [ ] **Seller side.** In another window sign in as `seller1@example.com` (Tech Hub). The
+      dashboard shows the new seller order (payment captured, 10% commission); start processing,
+      then mark it shipped. In the buyer's window the order status changes live and reads
+      `PARTIALLY SHIPPED` while the other part is still new. Confirm receipt as the buyer to
+      complete the first part.
+- [ ] **Partial cancellation.** Cancel the other seller order ("Cancel shipment" as the buyer, or
+      as `seller2@example.com`). The order page shows the cancelled part and the refunded amount,
+      the first part stays completed, and the product's stock is back.
+- [ ] **Review.** On the completed part the buyer can leave a review; it is published at once and
+      the product's rating updates. Markup in the text is stripped. A buyer who never received the
+      product is refused.
+- [ ] **Refund and finance.** As `seller1@example.com`, open the completed seller order and refund
+      the item ("Refund items" previews the amounts). The commission is recomputed on what
+      remains and the dashboard shows the refund. The ledger entries are available in Swagger:
+      `GET /api/seller/finance` and `GET /api/admin/ledger`.
+- [ ] **Auction.** One seeded lot closes a few minutes after the stack starts. As a buyer, open
+      it in two windows (the second one may be anonymous), place a bid (at least the "Minimum next
+      bid"); the price, the bid count and the minimum change in the other window at once, and the
+      other bidder is masked. A lower bid is refused with the minimum shown. Stop the api container (`docker compose stop api`) for a few seconds: the page shows "Reconnecting…", and once the api is back it
+      loads the current state, even if the auction closed in the meantime ("You won this lot",
+      the lot is in the cart). Check it out through the normal checkout.
+- [ ] **Dispute.** On a processing, shipped or completed seller order the buyer can open a
+      dispute and exchange messages with the store.
 - [ ] **Admin.** Sign in as `admin@example.com`: approve `seller-pending@example.com`'s
-      application, moderate a product, create a category, resolve the dispute (with a refund),
-      open the analytics dashboard with the 30-day chart and download the CSV and JSON reports.
-- [ ] **Degraded search.** `docker compose stop meilisearch`; the catalog keeps working (without
-      facets or typo tolerance). Start it again and the index catches up.
-- [ ] **Observability.** `curl localhost:3000/metrics | grep -E 'orders_created|bids_placed'`
-      and `docker compose logs api worker | grep <correlationId of a checkout>`.
+      application, create a category, take the dispute into review and resolve it, open the
+      analytics page (revenue, sales by store, top products, conversion, 30-day chart against the
+      previous period) and use "Export CSV" / "Export JSON". New products are published at once
+      and wait in "Product moderation" (as the approved store, create one in the seller area,
+      then approve or reject it as the admin).
+- [ ] **Degraded search.** `docker compose stop meilisearch`; the catalog keeps working and says
+      "Search is running in limited mode" (no typo tolerance, partial facets). Start it again and
+      full search returns.
+- [ ] **Observability.** `curl localhost:3000/metrics | grep -E 'orders_created|bids_placed'` and
+      `docker compose logs api worker | grep <correlationId of a checkout>`; the correlation id
+      is the `X-Request-Id` response header of the checkout request.
 
 ## Development and tests
 
