@@ -137,8 +137,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Check OpenAPI client types
+        run: |
+          npm run openapi:export -w apps/api
+          npm run api:types -w apps/web
+          git diff --exit-code -- apps/web/src/lib/api/schema.d.ts
       - name: Build all workspaces
         run: npm run build
+      - name: Build Storybook
+        run: npm run build-storybook -w apps/web
       - uses: docker/setup-buildx-action@v4
       - name: Build api image
         uses: docker/build-push-action@v7
