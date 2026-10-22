@@ -116,6 +116,30 @@ export class EnvironmentVariables {
   @Min(1)
   OUTBOX_BATCH_SIZE = 100;
 
+  // Housekeeping: how often the worker removes old rows from `outbox_events`,
+  // `processed_events` and `idempotency_keys`, how many it deletes per statement, and how long
+  // published outbox events and inbox rows are kept. The inbox must outlast the failed-job
+  // set of the queues (seven days), because a retried job is deduplicated by its inbox row.
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  HOUSEKEEPING_INTERVAL_MS = 600_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  HOUSEKEEPING_BATCH_SIZE = 5000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  OUTBOX_RETENTION_DAYS = 7;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(8)
+  PROCESSED_EVENTS_RETENTION_DAYS = 14;
+
   // Jobs a queue worker processes at the same time.
   @Type(() => Number)
   @IsInt()

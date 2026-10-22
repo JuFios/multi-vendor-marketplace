@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { CacheModule } from './cache/cache.module';
 import { AppClsModule } from './common/cls/app-cls.module';
 import { AppConfigModule } from './config/config.module';
+import { HousekeepingModule } from './housekeeping/housekeeping.module';
 import { LoggerModule } from './logger/logger.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { WorkerMetricsServer } from './metrics/worker-metrics.server';
@@ -33,6 +34,7 @@ import { WorkerLifecycle } from './worker.lifecycle';
     CacheModule,
     QueueModule,
     OutboxRelayModule,
+    HousekeepingModule,
     RedisModule,
     MeiliModule,
     ProductsWorkerModule,

@@ -723,6 +723,7 @@ model ProcessedEvent {
   processedAt DateTime @default(now()) @map("processed_at")
 
   @@id([consumer, eventId])
+  @@index([processedAt])
   @@map("processed_events")
 }
 

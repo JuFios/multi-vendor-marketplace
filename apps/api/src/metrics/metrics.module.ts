@@ -13,6 +13,7 @@ import {
   CACHE_HITS_TOTAL,
   CACHE_MISSES_TOTAL,
   CHECKOUT_FAILURES_TOTAL,
+  HOUSEKEEPING_DELETED_ROWS_TOTAL,
   HTTP_DURATION_BUCKETS_SECONDS,
   HTTP_REQUEST_DURATION_SECONDS,
   HTTP_REQUESTS_TOTAL,
@@ -59,6 +60,11 @@ const metricProviders = [
     name: OUTBOX_PUBLISH_LAG_SECONDS,
     help: 'Time from an event being recorded to it being published.',
     buckets: OUTBOX_LAG_BUCKETS_SECONDS,
+  }),
+  makeCounterProvider({
+    name: HOUSEKEEPING_DELETED_ROWS_TOTAL,
+    help: 'Rows removed by the worker housekeeping, by table.',
+    labelNames: ['table'],
   }),
   makeCounterProvider({
     name: OUTBOX_PUBLISH_FAILURES_TOTAL,

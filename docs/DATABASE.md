@@ -207,13 +207,13 @@ erDiagram
 
 ## Tables outside the diagram
 
-| Table                                             | Purpose                                                                               |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `outbox_events`                                   | Transactional outbox; a partial index covers the rows that are not published yet.     |
-| `processed_events`                                | Inbox of `(consumer, event_id)` pairs that makes event handlers idempotent.           |
-| `idempotency_keys`                                | Stored responses for `Idempotency-Key` requests, unique per `(user_id, scope, key)`.  |
-| `payment_refunds`                                 | The gateway's answer to each refund request, unique per request event (`refund_key`). |
-| `sales_daily_by_seller`, `sales_daily_by_product` | Analytics read models, keyed by day and seller or product.                            |
+| Table                                             | Purpose                                                                                                                                     |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `outbox_events`                                   | Transactional outbox; a partial index covers the rows that are not published yet. Published rows are deleted after `OUTBOX_RETENTION_DAYS`. |
+| `processed_events`                                | Inbox of `(consumer, event_id)` pairs that makes event handlers idempotent. Rows are deleted after `PROCESSED_EVENTS_RETENTION_DAYS`.       |
+| `idempotency_keys`                                | Stored responses for `Idempotency-Key` requests, unique per `(user_id, scope, key)`. Expired keys are deleted.                              |
+| `payment_refunds`                                 | The gateway's answer to each refund request, unique per request event (`refund_key`).                                                       |
+| `sales_daily_by_seller`, `sales_daily_by_product` | Analytics read models, keyed by day and seller or product.                                                                                  |
 
 ## Constraints that live in SQL
 

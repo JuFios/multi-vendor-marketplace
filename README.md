@@ -336,6 +336,25 @@ from the seller order id, so a capture repeated after a rolled-back recording ge
 on any worker and after a restart, as a real provider answers a repeated idempotency key. The
 compensation is logged and counted only after its transaction has committed.
 
+## Housekeeping
+
+Three tables only ever grow on their own: every event leaves an `outbox_events` row and one
+`processed_events` row per consumer, and every `Idempotency-Key` request leaves a key. The worker
+runs a sweep every `HOUSEKEEPING_INTERVAL_MS` (10 minutes) that deletes, in batches of
+`HOUSEKEEPING_BATCH_SIZE` rows with `FOR UPDATE SKIP LOCKED` (so several workers do not wait for
+each other):
+
+| Table              | Deleted when                                                       | Kept regardless                                  |
+| ------------------ | ------------------------------------------------------------------ | ------------------------------------------------ |
+| `outbox_events`    | published more than `OUTBOX_RETENTION_DAYS` (7) days ago           | every unpublished event, whatever its age        |
+| `processed_events` | older than `PROCESSED_EVENTS_RETENTION_DAYS` (14) days             | rows of an event still unpublished in the outbox |
+| `idempotency_keys` | `expires_at` has passed (`IDEMPOTENCY_TTL_HOURS`), finished or not | every key that has not expired                   |
+
+The inbox retention has a floor of 8 days: BullMQ keeps a failed job for seven days and the search
+redrive may retry it, and a retried job is deduplicated by its inbox row. Deleted rows are counted
+in `housekeeping_deleted_rows_total{table}`. Partial and plain indexes on `published_at` and
+`processed_at` keep each batch from scanning the table.
+
 ## Idempotency
 
 Three layers, for three kinds of repetition:
@@ -487,6 +506,7 @@ on `WORKER_METRICS_PORT` (9100).
 | `queue_job_duration_seconds{queue,event}`, `queue_jobs_completed_total`, `queue_jobs_failed_total` | Queue processing time and outcomes           |
 | `queue_dead_letter_total`, `queue_waiting_jobs{queue}`                                             | Exhausted jobs and backlog                   |
 | `outbox_pending_events`, `outbox_publish_lag_seconds`, `outbox_publish_failures_total`             | Outbox backlog, delay and failures           |
+| `housekeeping_deleted_rows_total{table}`                                                           | Rows removed by the retention sweep          |
 | `search_degraded_total`                                                                            | Catalog answers served from the SQL fallback |
 | `cache_hits_total`, `cache_misses_total`                                                           | Cache effectiveness                          |
 | `ws_connections`, `ws_events_emitted_total{event}`                                                 | WebSocket connections and emitted events     |
@@ -766,9 +786,10 @@ Where the specification leaves room, these are the decisions taken.
   pick their address with `X-Forwarded-For` and spread over per-address rate-limit buckets; the
   per-email login and per-user bid limits still hold. Production would publish only the proxy,
   or set `trust proxy` to the proxy's address instead of a hop count.
-- **Retention.** `outbox_events`, `processed_events` and `idempotency_keys` are append-only:
-  nothing prunes them, so they grow with traffic. A long-running deployment needs a retention job
-  (and partitioning of the outbox by time).
+- **Retention.** The worker's housekeeping deletes old rows of `outbox_events`, `processed_events`
+  and `idempotency_keys` (see [Housekeeping](#housekeeping)), so they no longer grow without
+  bound. At very high event volumes the deletes themselves become the cost; partitioning the
+  outbox by time and dropping whole partitions would remove it.
 - **Search sync under a hot lot.** A product that changes continuously (a busy auction) makes the
   `search-sync` consumer repeat its read-and-write several times and retry; see the finding in the
   load report. Coalescing the updates of one product would remove the waste.
