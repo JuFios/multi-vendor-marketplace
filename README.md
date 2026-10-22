@@ -798,8 +798,11 @@ Where the specification leaves room, these are the decisions taken.
 - **Search sync under a hot lot.** A product that changes continuously (a busy auction) makes the
   `search-sync` consumer repeat its read-and-write several times and retry; see the finding in the
   load report. Coalescing the updates of one product would remove the waste.
-- **Checkout latency under a burst.** 500 simultaneous checkouts show a p95 of 1.3 s. I did not
-  profile the cause (pool size, row lock waits), so I have not tuned anything.
+- **Checkout latency under a burst.** 500 simultaneous checkouts of one product show a p95 of about
+  1 s. The cause is the row lock on that product: every lock wait during the burst was in the stock
+  update, and the checkouts pass through it one at a time. The connection pool size, a second api
+  process and CPU made no difference (see the load report). Shortening the part of the
+  transaction that runs after the stock update would help; I have not done it.
 - **Load test method.** Single runs, load generator on the same machine as the stack, no CPU and
   memory capture during the run. A fair benchmark would use separate hardware, several repetitions
   and a soak run.
