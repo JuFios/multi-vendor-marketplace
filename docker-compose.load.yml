@@ -8,6 +8,9 @@
 
 services:
   api:
+    # The host-side steps (`load:seed`, `load:verify`) call the api directly; k6 uses the network.
+    ports:
+      - '127.0.0.1:${API_PORT:-3000}:3000'
     environment:
       THROTTLE_DEFAULT_LIMIT: '1000000'
       THROTTLE_DEFAULT_TTL: '60'

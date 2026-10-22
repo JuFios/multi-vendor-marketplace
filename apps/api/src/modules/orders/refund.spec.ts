@@ -1,6 +1,11 @@
 import { AppError } from '../../common/exceptions/app-error';
 
-import { assertRefundable, planRefund, type RefundableSellerOrder } from './refund';
+import {
+  assertRefundable,
+  planRefund,
+  planRefundRestock,
+  type RefundableSellerOrder,
+} from './refund';
 
 /** The error code a call fails with; undefined when it does not fail. */
 const codeOf = (call: () => unknown): string | undefined => {
@@ -105,4 +110,28 @@ describe('assertRefundable', () => {
       'PAYMENT_NOT_CAPTURED',
     );
   });
+});
+
+describe('planRefundRestock', () => {
+  const items = [
+    { id: 'i1', productId: 'p1', auctionId: null },
+    { id: 'i2', productId: 'p2', auctionId: 'a2' },
+  ];
+  const lines = [
+    { sellerOrderItemId: 'i1', quantity: 2 },
+    { sellerOrderItemId: 'i2', quantity: 1 },
+  ];
+
+  it('gives back the refunded units of a processing order, except an auction lot', () => {
+    expect(planRefundRestock('PROCESSING', items, lines)).toEqual([
+      { productId: 'p1', quantity: 2 },
+    ]);
+  });
+
+  it.each(['SHIPPED', 'COMPLETED'] as const)(
+    'gives back nothing once the order is %s',
+    (status) => {
+      expect(planRefundRestock(status, items, lines)).toEqual([]);
+    },
+  );
 });

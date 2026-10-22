@@ -6,10 +6,12 @@ export const ORDERS_CREATED_TOTAL = 'orders_created_total';
 export const SELLER_ORDERS_CANCELLED_TOTAL = 'seller_orders_cancelled_total';
 export const CHECKOUT_FAILURES_TOTAL = 'checkout_failures_total';
 export const REFUNDS_TOTAL = 'refunds_total';
+export const PAYMENT_REFUNDS_TOTAL = 'payment_refunds_total';
 export const BIDS_PLACED_TOTAL = 'bids_placed_total';
 export const BIDS_REJECTED_TOTAL = 'bids_rejected_total';
 export const BID_OPTIMISTIC_RETRIES_TOTAL = 'bid_optimistic_retries_total';
 
+export const HOUSEKEEPING_DELETED_ROWS_TOTAL = 'housekeeping_deleted_rows_total';
 export const OUTBOX_PENDING_EVENTS = 'outbox_pending_events';
 export const OUTBOX_PUBLISH_LAG_SECONDS = 'outbox_publish_lag_seconds';
 export const OUTBOX_PUBLISH_FAILURES_TOTAL = 'outbox_publish_failures_total';

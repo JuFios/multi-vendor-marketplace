@@ -50,6 +50,24 @@ describe('validate', () => {
     }
   });
 
+  it('defaults the housekeeping settings and keeps the inbox longer than the failed jobs', () => {
+    expect(validate(validEnv)).toMatchObject({
+      HOUSEKEEPING_INTERVAL_MS: 600_000,
+      HOUSEKEEPING_BATCH_SIZE: 5000,
+      OUTBOX_RETENTION_DAYS: 7,
+      PROCESSED_EVENTS_RETENTION_DAYS: 14,
+    });
+    expect(validate({ ...validEnv, PROCESSED_EVENTS_RETENTION_DAYS: '8' })).toMatchObject({
+      PROCESSED_EVENTS_RETENTION_DAYS: 8,
+    });
+    expect(() => validate({ ...validEnv, PROCESSED_EVENTS_RETENTION_DAYS: '7' })).toThrow(
+      'PROCESSED_EVENTS_RETENTION_DAYS',
+    );
+    expect(() => validate({ ...validEnv, HOUSEKEEPING_BATCH_SIZE: '0' })).toThrow(
+      'HOUSEKEEPING_BATCH_SIZE',
+    );
+  });
+
   it('rejects an unknown profile and an out-of-range port', () => {
     expect(() => validate({ ...validEnv, NODE_ENV: 'staging' })).toThrow('NODE_ENV');
     expect(() => validate({ ...validEnv, PORT: '70000' })).toThrow('PORT');

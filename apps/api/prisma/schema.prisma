@@ -402,6 +402,7 @@ model SellerOrder {
   refunds        Refund[]
   ledgerEntries  LedgerEntry[]
   paymentAttempt PaymentAttempt?
+  paymentRefunds PaymentRefund[]
   payout         Payout?
   disputes       Dispute[]
 
@@ -527,6 +528,30 @@ model PaymentAttempt {
   sellerOrder SellerOrder @relation(fields: [sellerOrderId], references: [id], onDelete: Restrict)
 
   @@map("payment_attempts")
+}
+
+enum PaymentRefundStatus {
+  REFUNDED
+  FAILED
+
+  @@map("payment_refund_status")
+}
+
+/// The gateway's answer to a `payment.refund_requested` event; `refundKey` is that event's id.
+model PaymentRefund {
+  id            String              @id @default(uuid()) @db.Uuid
+  refundKey     String              @unique @map("refund_key") @db.Uuid
+  sellerOrderId String              @map("seller_order_id") @db.Uuid
+  amountCents   Int                 @map("amount_cents")
+  status        PaymentRefundStatus
+  providerRef   String?             @map("provider_ref")
+  failureReason String?             @map("failure_reason")
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  sellerOrder SellerOrder @relation(fields: [sellerOrderId], references: [id], onDelete: Restrict)
+
+  @@index([sellerOrderId])
+  @@map("payment_refunds")
 }
 
 model Payout {
@@ -686,6 +711,8 @@ model OutboxEvent {
   publishedAt   DateTime? @map("published_at")
   attempts      Int       @default(0)
   lastError     String?   @map("last_error")
+  /// A relay's lease on the event while it publishes it; others skip it until it runs out.
+  claimedUntil  DateTime? @map("claimed_until")
 
   @@map("outbox_events")
 }
@@ -696,6 +723,7 @@ model ProcessedEvent {
   processedAt DateTime @default(now()) @map("processed_at")
 
   @@id([consumer, eventId])
+  @@index([processedAt])
   @@map("processed_events")
 }
 

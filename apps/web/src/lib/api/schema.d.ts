@@ -796,6 +796,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/payment-refunds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The payment gateway’s answers to refund requests, newest first.
+         * @description ADMIN only. What the payment gateway answered to each refund request (a partial refund, the cancellation of a captured payment, a payment captured after its cancellation). A `FAILED` one was refused by the gateway: the books already show the money as returned, so a person has to settle it with the provider.
+         */
+        get: operations["AdminPaymentRefundsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orders/checkout": {
         parameters: {
             query?: never;
@@ -987,7 +1007,7 @@ export interface paths {
         put?: never;
         /**
          * Refunds items of an own paid seller order; the commission is recomputed.
-         * @description SELLER only. Partial refund of items of a paid seller order. The commission is recomputed on what remains. Stock does not change. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422.
+         * @description SELLER only. Partial refund of items of a paid seller order. The commission is recomputed on what remains. Units of a PROCESSING order go back in stock; shipped units do not. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422.
          */
         post: operations["SellerOrdersController_refund"];
         delete?: never;
@@ -1920,6 +1940,37 @@ export interface components {
         };
         LedgerPageDto: {
             items: components["schemas"]["LedgerEntryDto"][];
+            total: number;
+            page: number;
+            limit: number;
+        };
+        PaymentRefundDto: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description The idempotency key sent to the gateway (the refund request event id).
+             */
+            refundKey: string;
+            /** Format: uuid */
+            sellerOrderId: string;
+            /** Format: uuid */
+            orderId: string;
+            /** Format: uuid */
+            sellerId: string;
+            /** @description The amount asked back for the buyer, in kopecks. */
+            amountCents: number;
+            /** @enum {string} */
+            status: "REFUNDED" | "FAILED";
+            /** @description The gateway’s reference when paid. */
+            providerRef: string | null;
+            /** @description Why the gateway refused it. */
+            failureReason: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PaymentRefundPageDto: {
+            items: components["schemas"]["PaymentRefundDto"][];
             total: number;
             page: number;
             limit: number;
@@ -4708,6 +4759,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LedgerPageDto"];
+                };
+            };
+            /** @description Malformed or invalid request (VALIDATION_FAILED, BAD_REQUEST). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Missing or invalid credentials (UNAUTHORIZED). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+            /** @description Authenticated but not allowed (FORBIDDEN). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseDto"];
+                };
+            };
+        };
+    };
+    AdminPaymentRefundsController_list: {
+        parameters: {
+            query?: {
+                /** @description Page number, starting at 1. */
+                page?: number;
+                /** @description Only answers with this outcome; FAILED lists the refunds that need a person. */
+                status?: "REFUNDED" | "FAILED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRefundPageDto"];
                 };
             };
             /** @description Malformed or invalid request (VALIDATION_FAILED, BAD_REQUEST). */

@@ -114,6 +114,42 @@ repetitions the attempt fails and the queue retries the job. Every failed attemp
 nothing was dead-lettered and `queue_waiting_jobs` is 0 for every queue. Under this load the search index
 lags behind the auction instead of failing; the retries are wasted work.
 
+### Finding: where the checkout latency comes from
+
+Follow-up runs of `load/checkout.js` on a fresh stack (same machine and method as above, so the same caveats
+apply; single runs unless a count is given) to find out why the burst shows a p95 above one second. Across a dozen
+repetitions the checkout p95 ranged from 0.8 to 1.7 s and the add-to-cart p95 from 1.9 to 3.1 s.
+
+**It is queueing in front of one hot row, not a slow request.**
+
+- _A single buyer is fast._ With one VU the add-to-cart took 33 ms and the checkout 75 ms (the first call, cold). The
+  latency grows with the number of simultaneous buyers, almost in proportion: checkout p95 98 / 222 / 317 / 557 /
+  1181 ms at 10 / 50 / 100 / 250 / 500 buyers. Every VU sends its next request as soon as the last one is answered, so
+  the time a request waits is roughly the number of buyers divided by the throughput (about 170 checkouts per second
+  here).
+- _All lock waits are on one statement._ Sampling `pg_stat_activity` every 50 ms during the burst, every backend
+  waiting on a lock (81% `transactionid`, 19% `tuple`) was waiting in `UPDATE products SET stock = stock - $1 …`, the
+  row of the one product everybody buys. That row is locked until the checkout transaction commits, so the 100
+  successful checkouts pass through it one after the other: they finish within about a second, around 10 ms each,
+  which is the checkout p50. Among the non-idle backend samples, about half were `idle in transaction` (the database
+  waiting for the api to send the next statement of an open transaction), a third waited on the lock and about a
+  tenth were doing work.
+- _Not the connection pool._ The `pg` pool has its default of 10 connections. Three interleaved runs each with 10 and
+  with 30 connections gave a checkout p95 of 790 / 1027 / 1347 ms and 1165 / 1286 / 1056 ms: no improvement.
+- _Not the single Node process._ Two api replicas gave 1253 / 974 ms (one) against 1265 / 814 ms (two) on the checkout
+  p95, and no better add-to-cart latency.
+- _Not CPU._ Peak CPU of the containers during the burst on the 8-CPU VM: api 152%, worker 111%, PostgreSQL 102%,
+  Meilisearch 54%, Redis 29%, k6 16%.
+- _The other requests slow down too._ Add-to-cart does not touch the hot row, yet its p95 is 1.9 to 3.1 s next to the
+  checkouts, against 1.0 to 1.3 s when 500 buyers only add to the cart (three runs, about 400 requests per second). I
+  did not establish why; the worker, which processes the first orders' events at the same time, was at its busiest
+  during the burst.
+
+So 500 simultaneous buyers of one product are limited by how fast the transactions can pass one row. The time the row
+stays locked is the rest of the checkout transaction after the stock update (the lot settlement, the order and its
+items, the ledger rows, the cart, the outbox rows and the idempotency record), not the update itself. Keeping that
+window short is what would help; spreading the load over more connections or processes does not.
+
 ## Conclusions
 
 - Under 200 concurrent bidders on one lot the api sustained about 630 bid requests per second at a p95 of about
@@ -121,12 +157,15 @@ lags behind the auction instead of failing; the retries are wasted work.
   required minimum.
 - With 500 buyers racing for 100 units, exactly 100 orders were created; the stock never went negative and nothing
   was oversold.
-- The latency of the checkout burst (p95 1.3 s, add-to-cart p95 2.3 s) is far above the bid latency. These requests
-  wait for each other; I did not profile where, so the cause is not established.
+- The latency of the checkout burst (p95 1.3 s, add-to-cart p95 2.3 s) is far above the bid latency. The requests wait
+  for each other on the row of the one product everybody buys (see the finding above); the connection pool size, a
+  second api process and CPU make no measurable difference. A burst of buyers spread over many products would not
+  show it.
 
 ## What to improve
 
-- Profile the checkout burst (connection pool size, time spent waiting on the product row lock) before tuning anything.
+- Shorten the time a checkout holds the stock row: take the stock as late in the transaction as possible, so the lock
+  lasts for the commit instead of the rest of the transaction. Measure it with the same burst before and after.
 - Run the load generator on separate hardware and capture CPU and memory of every container during the run; this
   report records neither, because the only sample taken was after the load had stopped.
 - Repeat each scenario several times and report the spread instead of single runs.
@@ -144,7 +183,7 @@ npm run load:checkout  # a few seconds
 npm run load:verify    # invariants and metrics -> load/results/verify.json
 ```
 
-Defaults match the compose ports (api on 3000, PostgreSQL on 5432). To run beside a development stack, give the
+Defaults match the compose ports (PostgreSQL on 5432; the load profile publishes the api on `127.0.0.1:3000`, the plain stack does not publish it). To run beside a development stack, give the
 load stack its own project name and ports, and point the host-side steps at them:
 
 ```bash

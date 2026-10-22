@@ -1,12 +1,15 @@
 # Full stack: `docker compose up --build` (works without a .env file).
-# UI: http://localhost:8080   API: http://localhost:3000/api/health
+# UI: http://localhost:8080   API through it: http://localhost:8080/api/health
+# Only the web (nginx) port is open to the network. The api is reachable inside the compose network
+# alone; the database, Redis, Meilisearch and the worker's metrics listen on localhost only.
 
 x-app-environment: &app-environment
   NODE_ENV: production
   PORT: '3000'
   LOG_LEVEL: ${LOG_LEVEL:-info}
   WEB_URL: ${WEB_URL:-http://localhost:8080}
-  # One reverse proxy (nginx) in front of the api.
+  # One reverse proxy (nginx) in front of the api, and the api port is not published, so nginx
+  # is the only peer that can set X-Forwarded-For.
   TRUST_PROXY: '1'
   JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-jwt-access-secret-change-me-0123456789}
   # The compose stack serves the whole site over plain http.
@@ -46,7 +49,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marketplace}
       POSTGRES_DB: ${POSTGRES_DB:-marketplace}
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -62,7 +65,7 @@ services:
     image: redis:7-alpine
     command: ['redis-server', '--appendonly', 'yes']
     ports:
-      - '${REDIS_PORT:-6379}:6379'
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -79,7 +82,7 @@ services:
       MEILI_ENV: development
       MEILI_NO_ANALYTICS: 'true'
     ports:
-      - '${MEILI_PORT:-7700}:7700'
+      - '127.0.0.1:${MEILI_PORT:-7700}:7700'
     volumes:
       - meili_data:/meili_data
     healthcheck:
@@ -112,8 +115,8 @@ services:
       target: runtime
     environment:
       <<: *app-environment
-    ports:
-      - '${API_PORT:-3000}:3000'
+    # No published port on purpose: the web service proxies /api and /socket.io to it, and
+    # /metrics stays inside the network. `docker-compose.load.yml` opens it on localhost.
     depends_on:
       postgres:
         condition: service_healthy
@@ -134,7 +137,7 @@ services:
     environment:
       <<: *app-environment
     ports:
-      - '${WORKER_METRICS_PORT:-9100}:9100'
+      - '127.0.0.1:${WORKER_METRICS_PORT:-9100}:9100'
     # The image probes the HTTP api, which the worker does not serve.
     healthcheck:
       disable: true

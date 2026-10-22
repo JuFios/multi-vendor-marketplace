@@ -9,6 +9,7 @@ import { OutboxService } from '../../outbox/outbox.service';
 import type { AppTransactionHost } from '../../prisma/transaction';
 import { AuctionLifecycleService } from '../bidding/auction-lifecycle.service';
 import { LedgerService } from '../payments-ledger/ledger.service';
+import { PaymentsService } from '../payments-ledger/payments.service';
 import { InventoryService } from '../products/inventory.service';
 import { SellersService } from '../sellers/sellers.service';
 
@@ -58,6 +59,7 @@ export class SellerOrderLifecycleService {
     private readonly outbox: OutboxService,
     private readonly inventory: InventoryService,
     private readonly ledger: LedgerService,
+    private readonly payments: PaymentsService,
     private readonly auctionLifecycle: AuctionLifecycleService,
   ) {}
 
@@ -165,6 +167,11 @@ export class SellerOrderLifecycleService {
       reason,
     );
     await this.orders.bookRefundedOnOrder(sellerOrder.orderId, plan.releasedCents);
+    // Money was taken only for a captured payment; one still in flight is refunded by the saga
+    // when it lands (`PaymentSagaService.onPaymentCaptured`).
+    if (sellerOrder.paymentStatus === 'CAPTURED') {
+      await this.payments.requestRefund(sellerOrder.id, plan.releasedCents, 'CANCELLATION');
+    }
     await this.outbox.add([
       {
         type: EVENT_TYPE.SELLER_ORDER_CANCELLED,

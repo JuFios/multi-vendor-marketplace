@@ -9,6 +9,8 @@ import {
   type CaptureResult,
   PAYMENT_GATEWAY,
   type PaymentGatewayPort,
+  type RefundRequest,
+  type RefundResult,
 } from '../../src/modules/payments-ledger/payment-gateway.port';
 import type { UserRole } from '../../src/modules/users/user-role';
 import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
@@ -26,6 +28,10 @@ class FakePaymentGateway implements PaymentGatewayPort {
   readonly calls: CaptureRequest[] = [];
   readonly charges = new Map<string, CaptureResult>();
   readonly declined = new Set<number>();
+  readonly refundCalls: RefundRequest[] = [];
+  readonly refunds = new Map<string, RefundResult>();
+  /** While set, every new refund is refused. */
+  refuseRefunds = false;
   gate: Promise<void> | null = null;
 
   async capture(captureRequest: CaptureRequest): Promise<CaptureResult> {
@@ -44,10 +50,26 @@ class FakePaymentGateway implements PaymentGatewayPort {
     return result;
   }
 
+  refund(refundRequest: RefundRequest): Promise<RefundResult> {
+    this.refundCalls.push(refundRequest);
+    const given = this.refunds.get(refundRequest.refundKey);
+    if (given !== undefined) {
+      return Promise.resolve(given);
+    }
+    const result: RefundResult = this.refuseRefunds
+      ? { ok: false, reason: 'REFUSED' }
+      : { ok: true, providerRef: 'fake-refund' };
+    this.refunds.set(refundRequest.refundKey, result);
+    return Promise.resolve(result);
+  }
+
   reset(): void {
     this.calls.length = 0;
+    this.refundCalls.length = 0;
+    this.refunds.clear();
     this.charges.clear();
     this.declined.clear();
+    this.refuseRefunds = false;
     this.gate = null;
   }
 }
@@ -302,5 +324,155 @@ describe('Payment saga (e2e)', () => {
     expect(
       await prisma.ledgerEntry.count({ where: { sellerOrderId: so, type: 'CANCELLATION' } }),
     ).toBe(1);
+    // The money was taken after the cancellation, so the gateway pays all of it back, once.
+    const { subtotalCents } = await sellerOrder(so);
+    expect(
+      gateway.refundCalls.map(({ sellerOrderId, amountCents }) => ({ sellerOrderId, amountCents })),
+    ).toEqual([{ sellerOrderId: so, amountCents: subtotalCents }]);
+    const requested = await prisma.outboxEvent.findMany({
+      where: { eventType: 'payment.refund_requested' },
+    });
+    expect(requested.map((event) => [event.id, event.payload])).toEqual([
+      [
+        gateway.refundCalls[0]?.refundKey,
+        { sellerOrderId: so, amountCents: subtotalCents, reason: 'LATE_CAPTURE' },
+      ],
+    ]);
+    expect(await prisma.paymentRefund.findMany({ where: { sellerOrderId: so } })).toMatchObject([
+      {
+        refundKey: requested[0]?.id,
+        amountCents: subtotalCents,
+        status: 'REFUNDED',
+        providerRef: 'fake-refund',
+      },
+    ]);
+  });
+
+  it('pays a cancelled order back through the gateway once its money was taken', async () => {
+    const { buyer, order, soOf } = await checkout();
+    await flushEvents();
+    const so = soOf(0);
+    const { subtotalCents } = await sellerOrder(so);
+    expect(gateway.refundCalls).toEqual([]);
+
+    const cancelled = await post(`/orders/${order.id}/seller-orders/${so}/cancel`, buyer);
+    expect(cancelled.status).toBe(200);
+    await flushEvents();
+
+    expect(await sellerOrder(so)).toMatchObject({ status: 'CANCELLED', paymentStatus: 'REFUNDED' });
+    expect(
+      gateway.refundCalls.map(({ sellerOrderId, amountCents }) => ({ sellerOrderId, amountCents })),
+    ).toEqual([{ sellerOrderId: so, amountCents: subtotalCents }]);
+    expect(await prisma.paymentRefund.findMany({ where: { sellerOrderId: so } })).toMatchObject([
+      { amountCents: subtotalCents, status: 'REFUNDED', providerRef: 'fake-refund' },
+    ]);
+  });
+
+  it('stores a refused refund as FAILED once, without retrying it', async () => {
+    const { buyer, order, soOf } = await checkout();
+    await flushEvents();
+    const so = soOf(0);
+    const { subtotalCents } = await sellerOrder(so);
+    gateway.refuseRefunds = true;
+
+    const cancelled = await post(`/orders/${order.id}/seller-orders/${so}/cancel`, buyer);
+    expect(cancelled.status).toBe(200);
+    await flushEvents();
+
+    // A refusal is an answer, not a fault: the job completes and a person takes it from here.
+    expect(gateway.refundCalls).toHaveLength(1);
+    expect(await prisma.paymentRefund.findMany({ where: { sellerOrderId: so } })).toMatchObject([
+      {
+        amountCents: subtotalCents,
+        status: 'FAILED',
+        providerRef: null,
+        failureReason: 'REFUSED',
+      },
+    ]);
+    expect(await queueOf(app, QUEUE.PAYMENTS).getFailedCount()).toBe(0);
+    const metrics = await request(app.getHttpServer()).get('/metrics');
+    expect(metrics.text).toMatch(/^payment_refunds_total\{status="failed"\} [1-9]/m);
+  });
+
+  it('shows admins the refunds the gateway refused, and nobody else', async () => {
+    const { buyer, order, soOf } = await checkout();
+    await flushEvents();
+    const [refused, paid] = [soOf(0), soOf(1)];
+    gateway.refuseRefunds = true;
+    expect((await post(`/orders/${order.id}/seller-orders/${refused}/cancel`, buyer)).status).toBe(
+      200,
+    );
+    await flushEvents();
+    gateway.refuseRefunds = false;
+    expect((await post(`/orders/${order.id}/seller-orders/${paid}/cancel`, buyer)).status).toBe(
+      200,
+    );
+    await flushEvents();
+    const admin = await createUser(prisma, { roles: ['CUSTOMER', 'ADMIN'] });
+    const list = async (query: string, caller: Caller) =>
+      request(app.getHttpServer())
+        .get(`/api/admin/payment-refunds${query}`)
+        .set('Authorization', await bearerFor(app, caller));
+    const adminCaller: Caller = { id: admin.id, roles: ['CUSTOMER', 'ADMIN'] };
+
+    const failed = await list('?status=FAILED', adminCaller);
+    const all = await list('', adminCaller);
+
+    expect(failed.status).toBe(200);
+    const refusedOrder = await sellerOrder(refused);
+    expect(failed.body).toMatchObject({
+      total: 1,
+      page: 1,
+      items: [
+        {
+          sellerOrderId: refused,
+          orderId: order.id,
+          sellerId: refusedOrder.sellerId,
+          amountCents: refusedOrder.subtotalCents,
+          status: 'FAILED',
+          providerRef: null,
+          failureReason: 'REFUSED',
+        },
+      ],
+    });
+    expect((all.body as { total: number }).total).toBe(2);
+    expect((await list('?status=LOST', adminCaller)).status).toBe(400);
+    expect((await list('', { id: buyer.id })).status).toBe(403);
+  });
+
+  it('does not reach the gateway again when payment.refund_requested is delivered again', async () => {
+    const { buyer, order, soOf } = await checkout();
+    await flushEvents();
+    const so = soOf(0);
+    expect((await post(`/orders/${order.id}/seller-orders/${so}/cancel`, buyer)).status).toBe(200);
+    await flushEvents();
+    const requested = await prisma.outboxEvent.findFirstOrThrow({
+      where: { eventType: 'payment.refund_requested', aggregateId: so },
+    });
+    // As after the inbox row was swept away: only the stored answer is left to tell.
+    await prisma.processedEvent.deleteMany({ where: { eventId: requested.id } });
+
+    await queueOf(app, QUEUE.PAYMENTS).remove(requested.id);
+    await app.get<QueuePublisherPort>(QUEUE_PUBLISHER).publish(QUEUE.PAYMENTS, toEvent(requested));
+    await flushEvents();
+
+    expect(gateway.refundCalls).toHaveLength(1);
+    expect(await prisma.paymentRefund.count({ where: { sellerOrderId: so } })).toBe(1);
+    expect(await queueOf(app, QUEUE.PAYMENTS).getFailedCount()).toBe(0);
+  });
+
+  it('asks the gateway for nothing when a declined payment cancels the order', async () => {
+    gateway.declined.add(6_670);
+    const { soOf } = await checkout();
+    await flushEvents();
+
+    expect(await sellerOrder(soOf(1))).toMatchObject({
+      status: 'CANCELLED',
+      paymentStatus: 'FAILED',
+    });
+    expect(gateway.refundCalls).toEqual([]);
+    expect(
+      await prisma.outboxEvent.count({ where: { eventType: 'payment.refund_requested' } }),
+    ).toBe(0);
   });
 });

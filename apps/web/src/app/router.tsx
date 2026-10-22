@@ -8,6 +8,7 @@ import { LedgerPage } from '../features/admin/ledger-page';
 import { ProductModerationPage } from '../features/admin/moderation-page';
 import { AdminOrderDetailsPage } from '../features/admin/order-details-page';
 import { AdminOrdersPage } from '../features/admin/orders-page';
+import { PaymentRefundsPage } from '../features/admin/payment-refunds-page';
 import { ProtectedRoute } from '../features/auth/protected-route';
 import { CartPage } from '../features/cart/cart-page';
 import { CatalogPage } from '../features/catalog/catalog-page';
@@ -103,6 +104,7 @@ export const routes: RouteObject[] = [
               { path: 'categories', element: <CategoriesPage /> },
               { path: 'orders', element: <AdminOrdersPage /> },
               { path: 'ledger', element: <LedgerPage /> },
+              { path: 'payment-refunds', element: <PaymentRefundsPage /> },
               { path: 'orders/:id', element: <AdminOrderDetailsPage /> },
               { path: 'disputes', element: <AdminDisputesPage /> },
               { path: 'disputes/:id', element: <AdminDisputeDetailsPage /> },

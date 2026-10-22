@@ -33,6 +33,8 @@ describe('DB indexes (e2e)', () => {
     ['products_is_published_archived_at_idx', '(is_published, archived_at)'],
     ['products_title_trgm_idx', 'gin_trgm_ops'],
     ['outbox_events_unpublished_idx', 'WHERE (published_at IS NULL)'],
+    ['outbox_events_published_idx', 'WHERE (published_at IS NOT NULL)'],
+    ['processed_events_processed_at_idx', '(processed_at)'],
   ])('has %s on the columns the locking and search paths use', async (name, expected) => {
     const definition = await definitionOf(name);
 

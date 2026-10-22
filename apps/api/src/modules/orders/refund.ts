@@ -50,7 +50,7 @@ export interface RefundPlan {
   readonly payoutCents: number;
 }
 
-/** Only paid, accepted orders can be refunded; the stock is not touched either way. */
+/** Only paid, accepted orders can be refunded. */
 export function assertRefundable(
   sellerOrder: Pick<RefundableSellerOrder, 'status' | 'paymentStatus'>,
 ): void {
@@ -97,4 +97,30 @@ export function planRefund(
     commissionReversalCents: sellerOrder.commissionCents - financials.commissionCents,
     payoutCents: financials.payoutCents,
   };
+}
+
+export interface RefundedItem {
+  readonly id: string;
+  readonly productId: string;
+  readonly auctionId: string | null;
+}
+
+/**
+ * The stock a refund gives back. Only a PROCESSING order still has its goods with the seller;
+ * shipped goods are the buyer's, so refunding them is money only. An auction lot is not put on
+ * sale again by a refund, as with a cancellation of a fully refunded lot.
+ */
+export function planRefundRestock(
+  status: SellerOrderStatusValue,
+  items: readonly RefundedItem[],
+  lines: readonly RefundRequestLine[],
+): { productId: string; quantity: number }[] {
+  if (status !== 'PROCESSING') {
+    return [];
+  }
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return lines.flatMap((line) => {
+    const item = byId.get(line.sellerOrderItemId);
+    return item?.auctionId === null ? [{ productId: item.productId, quantity: line.quantity }] : [];
+  });
 }

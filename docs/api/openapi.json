@@ -3303,6 +3303,89 @@
         "description": "ADMIN only. Raw ledger entries, filterable by store and period."
       }
     },
+    "/api/admin/payment-refunds": {
+      "get": {
+        "operationId": "AdminPaymentRefundsController_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            },
+            "description": "Page number, starting at 1."
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Only answers with this outcome; FAILED lists the refunds that need a person.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "REFUNDED",
+                "FAILED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRefundPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or invalid request (VALIDATION_FAILED, BAD_REQUEST).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials (UNAUTHORIZED).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not allowed (FORBIDDEN).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The payment gateway’s answers to refund requests, newest first.",
+        "tags": [
+          "admin"
+        ],
+        "description": "ADMIN only. What the payment gateway answered to each refund request (a partial refund, the cancellation of a captured payment, a payment captured after its cancellation). A `FAILED` one was refused by the gateway: the books already show the money as returned, so a person has to settle it with the provider."
+      }
+    },
     "/api/orders/checkout": {
       "post": {
         "operationId": "OrdersController_create",
@@ -4185,7 +4268,7 @@
         "tags": [
           "seller-orders"
         ],
-        "description": "SELLER only. Partial refund of items of a paid seller order. The commission is recomputed on what remains. Stock does not change. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422."
+        "description": "SELLER only. Partial refund of items of a paid seller order. The commission is recomputed on what remains. Units of a PROCESSING order go back in stock; shipped units do not. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422."
       }
     },
     "/api/admin/orders": {
@@ -7645,6 +7728,95 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/LedgerEntryDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "limit"
+        ]
+      },
+      "PaymentRefundDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "refundKey": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The idempotency key sent to the gateway (the refund request event id)."
+          },
+          "sellerOrderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sellerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amountCents": {
+            "type": "number",
+            "description": "The amount asked back for the buyer, in kopecks."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REFUNDED",
+              "FAILED"
+            ]
+          },
+          "providerRef": {
+            "type": "string",
+            "nullable": true,
+            "description": "The gateway’s reference when paid."
+          },
+          "failureReason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why the gateway refused it."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "refundKey",
+          "sellerOrderId",
+          "orderId",
+          "sellerId",
+          "amountCents",
+          "status",
+          "providerRef",
+          "failureReason",
+          "createdAt"
+        ]
+      },
+      "PaymentRefundPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PaymentRefundDto"
             }
           },
           "total": {

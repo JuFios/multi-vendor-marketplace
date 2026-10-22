@@ -8,6 +8,7 @@ import { biddingConfig } from './bidding.config';
 import { databaseConfig } from './database.config';
 import { resolveEnvFilePaths } from './env-files';
 import { validate } from './env.validation';
+import { housekeepingConfig } from './housekeeping.config';
 import { httpConfig } from './http.config';
 import { idempotencyConfig } from './idempotency.config';
 import { metricsConfig } from './metrics.config';
@@ -32,6 +33,7 @@ import { throttleConfig } from './throttle.config';
         authConfig,
         biddingConfig,
         databaseConfig,
+        housekeepingConfig,
         httpConfig,
         idempotencyConfig,
         metricsConfig,

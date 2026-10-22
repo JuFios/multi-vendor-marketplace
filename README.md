@@ -210,9 +210,9 @@ sequenceDiagram
     actor Client
     API->>DB: state change + outbox row (same transaction)
     loop every OUTBOX_POLL_INTERVAL_MS
-        R->>DB: SELECT unpublished FOR UPDATE SKIP LOCKED
+        R->>DB: claim a batch (UPDATE … FOR UPDATE SKIP LOCKED, lease in claimed_until)
         R->>Q: add(job, jobId = event id) for each queue in the route table
-        R->>DB: mark published
+        R->>DB: mark published, release the claim
     end
     Q->>C: job (correlationId restored)
     C->>DB: INSERT processed_events (consumer, event id), skip on conflict
@@ -226,6 +226,13 @@ sequenceDiagram
 Delivery is at-least-once: a crash between publishing and marking the row publishes twice. BullMQ
 drops the duplicate by `jobId`, and each consumer's inbox row (`processed_events`) drops it
 again.
+
+Publishing to Redis never happens inside a transaction. The relay claims a batch with a 60 s lease
+(`claimed_until`) in a single statement, publishes it with no transaction open and no row locked,
+and then marks the batch in one short transaction: published rows, the failed one (`attempts`,
+`last_error`) and the untouched rest, whose claim is released. Other relays skip claimed rows, so
+side-by-side relays do not publish the same batch; if one dies mid-batch, the lease runs out and
+the events are published again. A relay hands back whatever it has not published by half the lease.
 
 The relay only picks up event types the running build has a route for. A row of a type it does not
 know (written by a newer build before a rollback) stays pending and is counted by
@@ -314,11 +321,44 @@ The other seller orders are untouched, which an e2e test asserts. Technical fail
 database down) are not business outcomes: the job is retried with exponential backoff and, once the
 attempts are exhausted, stays in the failed set (the dead-letter queue, `queue_dead_letter_total`).
 A race where a payment is captured for a seller order that was cancelled in the meantime is
-resolved by marking it `REFUNDED`, since its finances were already reversed on cancellation.
+resolved by marking it `REFUNDED` and giving the money back through the gateway, since the books
+were already reversed on cancellation.
+
+Money going back to the buyer (a partial refund, the cancellation of a captured payment, the late
+capture above) takes the same route as a capture, never a network call under the order lock: the
+transaction that books it also records a `payment.refund_requested` event; the `payments` consumer
+then calls `PaymentGatewayPort.refund` with the event id as the idempotency key and stores the
+answer in `payment_refunds`. A crash between the call and the record repeats the call, and the
+gateway answers with the first outcome; a redelivery after the answer was stored does not call the
+gateway again. A refusal is stored as `FAILED`, logged as an error and counted in
+`payment_refunds_total{status="failed"}`; the refund then needs a person. Admins find the refused
+refunds on the "Gateway refunds" page (`GET /api/admin/payment-refunds?status=FAILED`), each with
+the gateway's reason and a link to its order. To be told at once, alert on
+`increase(payment_refunds_total{status="failed"}[15m]) > 0`; the repository ships no Prometheus
+server or alert rules.
 `MOCK_PAYMENT_FAILURE_RATE` lets you watch the compensation happen. The mock derives each outcome
 from the seller order id, so a capture repeated after a rolled-back recording gets the same answer
 on any worker and after a restart, as a real provider answers a repeated idempotency key. The
 compensation is logged and counted only after its transaction has committed.
+
+## Housekeeping
+
+Three tables only ever grow on their own: every event leaves an `outbox_events` row and one
+`processed_events` row per consumer, and every `Idempotency-Key` request leaves a key. The worker
+runs a sweep when it starts and then every `HOUSEKEEPING_INTERVAL_MS` (10 minutes) that deletes, in batches of
+`HOUSEKEEPING_BATCH_SIZE` rows with `FOR UPDATE SKIP LOCKED` (so several workers do not wait for
+each other):
+
+| Table              | Deleted when                                                       | Kept regardless                                  |
+| ------------------ | ------------------------------------------------------------------ | ------------------------------------------------ |
+| `outbox_events`    | published more than `OUTBOX_RETENTION_DAYS` (7) days ago           | every unpublished event, whatever its age        |
+| `processed_events` | older than `PROCESSED_EVENTS_RETENTION_DAYS` (14) days             | rows of an event still unpublished in the outbox |
+| `idempotency_keys` | `expires_at` has passed (`IDEMPOTENCY_TTL_HOURS`), finished or not | every key that has not expired                   |
+
+The inbox retention has a floor of 8 days: BullMQ keeps a failed job for seven days and the search
+redrive may retry it, and a retried job is deduplicated by its inbox row. Deleted rows are counted
+in `housekeeping_deleted_rows_total{table}`. Partial and plain indexes on `published_at` and
+`processed_at` keep each batch from scanning the table.
 
 ## Idempotency
 
@@ -458,7 +498,8 @@ The first two lines come from the api process, the rest from the worker, millise
 ### Metrics
 
 Both processes expose Prometheus metrics: the api at `GET /metrics` on its port (3000), the worker
-on `WORKER_METRICS_PORT` (9100).
+on `WORKER_METRICS_PORT` (9100). In compose the api's endpoint is reachable only inside the
+network and the worker's only on `127.0.0.1`.
 
 | Metric                                                                                             | Meaning                                      |
 | -------------------------------------------------------------------------------------------------- | -------------------------------------------- |
@@ -466,10 +507,12 @@ on `WORKER_METRICS_PORT` (9100).
 | `app_errors_total{code}`                                                                           | Errors by application error code             |
 | `orders_created_total`, `checkout_failures_total{reason}`                                          | Checkouts                                    |
 | `seller_orders_cancelled_total{actor}`, `refunds_total`                                            | Cancellations and refunds                    |
+| `payment_refunds_total{status}`                                                                    | Gateway refunds; `failed` needs a person     |
 | `bids_placed_total`, `bids_rejected_total{reason}`, `bid_optimistic_retries_total`                 | Bidding and lock contention                  |
 | `queue_job_duration_seconds{queue,event}`, `queue_jobs_completed_total`, `queue_jobs_failed_total` | Queue processing time and outcomes           |
 | `queue_dead_letter_total`, `queue_waiting_jobs{queue}`                                             | Exhausted jobs and backlog                   |
 | `outbox_pending_events`, `outbox_publish_lag_seconds`, `outbox_publish_failures_total`             | Outbox backlog, delay and failures           |
+| `housekeeping_deleted_rows_total{table}`                                                           | Rows removed by the retention sweep          |
 | `search_degraded_total`                                                                            | Catalog answers served from the SQL fallback |
 | `cache_hits_total`, `cache_misses_total`                                                           | Cache effectiveness                          |
 | `ws_connections`, `ws_events_emitted_total{event}`                                                 | WebSocket connections and emitted events     |
@@ -506,11 +549,15 @@ the demo seed run in a one-shot `migrate` service before the api and the worker 
 | What            | URL                              |
 | --------------- | -------------------------------- |
 | Web application | http://localhost:8080            |
-| API, Swagger UI | http://localhost:3000/api/docs   |
-| API health      | http://localhost:3000/api/health |
-| API metrics     | http://localhost:3000/metrics    |
+| API, Swagger UI | http://localhost:8080/api/docs   |
+| API health      | http://localhost:8080/api/health |
 | Worker metrics  | http://localhost:9100/metrics    |
 | Meilisearch     | http://localhost:7700            |
+
+Only the web port (8080) is open to the network, and the api sits behind its nginx. The api port is
+not published, and nginx does not proxy `/metrics`, so the api's metrics are read inside the
+network (`docker compose exec api wget -qO- http://127.0.0.1:3000/metrics`). PostgreSQL, Redis,
+Meilisearch and the worker's metrics listen on `127.0.0.1` only.
 
 Start from scratch with `docker compose down -v && docker compose up --build`.
 
@@ -613,7 +660,7 @@ A manual checklist for a fresh `docker compose up --build`. Open http://localhos
 - [ ] **Degraded search.** `docker compose stop meilisearch`; the catalog keeps working and says
       "Search is running in limited mode" (no typo tolerance, partial facets). Start it again and
       full search returns.
-- [ ] **Observability.** `curl localhost:3000/metrics | grep -E 'orders_created|bids_placed'` and
+- [ ] **Observability.** `docker compose exec api wget -qO- http://127.0.0.1:3000/metrics | grep -E 'orders_created|bids_placed'` and
       `docker compose logs api worker | grep <correlationId of a checkout>`; the correlation id
       is the `X-Request-Id` response header of the checkout request.
 
@@ -702,10 +749,10 @@ Where the specification leaves room, these are the decisions taken.
   (all remaining parts completed → `COMPLETED`, all shipped or completed → `SHIPPED`, some shipped
   → `PARTIALLY_SHIPPED`, …), but `hasCancelledParts` is set. If every part is cancelled the order
   is `CANCELLED`.
-- **Partial refund.** A financial operation only; stock does not change. Allowed on paid seller
-  orders in processing, shipped or completed state, by the owning seller or, through a dispute, an
-  admin. Stock returns only when a seller order is cancelled before shipping, and then only the
-  units that were not refunded: refunded units never come back, whichever happened first. A fully
+- **Partial refund.** Allowed on paid seller orders in processing, shipped or completed state, by
+  the owning seller or, through a dispute, an admin. Refunding units of a processing order puts
+  them back in stock, because they have not shipped; shipped and completed units are money only. A
+  later cancellation restocks only the units that were not refunded, so nothing returns twice. A
   refunded auction lot is not offered again.
 - **Reviews.** Only a customer with a completed seller order containing the product, not refunded
   in full, may review it, once; the review is published at once; the rating is the average to two decimals.
@@ -744,19 +791,23 @@ Where the specification leaves room, these are the decisions taken.
   email, an honest user who links Google to their password account also loses their old password
   and has to set a new one on the account page. The real fix is to verify email ownership at
   registration; a password reset by e-mail would also need an e-mail service.
-- **Directly reachable api in compose.** The api port is published next to nginx for convenience,
-  while the api trusts one proxy hop for the client address. Requests sent straight to it can
-  pick their address with `X-Forwarded-For` and spread over per-address rate-limit buckets; the
-  per-email login and per-user bid limits still hold. Production would publish only the proxy,
-  or set `trust proxy` to the proxy's address instead of a hop count.
-- **Retention.** `outbox_events`, `processed_events` and `idempotency_keys` are append-only:
-  nothing prunes them, so they grow with traffic. A long-running deployment needs a retention job
-  (and partitioning of the outbox by time).
+- **Trust proxy is a hop count.** The api trusts one proxy hop (`TRUST_PROXY=1`) for the client
+  address. In compose that is safe because the api port is not published and only nginx can reach
+  it; a container on the same network could still send it a forged `X-Forwarded-For`. A deployment
+  where other clients can reach the api must publish only the proxy, or trust the proxy's address
+  instead of a hop count (not supported by `TRUST_PROXY` today, which is an integer).
+- **Retention.** The worker's housekeeping deletes old rows of `outbox_events`, `processed_events`
+  and `idempotency_keys` (see [Housekeeping](#housekeeping)), so they no longer grow without
+  bound. At very high event volumes the deletes themselves become the cost; partitioning the
+  outbox by time and dropping whole partitions would remove it.
 - **Search sync under a hot lot.** A product that changes continuously (a busy auction) makes the
   `search-sync` consumer repeat its read-and-write several times and retry; see the finding in the
   load report. Coalescing the updates of one product would remove the waste.
-- **Checkout latency under a burst.** 500 simultaneous checkouts show a p95 of 1.3 s. I did not
-  profile the cause (pool size, row lock waits), so I have not tuned anything.
+- **Checkout latency under a burst.** 500 simultaneous checkouts of one product show a p95 of about
+  1 s. The cause is the row lock on that product: every lock wait during the burst was in the stock
+  update, and the checkouts pass through it one at a time. The connection pool size, a second api
+  process and CPU made no difference (see the load report). Shortening the part of the
+  transaction that runs after the stock update would help; I have not done it.
 - **Load test method.** Single runs, load generator on the same machine as the stack, no CPU and
   memory capture during the run. A fair benchmark would use separate hardware, several repetitions
   and a soak run.

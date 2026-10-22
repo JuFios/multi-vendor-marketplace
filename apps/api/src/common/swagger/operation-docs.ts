@@ -225,6 +225,13 @@ export const OPERATION_DOCS: Readonly<Record<string, OperationDoc>> = {
   'GET /api/admin/ledger': {
     description: 'ADMIN only. Raw ledger entries, filterable by store and period.',
   },
+  'GET /api/admin/payment-refunds': {
+    description:
+      'ADMIN only. What the payment gateway answered to each refund request (a partial refund, ' +
+      'the cancellation of a captured payment, a payment captured after its cancellation). A ' +
+      '`FAILED` one was refused by the gateway: the books already show the money as returned, ' +
+      'so a person has to settle it with the provider.',
+  },
   'POST /api/orders/checkout': {
     description:
       'Turns the cart into one order with one seller order per store, in a single database ' +
@@ -275,7 +282,8 @@ export const OPERATION_DOCS: Readonly<Record<string, OperationDoc>> = {
   'POST /api/seller/orders/{id}/refunds': {
     description:
       'SELLER only. Partial refund of items of a paid seller order. The commission is ' +
-      'recomputed on what remains. Stock does not change. ' +
+      'recomputed on what remains. Units of a PROCESSING order go back in stock; shipped units ' +
+      'do not. ' +
       IDEMPOTENT,
     requestExample: {
       items: [{ sellerOrderItemId: ID, quantity: 1 }],
