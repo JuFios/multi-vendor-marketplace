@@ -30,6 +30,7 @@ import {
   BID_OPTIMISTIC_RETRIES_TOTAL,
   BIDS_PLACED_TOTAL,
   BIDS_REJECTED_TOTAL,
+  PAYMENT_REFUNDS_TOTAL,
   REFUNDS_TOTAL,
   SELLER_ORDERS_CANCELLED_TOTAL,
   WS_CONNECTIONS,
@@ -116,6 +117,11 @@ const metricProviders = [
   makeCounterProvider({
     name: REFUNDS_TOTAL,
     help: 'Refunds booked on seller orders.',
+  }),
+  makeCounterProvider({
+    name: PAYMENT_REFUNDS_TOTAL,
+    help: 'Refund requests answered by the payment gateway, by outcome (a failed one needs a person).',
+    labelNames: ['status'],
   }),
   makeCounterProvider({
     name: CHECKOUT_FAILURES_TOTAL,

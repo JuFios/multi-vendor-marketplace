@@ -27,6 +27,7 @@ export const EVENT_TYPE = {
   SELLER_ORDER_CREATED: 'seller_order.created',
   PAYMENT_CAPTURED: 'payment.captured',
   PAYMENT_FAILED: 'payment.failed',
+  PAYMENT_REFUND_REQUESTED: 'payment.refund_requested',
   SELLER_ORDER_PAYMENT_CHANGED: 'seller_order.payment_changed',
   SELLER_ORDER_STATUS_CHANGED: 'seller_order.status_changed',
   SELLER_ORDER_CANCELLED: 'seller_order.cancelled',
@@ -116,6 +117,15 @@ export interface EventPayloads {
   };
   [EVENT_TYPE.PAYMENT_CAPTURED]: { sellerOrderId: string; paymentAttemptId: string };
   [EVENT_TYPE.PAYMENT_FAILED]: { sellerOrderId: string; reason: string };
+  /**
+   * Money to give back to the buyer. The event id is the gateway's idempotency key, so the
+   * amount must never change once recorded.
+   */
+  [EVENT_TYPE.PAYMENT_REFUND_REQUESTED]: {
+    sellerOrderId: string;
+    amountCents: number;
+    reason: 'REFUND' | 'CANCELLATION' | 'LATE_CAPTURE';
+  };
   [EVENT_TYPE.SELLER_ORDER_PAYMENT_CHANGED]: {
     sellerOrderId: string;
     orderId: string;

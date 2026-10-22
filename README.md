@@ -314,7 +314,16 @@ The other seller orders are untouched, which an e2e test asserts. Technical fail
 database down) are not business outcomes: the job is retried with exponential backoff and, once the
 attempts are exhausted, stays in the failed set (the dead-letter queue, `queue_dead_letter_total`).
 A race where a payment is captured for a seller order that was cancelled in the meantime is
-resolved by marking it `REFUNDED`, since its finances were already reversed on cancellation.
+resolved by marking it `REFUNDED` and giving the money back through the gateway, since the books
+were already reversed on cancellation.
+
+Money going back to the buyer (a partial refund, the cancellation of a captured payment, the late
+capture above) takes the same route as a capture, never a network call under the order lock: the
+transaction that books it also records a `payment.refund_requested` event; the `payments` consumer
+then calls `PaymentGatewayPort.refund` with the event id as the idempotency key and stores the
+answer in `payment_refunds`. A crash between the call and the record repeats the call, and the
+gateway answers with the first outcome. A refusal is stored as `FAILED`, logged as an error and
+counted in `payment_refunds_total{status="failed"}`; the refund then needs a person.
 `MOCK_PAYMENT_FAILURE_RATE` lets you watch the compensation happen. The mock derives each outcome
 from the seller order id, so a capture repeated after a rolled-back recording gets the same answer
 on any worker and after a restart, as a real provider answers a repeated idempotency key. The
@@ -466,6 +475,7 @@ on `WORKER_METRICS_PORT` (9100).
 | `app_errors_total{code}`                                                                           | Errors by application error code             |
 | `orders_created_total`, `checkout_failures_total{reason}`                                          | Checkouts                                    |
 | `seller_orders_cancelled_total{actor}`, `refunds_total`                                            | Cancellations and refunds                    |
+| `payment_refunds_total{status}`                                                                    | Gateway refunds; `failed` needs a person     |
 | `bids_placed_total`, `bids_rejected_total{reason}`, `bid_optimistic_retries_total`                 | Bidding and lock contention                  |
 | `queue_job_duration_seconds{queue,event}`, `queue_jobs_completed_total`, `queue_jobs_failed_total` | Queue processing time and outcomes           |
 | `queue_dead_letter_total`, `queue_waiting_jobs{queue}`                                             | Exhausted jobs and backlog                   |

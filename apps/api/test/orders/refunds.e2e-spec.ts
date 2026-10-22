@@ -154,6 +154,13 @@ describe('Refunds (e2e)', () => {
     const events = await prisma.outboxEvent.findMany({ where: { eventType: 'refund.created' } });
     expect(events).toHaveLength(1);
     expect(events[0]?.payload).toMatchObject({ sellerOrderId, amountCents: 4_000 });
+    // The money goes back through the gateway, asked for in the same transaction.
+    const requests = await prisma.outboxEvent.findMany({
+      where: { eventType: 'payment.refund_requested' },
+    });
+    expect(requests.map((event) => event.payload)).toEqual([
+      { sellerOrderId, amountCents: 4_000, reason: 'REFUND' },
+    ]);
   });
 
   it('refunds several items in one request and may take everything back', async () => {

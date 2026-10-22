@@ -8,6 +8,7 @@ import { LedgerService } from './ledger.service';
 import { MockPaymentGateway } from './mock-payment.gateway';
 import { PaymentAttemptsRepository } from './payment-attempts.repository';
 import { PAYMENT_GATEWAY } from './payment-gateway.port';
+import { PaymentRefundsRepository } from './payment-refunds.repository';
 import { PaymentsService } from './payments.service';
 import { PayoutsRepository } from './payouts.repository';
 import { PayoutsService } from './payouts.service';
@@ -20,6 +21,7 @@ import { SellerFinanceController } from './seller-finance.controller';
     LedgerRepository,
     LedgerService,
     PaymentAttemptsRepository,
+    PaymentRefundsRepository,
     PaymentsService,
     PayoutsRepository,
     PayoutsService,

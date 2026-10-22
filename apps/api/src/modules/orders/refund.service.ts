@@ -9,6 +9,7 @@ import { EVENT_TYPE } from '../../outbox/events/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 import type { AppTransactionHost } from '../../prisma/transaction';
 import { LedgerService } from '../payments-ledger/ledger.service';
+import { PaymentsService } from '../payments-ledger/payments.service';
 import { InventoryService } from '../products/inventory.service';
 import { SellersService } from '../sellers/sellers.service';
 
@@ -47,6 +48,7 @@ export class RefundService {
     private readonly sellers: SellersService,
     private readonly ledger: LedgerService,
     private readonly inventory: InventoryService,
+    private readonly payments: PaymentsService,
     private readonly outbox: OutboxService,
     private readonly idempotency: IdempotencyService,
   ) {}
@@ -112,6 +114,7 @@ export class RefundService {
       commissionReversalCents: plan.commissionReversalCents,
     });
     await this.orders.bookRefundedOnOrder(sellerOrder.orderId, plan.amountCents);
+    await this.payments.requestRefund(sellerOrder.id, plan.amountCents, 'REFUND');
     await this.outbox.add([
       {
         type: EVENT_TYPE.REFUND_CREATED,

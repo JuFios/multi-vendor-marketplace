@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import { EVENT_TYPE } from '../../outbox/events/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
+import { PaymentsService } from '../payments-ledger/payments.service';
 
 import type { SellerOrderRecord } from './order';
 import { OrdersRepository } from './orders.repository';
@@ -30,16 +31,28 @@ export class PaymentSagaService {
     private readonly orders: OrdersRepository,
     private readonly lifecycle: SellerOrderLifecycleService,
     private readonly outbox: OutboxService,
+    private readonly payments: PaymentsService,
   ) {}
 
-  /** A seller order that was cancelled while the payment ran gets the money back at once. */
+  /**
+   * A seller order that was cancelled while the payment ran gets the money back at once: its
+   * books were reversed on cancellation, so only the gateway still has to pay it back.
+   */
   async onPaymentCaptured(sellerOrderId: string): Promise<void> {
     const locked = await this.lockAndFind(sellerOrderId);
     if (locked === null) {
       return;
     }
-    const to = locked.sellerOrder.status === 'CANCELLED' ? 'REFUNDED' : 'CAPTURED';
-    await this.changePayment(locked, to);
+    const { sellerOrder } = locked;
+    const cancelled = sellerOrder.status === 'CANCELLED';
+    const changed = await this.changePayment(locked, cancelled ? 'REFUNDED' : 'CAPTURED');
+    if (cancelled && changed) {
+      await this.payments.requestRefund(
+        sellerOrder.id,
+        sellerOrder.subtotalCents - sellerOrder.refundedCents,
+        'LATE_CAPTURE',
+      );
+    }
   }
 
   /**
@@ -70,14 +83,17 @@ export class PaymentSagaService {
     this.logger.warn({ msg: 'saga.compensation.applied', sellerOrderId: outcome.updated.id });
   }
 
-  /** Applies the outcome once; the event lets the live views show the new payment status. */
+  /**
+   * Applies the outcome once; the event lets the live views show the new payment status.
+   * Returns whether this call moved the status.
+   */
   private async changePayment(
     { sellerOrder, customerId }: LockedSellerOrder,
     to: PaymentStatusValue,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const version = await this.orders.changePaymentStatus(sellerOrder.id, 'PENDING', to);
     if (version === null) {
-      return;
+      return false;
     }
     await this.outbox.add([
       {
@@ -95,6 +111,7 @@ export class PaymentSagaService {
         actorId: null,
       },
     ]);
+    return true;
   }
 
   private async lockAndFind(sellerOrderId: string): Promise<LockedSellerOrder | null> {

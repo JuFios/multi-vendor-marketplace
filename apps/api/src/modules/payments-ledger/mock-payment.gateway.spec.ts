@@ -54,4 +54,27 @@ describe('MockPaymentGateway', () => {
     expect(declined).toBeGreaterThan(0.25);
     expect(declined).toBeLessThan(0.35);
   });
+
+  describe('refund', () => {
+    const refundRequest = (refundKey: string) => ({
+      sellerOrderId: 'so1',
+      refundKey,
+      amountCents: 100,
+    });
+
+    it('approves a refund even when every payment is declined', async () => {
+      const gateway = new MockPaymentGateway({ mockFailureRate: 1 });
+
+      expect(await gateway.refund(refundRequest('k1'))).toMatchObject({ ok: true });
+    });
+
+    it('answers a repeated key with the first outcome and another key with its own', async () => {
+      const gateway = new MockPaymentGateway({ mockFailureRate: 0 });
+
+      const first = await gateway.refund(refundRequest('k1'));
+
+      expect(await gateway.refund(refundRequest('k1'))).toEqual(first);
+      expect(await gateway.refund(refundRequest('k2'))).not.toEqual(first);
+    });
+  });
 });

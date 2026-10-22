@@ -9,6 +9,8 @@ import {
   type CaptureResult,
   PAYMENT_GATEWAY,
   type PaymentGatewayPort,
+  type RefundRequest,
+  type RefundResult,
 } from '../../src/modules/payments-ledger/payment-gateway.port';
 import type { UserRole } from '../../src/modules/users/user-role';
 import type { AnyDomainEvent } from '../../src/outbox/events/domain-event';
@@ -26,6 +28,8 @@ class FakePaymentGateway implements PaymentGatewayPort {
   readonly calls: CaptureRequest[] = [];
   readonly charges = new Map<string, CaptureResult>();
   readonly declined = new Set<number>();
+  readonly refundCalls: RefundRequest[] = [];
+  readonly refunds = new Map<string, RefundResult>();
   gate: Promise<void> | null = null;
 
   async capture(captureRequest: CaptureRequest): Promise<CaptureResult> {
@@ -44,8 +48,21 @@ class FakePaymentGateway implements PaymentGatewayPort {
     return result;
   }
 
+  refund(refundRequest: RefundRequest): Promise<RefundResult> {
+    this.refundCalls.push(refundRequest);
+    const given = this.refunds.get(refundRequest.refundKey);
+    if (given !== undefined) {
+      return Promise.resolve(given);
+    }
+    const result: RefundResult = { ok: true, providerRef: 'fake-refund' };
+    this.refunds.set(refundRequest.refundKey, result);
+    return Promise.resolve(result);
+  }
+
   reset(): void {
     this.calls.length = 0;
+    this.refundCalls.length = 0;
+    this.refunds.clear();
     this.charges.clear();
     this.declined.clear();
     this.gate = null;
@@ -302,5 +319,62 @@ describe('Payment saga (e2e)', () => {
     expect(
       await prisma.ledgerEntry.count({ where: { sellerOrderId: so, type: 'CANCELLATION' } }),
     ).toBe(1);
+    // The money was taken after the cancellation, so the gateway pays all of it back, once.
+    const { subtotalCents } = await sellerOrder(so);
+    expect(
+      gateway.refundCalls.map(({ sellerOrderId, amountCents }) => ({ sellerOrderId, amountCents })),
+    ).toEqual([{ sellerOrderId: so, amountCents: subtotalCents }]);
+    const requested = await prisma.outboxEvent.findMany({
+      where: { eventType: 'payment.refund_requested' },
+    });
+    expect(requested.map((event) => [event.id, event.payload])).toEqual([
+      [
+        gateway.refundCalls[0]?.refundKey,
+        { sellerOrderId: so, amountCents: subtotalCents, reason: 'LATE_CAPTURE' },
+      ],
+    ]);
+    expect(await prisma.paymentRefund.findMany({ where: { sellerOrderId: so } })).toMatchObject([
+      {
+        refundKey: requested[0]?.id,
+        amountCents: subtotalCents,
+        status: 'REFUNDED',
+        providerRef: 'fake-refund',
+      },
+    ]);
+  });
+
+  it('pays a cancelled order back through the gateway once its money was taken', async () => {
+    const { buyer, order, soOf } = await checkout();
+    await flushEvents();
+    const so = soOf(0);
+    const { subtotalCents } = await sellerOrder(so);
+    expect(gateway.refundCalls).toEqual([]);
+
+    const cancelled = await post(`/orders/${order.id}/seller-orders/${so}/cancel`, buyer);
+    expect(cancelled.status).toBe(200);
+    await flushEvents();
+
+    expect(await sellerOrder(so)).toMatchObject({ status: 'CANCELLED', paymentStatus: 'REFUNDED' });
+    expect(
+      gateway.refundCalls.map(({ sellerOrderId, amountCents }) => ({ sellerOrderId, amountCents })),
+    ).toEqual([{ sellerOrderId: so, amountCents: subtotalCents }]);
+    expect(await prisma.paymentRefund.findMany({ where: { sellerOrderId: so } })).toMatchObject([
+      { amountCents: subtotalCents, status: 'REFUNDED', providerRef: 'fake-refund' },
+    ]);
+  });
+
+  it('asks the gateway for nothing when a declined payment cancels the order', async () => {
+    gateway.declined.add(6_670);
+    const { soOf } = await checkout();
+    await flushEvents();
+
+    expect(await sellerOrder(soOf(1))).toMatchObject({
+      status: 'CANCELLED',
+      paymentStatus: 'FAILED',
+    });
+    expect(gateway.refundCalls).toEqual([]);
+    expect(
+      await prisma.outboxEvent.count({ where: { eventType: 'payment.refund_requested' } }),
+    ).toBe(0);
   });
 });
