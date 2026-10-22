@@ -493,7 +493,8 @@ The first two lines come from the api process, the rest from the worker, millise
 ### Metrics
 
 Both processes expose Prometheus metrics: the api at `GET /metrics` on its port (3000), the worker
-on `WORKER_METRICS_PORT` (9100).
+on `WORKER_METRICS_PORT` (9100). In compose the api's endpoint is reachable only inside the
+network and the worker's only on `127.0.0.1`.
 
 | Metric                                                                                             | Meaning                                      |
 | -------------------------------------------------------------------------------------------------- | -------------------------------------------- |
@@ -543,11 +544,15 @@ the demo seed run in a one-shot `migrate` service before the api and the worker 
 | What            | URL                              |
 | --------------- | -------------------------------- |
 | Web application | http://localhost:8080            |
-| API, Swagger UI | http://localhost:3000/api/docs   |
-| API health      | http://localhost:3000/api/health |
-| API metrics     | http://localhost:3000/metrics    |
+| API, Swagger UI | http://localhost:8080/api/docs   |
+| API health      | http://localhost:8080/api/health |
 | Worker metrics  | http://localhost:9100/metrics    |
 | Meilisearch     | http://localhost:7700            |
+
+Only the web port (8080) is open to the network, and the api sits behind its nginx. The api port is
+not published, and nginx does not proxy `/metrics`, so the api's metrics are read inside the
+network (`docker compose exec api wget -qO- http://127.0.0.1:3000/metrics`). PostgreSQL, Redis,
+Meilisearch and the worker's metrics listen on `127.0.0.1` only.
 
 Start from scratch with `docker compose down -v && docker compose up --build`.
 
@@ -650,7 +655,7 @@ A manual checklist for a fresh `docker compose up --build`. Open http://localhos
 - [ ] **Degraded search.** `docker compose stop meilisearch`; the catalog keeps working and says
       "Search is running in limited mode" (no typo tolerance, partial facets). Start it again and
       full search returns.
-- [ ] **Observability.** `curl localhost:3000/metrics | grep -E 'orders_created|bids_placed'` and
+- [ ] **Observability.** `docker compose exec api wget -qO- http://127.0.0.1:3000/metrics | grep -E 'orders_created|bids_placed'` and
       `docker compose logs api worker | grep <correlationId of a checkout>`; the correlation id
       is the `X-Request-Id` response header of the checkout request.
 
@@ -781,11 +786,11 @@ Where the specification leaves room, these are the decisions taken.
   email, an honest user who links Google to their password account also loses their old password
   and has to set a new one on the account page. The real fix is to verify email ownership at
   registration; a password reset by e-mail would also need an e-mail service.
-- **Directly reachable api in compose.** The api port is published next to nginx for convenience,
-  while the api trusts one proxy hop for the client address. Requests sent straight to it can
-  pick their address with `X-Forwarded-For` and spread over per-address rate-limit buckets; the
-  per-email login and per-user bid limits still hold. Production would publish only the proxy,
-  or set `trust proxy` to the proxy's address instead of a hop count.
+- **Trust proxy is a hop count.** The api trusts one proxy hop (`TRUST_PROXY=1`) for the client
+  address. In compose that is safe because the api port is not published and only nginx can reach
+  it; a container on the same network could still send it a forged `X-Forwarded-For`. A deployment
+  where other clients can reach the api must publish only the proxy, or trust the proxy's address
+  instead of a hop count (not supported by `TRUST_PROXY` today, which is an integer).
 - **Retention.** The worker's housekeeping deletes old rows of `outbox_events`, `processed_events`
   and `idempotency_keys` (see [Housekeeping](#housekeeping)), so they no longer grow without
   bound. At very high event volumes the deletes themselves become the cost; partitioning the

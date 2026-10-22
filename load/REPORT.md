@@ -144,7 +144,7 @@ npm run load:checkout  # a few seconds
 npm run load:verify    # invariants and metrics -> load/results/verify.json
 ```
 
-Defaults match the compose ports (api on 3000, PostgreSQL on 5432). To run beside a development stack, give the
+Defaults match the compose ports (PostgreSQL on 5432; the load profile publishes the api on `127.0.0.1:3000`, the plain stack does not publish it). To run beside a development stack, give the
 load stack its own project name and ports, and point the host-side steps at them:
 
 ```bash
