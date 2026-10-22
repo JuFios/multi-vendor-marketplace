@@ -340,7 +340,7 @@ compensation is logged and counted only after its transaction has committed.
 
 Three tables only ever grow on their own: every event leaves an `outbox_events` row and one
 `processed_events` row per consumer, and every `Idempotency-Key` request leaves a key. The worker
-runs a sweep every `HOUSEKEEPING_INTERVAL_MS` (10 minutes) that deletes, in batches of
+runs a sweep when it starts and then every `HOUSEKEEPING_INTERVAL_MS` (10 minutes) that deletes, in batches of
 `HOUSEKEEPING_BATCH_SIZE` rows with `FOR UPDATE SKIP LOCKED` (so several workers do not wait for
 each other):
 

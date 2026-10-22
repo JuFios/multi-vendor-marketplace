@@ -46,13 +46,23 @@ export class HousekeepingService implements OnApplicationBootstrap, OnModuleDest
   ) {}
 
   onApplicationBootstrap(): void {
+    // The first sweep starts at once: a worker restarted more often than the interval still sweeps.
+    void this.startSweep();
     const timer = setInterval(() => {
-      // A tick that finds the previous sweep still running does nothing.
-      this.running ??= this.tick().finally(() => {
-        this.running = undefined;
-      });
+      void this.startSweep();
     }, this.config.intervalMs);
     this.scheduler.addInterval(INTERVAL_NAME, timer);
+  }
+
+  /**
+   * Starts a sweep in the background; one that finds the previous sweep still running does
+   * nothing. Resolves when the running sweep ends, and never rejects.
+   */
+  startSweep(): Promise<void> {
+    this.running ??= this.tick().finally(() => {
+      this.running = undefined;
+    });
+    return this.running;
   }
 
   async onModuleDestroy(): Promise<void> {

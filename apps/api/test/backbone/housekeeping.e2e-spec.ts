@@ -27,6 +27,8 @@ describe('housekeeping (e2e)', () => {
     app = await createTestApp();
     prisma = app.get(PrismaService);
     housekeeping = app.get(HousekeepingService);
+    // The worker sweeps once on start; let that finish before the tests insert old rows.
+    await housekeeping.startSweep();
   });
 
   beforeEach(() => resetDb(prisma));
