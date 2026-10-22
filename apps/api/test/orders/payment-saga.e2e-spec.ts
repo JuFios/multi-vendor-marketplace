@@ -394,6 +394,52 @@ describe('Payment saga (e2e)', () => {
     expect(metrics.text).toMatch(/^payment_refunds_total\{status="failed"\} [1-9]/m);
   });
 
+  it('shows admins the refunds the gateway refused, and nobody else', async () => {
+    const { buyer, order, soOf } = await checkout();
+    await flushEvents();
+    const [refused, paid] = [soOf(0), soOf(1)];
+    gateway.refuseRefunds = true;
+    expect((await post(`/orders/${order.id}/seller-orders/${refused}/cancel`, buyer)).status).toBe(
+      200,
+    );
+    await flushEvents();
+    gateway.refuseRefunds = false;
+    expect((await post(`/orders/${order.id}/seller-orders/${paid}/cancel`, buyer)).status).toBe(
+      200,
+    );
+    await flushEvents();
+    const admin = await createUser(prisma, { roles: ['CUSTOMER', 'ADMIN'] });
+    const list = async (query: string, caller: Caller) =>
+      request(app.getHttpServer())
+        .get(`/api/admin/payment-refunds${query}`)
+        .set('Authorization', await bearerFor(app, caller));
+    const adminCaller: Caller = { id: admin.id, roles: ['CUSTOMER', 'ADMIN'] };
+
+    const failed = await list('?status=FAILED', adminCaller);
+    const all = await list('', adminCaller);
+
+    expect(failed.status).toBe(200);
+    const refusedOrder = await sellerOrder(refused);
+    expect(failed.body).toMatchObject({
+      total: 1,
+      page: 1,
+      items: [
+        {
+          sellerOrderId: refused,
+          orderId: order.id,
+          sellerId: refusedOrder.sellerId,
+          amountCents: refusedOrder.subtotalCents,
+          status: 'FAILED',
+          providerRef: null,
+          failureReason: 'REFUSED',
+        },
+      ],
+    });
+    expect((all.body as { total: number }).total).toBe(2);
+    expect((await list('?status=LOST', adminCaller)).status).toBe(400);
+    expect((await list('', { id: buyer.id })).status).toBe(403);
+  });
+
   it('does not reach the gateway again when payment.refund_requested is delivered again', async () => {
     const { buyer, order, soOf } = await checkout();
     await flushEvents();

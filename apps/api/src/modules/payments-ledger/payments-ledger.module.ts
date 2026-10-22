@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { SellersModule } from '../sellers/sellers.module';
 
 import { AdminLedgerController } from './admin-ledger.controller';
+import { AdminPaymentRefundsController } from './admin-payment-refunds.controller';
 import { LedgerRepository } from './ledger.repository';
 import { LedgerService } from './ledger.service';
 import { MockPaymentGateway } from './mock-payment.gateway';
@@ -16,7 +17,7 @@ import { SellerFinanceController } from './seller-finance.controller';
 
 @Module({
   imports: [SellersModule],
-  controllers: [SellerFinanceController, AdminLedgerController],
+  controllers: [SellerFinanceController, AdminLedgerController, AdminPaymentRefundsController],
   providers: [
     LedgerRepository,
     LedgerService,

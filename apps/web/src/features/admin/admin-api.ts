@@ -126,6 +126,17 @@ export function fetchLedger(input: { page: number; from: string; to: string; sel
   );
 }
 
+export type PaymentRefundStatus = components['schemas']['PaymentRefundDto']['status'];
+export const PAYMENT_REFUNDS_PAGE_SIZE = 20;
+
+export function fetchPaymentRefunds(input: { page: number; status?: PaymentRefundStatus }) {
+  return unwrap(
+    api.GET('/api/admin/payment-refunds', {
+      params: { query: { ...input, limit: PAYMENT_REFUNDS_PAGE_SIZE } },
+    }),
+  );
+}
+
 /** Every approved store, for the store filter and to name the stores in the ledger. */
 export function fetchApprovedStores() {
   return unwrap(

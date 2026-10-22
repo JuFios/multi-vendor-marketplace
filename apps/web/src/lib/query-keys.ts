@@ -32,6 +32,7 @@ export const queryKeys = {
   adminDisputes: (params: object) => ['admin', 'disputes', params] as const,
   adminDispute: (id: string) => ['admin', 'dispute', id] as const,
   adminLedger: (params: object) => ['admin', 'ledger', params] as const,
+  adminPaymentRefunds: (params: object) => ['admin', 'payment-refunds', params] as const,
   adminAnalytics: (params: object) => ['admin', 'analytics', params] as const,
   adminChart: (days: number) => ['admin', 'chart', days] as const,
 };

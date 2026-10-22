@@ -329,8 +329,13 @@ capture above) takes the same route as a capture, never a network call under the
 transaction that books it also records a `payment.refund_requested` event; the `payments` consumer
 then calls `PaymentGatewayPort.refund` with the event id as the idempotency key and stores the
 answer in `payment_refunds`. A crash between the call and the record repeats the call, and the
-gateway answers with the first outcome. A refusal is stored as `FAILED`, logged as an error and
-counted in `payment_refunds_total{status="failed"}`; the refund then needs a person.
+gateway answers with the first outcome; a redelivery after the answer was stored does not call the
+gateway again. A refusal is stored as `FAILED`, logged as an error and counted in
+`payment_refunds_total{status="failed"}`; the refund then needs a person. Admins find the refused
+refunds on the "Gateway refunds" page (`GET /api/admin/payment-refunds?status=FAILED`), each with
+the gateway's reason and a link to its order. To be told at once, alert on
+`increase(payment_refunds_total{status="failed"}[15m]) > 0`; the repository ships no Prometheus
+server or alert rules.
 `MOCK_PAYMENT_FAILURE_RATE` lets you watch the compensation happen. The mock derives each outcome
 from the seller order id, so a capture repeated after a rolled-back recording gets the same answer
 on any worker and after a restart, as a real provider answers a repeated idempotency key. The

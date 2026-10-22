@@ -6,6 +6,11 @@ import { PAYMENT_REFUNDS_TOTAL } from '../../metrics/metrics.constants';
 import { EVENT_TYPE } from '../../outbox/events/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 
+import {
+  type AdminPaymentRefundsQueryDto,
+  PaymentRefundDto,
+  type PaymentRefundPageDto,
+} from './dto/payment-refund.dto';
 import { PaymentAttemptsRepository } from './payment-attempts.repository';
 import {
   type CaptureResult,
@@ -110,6 +115,21 @@ export class PaymentsService {
    */
   isRefundRecorded(refundKey: string): Promise<boolean> {
     return this.refunds.existsByRefundKey(refundKey);
+  }
+
+  /** The gateway's answers for the admin, newest first; FAILED ones need a person. */
+  async listRefunds(query: AdminPaymentRefundsQueryDto): Promise<PaymentRefundPageDto> {
+    const { items, total } = await this.refunds.list(
+      query.status === undefined ? {} : { status: query.status },
+      query.page,
+      query.limit,
+    );
+    return {
+      items: items.map((item) => PaymentRefundDto.from(item)),
+      total,
+      page: query.page,
+      limit: query.limit,
+    };
   }
 
   /** Records the gateway's answer in the caller's transaction. A refusal needs a person. */
