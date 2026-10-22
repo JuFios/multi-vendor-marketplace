@@ -276,14 +276,15 @@ describe('Seller order cancellation (e2e)', () => {
         reason: 'One unit was missing',
       });
     expect(refund.status).toBe(201);
-    expect(await stockOf(a.id)).toBe(8);
+    // The refunded unit has not shipped, so it is back on sale at once.
+    expect(await stockOf(a.id)).toBe(9);
 
     expect(
       (await post(`/seller/orders/${soA}/cancel`, sellerA, { reason: 'Out of stock' })).status,
     ).toBe(200);
 
-    // Two were sold and one refunded: one unit comes back, not two.
-    expect(await stockOf(a.id)).toBe(9);
+    // Two were sold and one refunded: the cancellation returns the other one, not both again.
+    expect(await stockOf(a.id)).toBe(10);
     const cancelled = await prisma.outboxEvent.findFirstOrThrow({
       where: { aggregateId: soA, eventType: 'seller_order.cancelled' },
     });

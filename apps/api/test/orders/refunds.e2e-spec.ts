@@ -61,7 +61,7 @@ describe('Refunds (e2e)', () => {
       .send(body);
 
   /** One store sells 3 × 20.00 and 1 × 40.00; the order is accepted and paid. */
-  const world = async (state: 'NEW' | 'SHIPPED' = 'SHIPPED') => {
+  const world = async (state: 'NEW' | 'PROCESSING' | 'SHIPPED' = 'SHIPPED') => {
     const buyer = await createUser(prisma);
     const store = await createSeller(prisma);
     const other = await createSeller(prisma);
@@ -90,10 +90,10 @@ describe('Refunds (e2e)', () => {
       .set('Idempotency-Key', randomUUID());
     const orderId = (checkout.body as { id: string }).id;
     const sellerOrder = await prisma.sellerOrder.findFirstOrThrow({ where: { orderId } });
-    if (state === 'SHIPPED') {
+    if (state !== 'NEW') {
       await prisma.sellerOrder.update({
         where: { id: sellerOrder.id },
-        data: { status: 'SHIPPED', paymentStatus: 'CAPTURED' },
+        data: { status: state, paymentStatus: 'CAPTURED' },
       });
     }
     const items = await prisma.sellerOrderItem.findMany({
@@ -175,6 +175,37 @@ describe('Refunds (e2e)', () => {
     });
     const entries = await ledgerOf(sellerOrderId);
     expect(entries.reduce((sum, entry) => sum + entry.amountCents, 0)).toBe(0);
+  });
+
+  it('puts refunded units of a processing order back in stock and restocks only the rest on cancel', async () => {
+    const { seller, sellerOrderId, first, second, firstProductId } = await world('PROCESSING');
+    const stockOf = async (id: string) =>
+      (await prisma.product.findUniqueOrThrow({ where: { id } })).stock;
+    const secondProductId = (
+      await prisma.sellerOrderItem.findUniqueOrThrow({ where: { id: second } })
+    ).productId;
+    expect(await stockOf(firstProductId)).toBe(7);
+
+    const response = await refund(sellerOrderId, seller, {
+      items: [{ sellerOrderItemId: first, quantity: 2 }],
+      reason: 'Out of stock at the warehouse',
+    });
+
+    expect(response.status).toBe(201);
+    expect(await stockOf(firstProductId)).toBe(9);
+    const stockEvents = await prisma.outboxEvent.findMany({
+      where: { eventType: 'product.stock_changed', aggregateId: firstProductId },
+    });
+    expect(stockEvents.at(-1)?.payload).toMatchObject({ productId: firstProductId, stock: 9 });
+
+    const cancelled = await request(app.getHttpServer())
+      .post(`/api/seller/orders/${sellerOrderId}/cancel`)
+      .set('Authorization', await bearerFor(app, seller))
+      .send({ reason: 'Withdrawn' });
+
+    expect(cancelled.status).toBe(200);
+    expect(await stockOf(firstProductId)).toBe(10);
+    expect(await stockOf(secondProductId)).toBe(10);
   });
 
   it('rejects a refund of more than is left with 422 and changes nothing', async () => {

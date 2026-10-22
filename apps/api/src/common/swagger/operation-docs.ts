@@ -275,7 +275,8 @@ export const OPERATION_DOCS: Readonly<Record<string, OperationDoc>> = {
   'POST /api/seller/orders/{id}/refunds': {
     description:
       'SELLER only. Partial refund of items of a paid seller order. The commission is ' +
-      'recomputed on what remains. Stock does not change. ' +
+      'recomputed on what remains. Units of a PROCESSING order go back in stock; shipped units ' +
+      'do not. ' +
       IDEMPOTENT,
     requestExample: {
       items: [{ sellerOrderItemId: ID, quantity: 1 }],

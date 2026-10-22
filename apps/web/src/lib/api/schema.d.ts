@@ -987,7 +987,7 @@ export interface paths {
         put?: never;
         /**
          * Refunds items of an own paid seller order; the commission is recomputed.
-         * @description SELLER only. Partial refund of items of a paid seller order. The commission is recomputed on what remains. Stock does not change. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422.
+         * @description SELLER only. Partial refund of items of a paid seller order. The commission is recomputed on what remains. Units of a PROCESSING order go back in stock; shipped units do not. Requires an `Idempotency-Key` header (a UUID). A retry with the same key and body returns the stored response with `Idempotent-Replayed: true`; the same key with a different body is 422.
          */
         post: operations["SellerOrdersController_refund"];
         delete?: never;

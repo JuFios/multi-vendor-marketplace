@@ -9,13 +9,14 @@ import { EVENT_TYPE } from '../../outbox/events/event-types';
 import { OutboxService } from '../../outbox/outbox.service';
 import type { AppTransactionHost } from '../../prisma/transaction';
 import { LedgerService } from '../payments-ledger/ledger.service';
+import { InventoryService } from '../products/inventory.service';
 import { SellersService } from '../sellers/sellers.service';
 
 import { SellerOrderDto } from './dto/order-response.dto';
 import { RefundResultDto } from './dto/refund.dto';
 import { SellerOrderNotFoundError } from './orders.errors';
 import { OrdersRepository } from './orders.repository';
-import { assertRefundable, planRefund, type RefundRequestLine } from './refund';
+import { assertRefundable, planRefund, planRefundRestock, type RefundRequestLine } from './refund';
 import { type Ownership, SellerOrderLifecycleService } from './seller-order-lifecycle.service';
 
 export interface RefundActor {
@@ -30,7 +31,10 @@ export interface RefundInput {
   readonly disputeId?: string;
 }
 
-/** Partial refunds on the level of single items; stock is never touched. */
+/**
+ * Partial refunds on the level of single items. The stock of units that have not shipped yet
+ * goes back on sale with the refund; shipped units are money only.
+ */
 @Injectable()
 export class RefundService {
   private readonly logger = new Logger(RefundService.name);
@@ -42,6 +46,7 @@ export class RefundService {
     private readonly lifecycle: SellerOrderLifecycleService,
     private readonly sellers: SellersService,
     private readonly ledger: LedgerService,
+    private readonly inventory: InventoryService,
     private readonly outbox: OutboxService,
     private readonly idempotency: IdempotencyService,
   ) {}
@@ -97,6 +102,9 @@ export class RefundService {
       actor,
       ...(input.disputeId === undefined ? {} : { disputeId: input.disputeId }),
     });
+    await this.inventory.restock(
+      planRefundRestock(sellerOrder.status, sellerOrder.items, plan.lines),
+    );
     await this.ledger.recordRefund({
       sellerOrderId: sellerOrder.id,
       sellerId: sellerOrder.sellerId,

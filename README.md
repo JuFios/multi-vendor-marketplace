@@ -702,10 +702,10 @@ Where the specification leaves room, these are the decisions taken.
   (all remaining parts completed → `COMPLETED`, all shipped or completed → `SHIPPED`, some shipped
   → `PARTIALLY_SHIPPED`, …), but `hasCancelledParts` is set. If every part is cancelled the order
   is `CANCELLED`.
-- **Partial refund.** A financial operation only; stock does not change. Allowed on paid seller
-  orders in processing, shipped or completed state, by the owning seller or, through a dispute, an
-  admin. Stock returns only when a seller order is cancelled before shipping, and then only the
-  units that were not refunded: refunded units never come back, whichever happened first. A fully
+- **Partial refund.** Allowed on paid seller orders in processing, shipped or completed state, by
+  the owning seller or, through a dispute, an admin. Refunding units of a processing order puts
+  them back in stock, because they have not shipped; shipped and completed units are money only. A
+  later cancellation restocks only the units that were not refunded, so nothing returns twice. A
   refunded auction lot is not offered again.
 - **Reviews.** Only a customer with a completed seller order containing the product, not refunded
   in full, may review it, once; the review is published at once; the rating is the average to two decimals.

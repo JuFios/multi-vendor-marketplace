@@ -33,9 +33,9 @@ export interface GoodsReturn {
 }
 
 /**
- * What a cancellation before shipping gives back. A refund never touches the stock, so units
- * refunded earlier stay out of it here too: otherwise the stock would depend on whether the
- * refund or the cancellation came first. A fully refunded lot is not offered again either.
+ * What a cancellation before shipping gives back. A refund of unshipped goods already put its
+ * units back on sale, so they stay out of it here: otherwise they would be restocked twice. A
+ * fully refunded lot is not offered again either.
  */
 export function planGoodsReturn(items: readonly CancelledItem[]): GoodsReturn {
   const kept = items
