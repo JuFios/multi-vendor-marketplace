@@ -323,6 +323,31 @@ describe('Idempotency-Key (e2e)', () => {
     expect(await keyRow()).toMatchObject({ status: 'COMPLETED' });
   });
 
+  it('gives a taken-over key a full lifetime, so it cannot expire under its new owner', async () => {
+    const key = randomUUID();
+    let release!: () => void;
+    orders.gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const stalled = post('orders', key, { item: 'a' }).then((res) => res);
+    await waitUntil(async () => (await keyRow())?.status === 'IN_PROGRESS', {
+      label: 'the first request to claim the key',
+    });
+    // Abandoned, and a minute away from expiring.
+    await prisma.$executeRaw`
+      UPDATE idempotency_keys
+      SET created_at = now() - interval '60 seconds', expires_at = now() + interval '1 minute'`;
+
+    const takeover = await post('orders', key, { item: 'a' });
+    release();
+    await stalled;
+
+    expect(takeover.status).toBe(201);
+    const row = await keyRow();
+    expect(row).toMatchObject({ status: 'COMPLETED' });
+    expect(row?.expiresAt.getTime()).toBeGreaterThan(Date.now() + 60 * 60 * 1000);
+  });
+
   it('still records the response when the use case forgets to complete the key', async () => {
     const key = randomUUID();
 

@@ -178,11 +178,15 @@ export class IdempotencyService {
     return rows[0];
   }
 
-  /** Atomic: of several requests racing for an abandoned key, exactly one gets the lease. */
+  /**
+   * Atomic: of several requests racing for an abandoned key, exactly one gets the lease. The key
+   * starts a full lifetime again, so it cannot expire (and be deleted) while the new owner works.
+   */
   private async takeOver(id: string): Promise<IdempotencyLease | undefined> {
-    const { lockTimeoutSec } = this.config;
+    const { ttlHours, lockTimeoutSec } = this.config;
     const rows = await this.prisma.$queryRaw<{ created_at: Date }[]>`
-      UPDATE idempotency_keys SET created_at = now()
+      UPDATE idempotency_keys
+      SET created_at = now(), expires_at = now() + make_interval(hours => ${ttlHours})
       WHERE id = ${id}::uuid AND status = 'IN_PROGRESS'
         AND created_at < now() - make_interval(secs => ${lockTimeoutSec})
       RETURNING created_at`;
