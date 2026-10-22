@@ -20,4 +20,12 @@ export class PaymentRefundsRepository {
   async create(refund: NewPaymentRefund): Promise<void> {
     await this.txHost.tx.paymentRefund.create({ data: refund });
   }
+
+  async existsByRefundKey(refundKey: string): Promise<boolean> {
+    const row = await this.txHost.tx.paymentRefund.findUnique({
+      where: { refundKey },
+      select: { id: true },
+    });
+    return row !== null;
+  }
 }

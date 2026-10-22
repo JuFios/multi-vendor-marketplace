@@ -103,6 +103,15 @@ export class PaymentsService {
     return this.gateway.refund({ sellerOrderId, refundKey, amountCents });
   }
 
+  /**
+   * Whether the gateway's answer to this refund request is stored already. The answer commits
+   * with the consumer's inbox row, so a stored one means the request was carried out: a
+   * redelivery must not reach the gateway again, whose idempotency keys may have expired by then.
+   */
+  isRefundRecorded(refundKey: string): Promise<boolean> {
+    return this.refunds.existsByRefundKey(refundKey);
+  }
+
   /** Records the gateway's answer in the caller's transaction. A refusal needs a person. */
   async recordRefund(
     sellerOrderId: string,

@@ -29,6 +29,9 @@ export class PaymentsProcessor extends IdempotentProcessor {
         this.payments.record(sellerOrderId, amountCents, result),
       );
     } else if (event.type === EVENT_TYPE.PAYMENT_REFUND_REQUESTED) {
+      if (await this.payments.isRefundRecorded(event.id)) {
+        return;
+      }
       const { sellerOrderId, amountCents } = event.payload;
       const result = await this.payments.refund(sellerOrderId, event.id, amountCents);
       await this.runIdempotent(event.id, () =>
