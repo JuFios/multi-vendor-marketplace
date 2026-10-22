@@ -224,7 +224,7 @@ Prisma cannot express these, so they are created by the `constraints` migration:
   `0..quantity`; `seller_orders.refunded_cents` within `0..subtotal_cents`; `reviews.rating` within `1..5`.
 - Lower-case emails: `users.email` and `auth_identities.email` must equal `lower(email)`.
 - Partial unique indexes: one `ACTIVE` cart per user; one `OPEN` or `UNDER_REVIEW` dispute per seller order.
-- Partial index on unpublished `outbox_events` for the relay.
+- Partial index on unpublished `outbox_events` for the relay; `claimed_until` is the lease with which a relay holds a batch while it publishes it.
 - `pg_trgm` with a GIN index on `products.title` for the degraded search.
 
 ## Indexes for row locking
@@ -237,7 +237,7 @@ Optimistic updates (`UPDATE ... WHERE id = $1 AND version = $2`) reach the row t
 | Optimistic update of a product or an auction | primary key, `(id, version)`                                                |
 | Auctions that reached their end              | `auctions (status, ends_at)`                                                |
 | Winners whose payment window expired         | `auctions (status, winner_deadline_at)`                                     |
-| Outbox relay (`FOR UPDATE SKIP LOCKED`)      | partial index on `outbox_events (occurred_at)` where `published_at IS NULL` |
+| Outbox relay (claim with `SKIP LOCKED`)      | partial index on `outbox_events (occurred_at)` where `published_at IS NULL` |
 | Highest bid of a round                       | `bids (auction_id, round, amount_cents DESC)`                               |
 
 ## Seed

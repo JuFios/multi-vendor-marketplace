@@ -210,9 +210,9 @@ sequenceDiagram
     actor Client
     API->>DB: state change + outbox row (same transaction)
     loop every OUTBOX_POLL_INTERVAL_MS
-        R->>DB: SELECT unpublished FOR UPDATE SKIP LOCKED
+        R->>DB: claim a batch (UPDATE … FOR UPDATE SKIP LOCKED, lease in claimed_until)
         R->>Q: add(job, jobId = event id) for each queue in the route table
-        R->>DB: mark published
+        R->>DB: mark published, release the claim
     end
     Q->>C: job (correlationId restored)
     C->>DB: INSERT processed_events (consumer, event id), skip on conflict
@@ -226,6 +226,13 @@ sequenceDiagram
 Delivery is at-least-once: a crash between publishing and marking the row publishes twice. BullMQ
 drops the duplicate by `jobId`, and each consumer's inbox row (`processed_events`) drops it
 again.
+
+Publishing to Redis never happens inside a transaction. The relay claims a batch with a 60 s lease
+(`claimed_until`) in a single statement, publishes it with no transaction open and no row locked,
+and then marks the batch in one short transaction: published rows, the failed one (`attempts`,
+`last_error`) and the untouched rest, whose claim is released. Other relays skip claimed rows, so
+side-by-side relays do not publish the same batch; if one dies mid-batch, the lease runs out and
+the events are published again. A relay hands back whatever it has not published by half the lease.
 
 The relay only picks up event types the running build has a route for. A row of a type it does not
 know (written by a newer build before a rollback) stays pending and is counted by

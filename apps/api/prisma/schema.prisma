@@ -711,6 +711,8 @@ model OutboxEvent {
   publishedAt   DateTime? @map("published_at")
   attempts      Int       @default(0)
   lastError     String?   @map("last_error")
+  /// A relay's lease on the event while it publishes it; others skip it until it runs out.
+  claimedUntil  DateTime? @map("claimed_until")
 
   @@map("outbox_events")
 }

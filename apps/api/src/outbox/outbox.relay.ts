@@ -25,7 +25,8 @@ import type { EventType } from './events/event-types';
 
 const INTERVAL_NAME = 'outbox-relay';
 const PUBLISH_TIMEOUT_MS = 5000;
-const BATCH_TRANSACTION_TIMEOUT_MS = 30_000;
+/** How long a relay keeps the events it claimed to itself before another one may take them. */
+const CLAIM_LEASE_MS = 60_000;
 const MAX_BACKOFF_MS = 5000;
 const MAX_ERROR_LENGTH = 500;
 /**
@@ -57,8 +58,9 @@ export interface RelayBatchResult {
 
 /**
  * Moves committed outbox events to their consumer queues. Delivery is at-least-once: a crash
- * between enqueue and marking republishes the event, and the queue (jobId) and the consumers'
- * inbox absorb the duplicate. Several relays can run side by side thanks to SKIP LOCKED.
+ * between enqueue and marking republishes the event once its lease runs out, and the queue
+ * (jobId) and the consumers' inbox absorb the duplicate. Several relays can run side by side:
+ * each leases its own batch (SKIP LOCKED), and no transaction is open while it publishes.
  *
  * Only event types this build has a route for are picked up. A row of a type it does not know
  * (written by a newer build before a rollback) stays pending, counted by `outbox_pending_events`,
@@ -98,56 +100,102 @@ export class OutboxRelay implements OnApplicationBootstrap, OnModuleDestroy {
     await this.running;
   }
 
-  /** Publishes one batch; the transaction lives only as long as the batch takes. */
+  /**
+   * Publishes one batch. The rows are claimed with a lease in one statement, published without
+   * holding a transaction or a row lock, and marked in one short transaction afterwards. A
+   * relay that dies in between leaves the lease to run out, and the batch is published again.
+   */
   async relayBatch(): Promise<RelayBatchResult> {
-    const { batchSize } = this.config;
-    const routedTypes = Object.keys(this.routes);
-    return this.prisma.$transaction(
-      async (tx) => {
-        const rows = await tx.$queryRaw<OutboxRow[]>`
-          SELECT id, event_type, aggregate_type, aggregate_id, payload,
-                 correlation_id, actor_id, occurred_at, attempts
-          FROM outbox_events
-          WHERE published_at IS NULL AND event_type = ANY(${routedTypes}::text[])
-          ORDER BY attempts >= ${STUCK_AFTER_ATTEMPTS}, occurred_at, id
-          LIMIT ${batchSize}
-          FOR UPDATE SKIP LOCKED`;
+    const rows = await this.claim();
+    if (rows.length === 0) {
+      return { published: 0, failed: false, full: false };
+    }
+    const deadline = Date.now() + CLAIM_LEASE_MS / 2;
+    const publishedIds: string[] = [];
+    let failure: { row: OutboxRow; message: string } | undefined;
+    for (const row of rows) {
+      // Past half the lease another relay may soon take the rest; hand it back instead.
+      if (this.stopping || Date.now() >= deadline) {
+        break;
+      }
+      try {
+        await this.publish(row);
+        publishedIds.push(row.id);
+        this.lag.observe((Date.now() - row.occurred_at.getTime()) / 1000);
+      } catch (error) {
+        // Queue trouble affects every event, and stopping keeps the order of the rest.
+        failure = { row, message: error instanceof Error ? error.message : String(error) };
+        break;
+      }
+    }
+    await this.settle(rows, publishedIds, failure);
+    if (failure !== undefined) {
+      this.failures.inc();
+      this.logger.warn({
+        msg: 'outbox.publish_failed',
+        eventId: failure.row.id,
+        eventType: failure.row.event_type,
+        attempts: failure.row.attempts + 1,
+        error: failure.message,
+      });
+    }
+    return {
+      published: publishedIds.length,
+      failed: failure !== undefined,
+      full: rows.length === this.config.batchSize,
+    };
+  }
 
-        const publishedIds: string[] = [];
-        let failed = false;
-        for (const row of rows) {
-          try {
-            await this.publish(row);
-            publishedIds.push(row.id);
-            this.lag.observe((Date.now() - row.occurred_at.getTime()) / 1000);
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            await tx.$executeRaw`
-              UPDATE outbox_events
-              SET attempts = attempts + 1, last_error = ${message.slice(0, MAX_ERROR_LENGTH)}
-              WHERE id = ${row.id}::uuid`;
-            this.failures.inc();
-            this.logger.warn({
-              msg: 'outbox.publish_failed',
-              eventId: row.id,
-              eventType: row.event_type,
-              attempts: row.attempts + 1,
-              error: message,
-            });
-            // Queue trouble affects every event, and stopping keeps the order of the rest.
-            failed = true;
-            break;
-          }
-        }
-        if (publishedIds.length > 0) {
-          await tx.$executeRaw`
-            UPDATE outbox_events SET published_at = now()
-            WHERE id = ANY(${publishedIds}::uuid[])`;
-        }
-        return { published: publishedIds.length, failed, full: rows.length === batchSize };
-      },
-      { timeout: BATCH_TRANSACTION_TIMEOUT_MS },
+  /** Leases the next batch to this relay; rows another relay leased are skipped. */
+  private async claim(): Promise<OutboxRow[]> {
+    const routedTypes = Object.keys(this.routes);
+    const rows = await this.prisma.$queryRaw<OutboxRow[]>`
+      UPDATE outbox_events AS event
+      SET claimed_until = now() + make_interval(secs => ${CLAIM_LEASE_MS / 1000})
+      FROM (
+        SELECT id FROM outbox_events
+        WHERE published_at IS NULL
+          AND event_type = ANY(${routedTypes}::text[])
+          AND (claimed_until IS NULL OR claimed_until < now())
+        ORDER BY attempts >= ${STUCK_AFTER_ATTEMPTS}, occurred_at, id
+        LIMIT ${this.config.batchSize}
+        FOR UPDATE SKIP LOCKED
+      ) AS next
+      WHERE event.id = next.id
+      RETURNING event.id, event.event_type, event.aggregate_type, event.aggregate_id,
+                event.payload, event.correlation_id, event.actor_id, event.occurred_at,
+                event.attempts`;
+    // RETURNING does not keep the order of the subquery.
+    return rows.sort(
+      (a, b) =>
+        Number(a.attempts >= STUCK_AFTER_ATTEMPTS) - Number(b.attempts >= STUCK_AFTER_ATTEMPTS) ||
+        a.occurred_at.getTime() - b.occurred_at.getTime() ||
+        (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
     );
+  }
+
+  /** Marks what was published, records the failure and hands back the rest, all at once. */
+  private async settle(
+    claimed: readonly OutboxRow[],
+    publishedIds: readonly string[],
+    failure: { row: OutboxRow; message: string } | undefined,
+  ): Promise<void> {
+    const done = new Set(publishedIds);
+    const leftover = claimed
+      .filter((row) => !done.has(row.id) && row.id !== failure?.row.id)
+      .map((row) => row.id);
+    await this.prisma.$transaction([
+      this.prisma.$executeRaw`
+        UPDATE outbox_events SET published_at = now(), claimed_until = NULL
+        WHERE id = ANY(${[...publishedIds]}::uuid[])`,
+      this.prisma.$executeRaw`
+        UPDATE outbox_events
+        SET attempts = attempts + 1, last_error = ${failure?.message.slice(0, MAX_ERROR_LENGTH) ?? null},
+            claimed_until = NULL
+        WHERE id = ${failure?.row.id ?? null}::uuid`,
+      this.prisma.$executeRaw`
+        UPDATE outbox_events SET claimed_until = NULL WHERE id = ANY(${leftover}::uuid[])`,
+    ]);
   }
 
   private async publish(row: OutboxRow): Promise<void> {

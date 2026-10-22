@@ -11,6 +11,7 @@ import { newEventId } from '../../src/outbox/events/event-id';
 import { EVENT_ROUTES, EVENT_ROUTING } from '../../src/outbox/events/event-routes';
 import { EVENT_TYPE } from '../../src/outbox/events/event-types';
 import { OutboxOutsideTransactionError } from '../../src/outbox/outbox.errors';
+import { OutboxRelay } from '../../src/outbox/outbox.relay';
 import { OutboxService } from '../../src/outbox/outbox.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import type { AppTransactionHost } from '../../src/prisma/transaction';
@@ -22,16 +23,22 @@ import { waitUntil } from '../utils/wait-until';
 
 class RecordingPublisher implements QueuePublisherPort {
   failing = false;
+  /** While set, a publication waits for it; `reached` tells when one has arrived. */
+  gate: Promise<void> | null = null;
+  reached = 0;
   /** Events the queue refuses on their own, while it takes every other one. */
   readonly refused = new Set<string>();
   readonly published: { queue: QueueName; event: AnyDomainEvent }[] = [];
 
-  publish(queue: QueueName, event: AnyDomainEvent): Promise<void> {
+  async publish(queue: QueueName, event: AnyDomainEvent): Promise<void> {
+    this.reached += 1;
+    if (this.gate !== null) {
+      await this.gate;
+    }
     if (this.failing || this.refused.has(event.id)) {
-      return Promise.reject(new Error('queue unavailable'));
+      throw new Error('queue unavailable');
     }
     this.published.push({ queue, event });
-    return Promise.resolve();
   }
 }
 
@@ -80,6 +87,8 @@ describe('outbox (e2e)', () => {
 
   beforeEach(async () => {
     publisher.failing = false;
+    publisher.gate = null;
+    publisher.reached = 0;
     publisher.refused.clear();
     publisher.published.length = 0;
     await resetDb(prisma);
@@ -242,6 +251,77 @@ describe('outbox (e2e)', () => {
     await waitUntil(() => publisher.published.length === 4, { label: 'the republication' });
     const ids = new Set(publisher.published.map(({ event }) => event.id));
     expect([...ids]).toEqual([id]);
+  });
+
+  it('publishes without holding a transaction or a lock on the event', async () => {
+    let release = (): void => undefined;
+    publisher.gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const [id] = await addInTransaction(productCreated());
+    await waitUntil(() => publisher.reached > 0, { label: 'the relay to start publishing' });
+
+    // NOWAIT fails at once if the relay still holds the row lock of an open transaction.
+    const locked = await prisma.$transaction(
+      (tx) => tx.$queryRaw`SELECT id FROM outbox_events WHERE id = ${id}::uuid FOR UPDATE NOWAIT`,
+      { timeout: 5_000 },
+    );
+    expect(locked).toHaveLength(1);
+    expect((await row(id ?? ''))?.claimedUntil).not.toBeNull();
+
+    release();
+    await waitUntil(async () => (await row(id ?? ''))?.publishedAt != null, {
+      label: 'the event to be published',
+    });
+    expect((await row(id ?? ''))?.claimedUntil).toBeNull();
+  });
+
+  it('does not publish an event another relay is publishing', async () => {
+    let release = (): void => undefined;
+    publisher.gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const [id] = await addInTransaction(productCreated());
+    await waitUntil(() => publisher.reached > 0, { label: 'the first relay to start publishing' });
+
+    const second = await app.get(OutboxRelay).relayBatch();
+
+    expect(second).toEqual({ published: 0, failed: false, full: false });
+    release();
+    await waitUntil(async () => (await row(id ?? ''))?.publishedAt != null, {
+      label: 'the event to be published',
+    });
+    // Two queues, one publication each: nobody published it a second time.
+    expect(publisher.published).toHaveLength(2);
+  });
+
+  it('skips an event under a live claim and takes it back once the claim ran out', async () => {
+    // Created already claimed, so the polling relay never sees it unclaimed.
+    const event = productCreated();
+    const id = newEventId();
+    await prisma.outboxEvent.create({
+      data: {
+        id,
+        eventType: event.type,
+        aggregateType: event.aggregateType,
+        aggregateId: event.aggregateId,
+        payload: event.payload,
+        claimedUntil: new Date(Date.now() + 60_000),
+      },
+    });
+
+    expect(await app.get(OutboxRelay).relayBatch()).toMatchObject({ published: 0 });
+    expect(publisher.published).toEqual([]);
+    expect((await row(id))?.publishedAt).toBeNull();
+
+    await prisma.outboxEvent.update({
+      where: { id },
+      data: { claimedUntil: new Date(Date.now() - 1_000) },
+    });
+
+    await waitUntil(async () => (await row(id))?.publishedAt != null, {
+      label: 'the event to be published after its claim ran out',
+    });
   });
 
   it('exposes the outbox metrics', async () => {
